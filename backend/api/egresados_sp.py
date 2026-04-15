@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Request, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
 import json
 from typing import List, Dict, Any, Tuple, Optional
 from fastapi import HTTPException
 from datetime import datetime
 import time
 
+from backend.api.catalogos import semaforo
 from backend.core.templates import templates
 from backend.core.auth import get_current_session
 from backend.database.connection import get_db
@@ -52,6 +53,7 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
     turnos_set = set()
     edades_set = set()
     sexos_set = set()
+    semaforos_set = set()
     
     # Mapeo de Programa -> Modalidades
     programa_modalidades = {}
@@ -101,6 +103,9 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
         if 'Sexo' in row and row['Sexo']:
             sexos_set.add(str(row['Sexo']))
     
+        if 'Estado_Semaforo' in row and row['Estado_Semaforo']:
+            semaforos_set.add(str(row['Estado_Semaforo']))
+
     # Convertir sets de modalidades a listas ordenadas
     programa_modalidades_list = {prog: sorted(list(mods)) for prog, mods in programa_modalidades.items()}
     
@@ -130,7 +135,9 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
         'generaciones': sorted(list(generaciones_set), reverse=True),  # Descendente
         'turnos': sorted(list(turnos_set)),
         'edades': edades_ordenadas,  # Ordenadas por lógica especial
-        'sexos': sorted(list(sexos_set))
+        'sexos': sorted(list(sexos_set)),
+        'semaforos': sorted(list(semaforos_set))
+
     }
 
 
@@ -453,6 +460,22 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                 print(f"   Edades: {valores_unicos.get('edades', [])}")
                 print(f"   Sexos: {valores_unicos.get('sexos', [])}")
                 print(f"   Mapeo Programa->Modalidades: {valores_unicos.get('programa_modalidades', {})}")
+
+                # Mapear Semáforos si es necesario
+                semaforos_sp = valores_unicos.get('semaforos', [])
+                if semaforos_sp:
+                    print(f"✅ Semáforos detectados del SP: {semaforos_sp}")
+                
+                # Mostrar id_semaforo de cada registro del SP
+                print(f"\n Valores de id_semaforo en resultados_sp:")
+                semaforos_raw = set()
+                for idx, reg in enumerate(resultados_sp[:10]):  # Primeros 10 registros
+                    id_sem = reg.get('Id_Semaforo') or reg.get('id_semaforo') or reg.get('ID_SEMAFORO')
+                    print(f"   Registro {idx+1}: Id_Semaforo = {id_sem} ")
+                    if id_sem is not None:
+                        semaforos_raw.add(id_sem)
+                print(f"   Total registros del SP: {len(resultados_sp)}")
+                print(f"   Valores únicos de Id_Semaforo encontrados: {semaforos_raw}\n")
                 
                 # Mapear Programas
                 programas_sp = valores_unicos.get('programas', [])
@@ -463,7 +486,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                         Programas.Id_Estatus == 1
                     ).all()
                     programas_formatted = [{"id": p.Id_Programa, "nombre": p.Nombre_Programa} for p in programas_db]
-                    print(f"📚 Programas mapeados ({len(programas_formatted)}): {[p['nombre'] for p in programas_formatted]}")
+                    print(f"Programas mapeados ({len(programas_formatted)}): {[p['nombre'] for p in programas_formatted]}")
                 
                 # Mapear Modalidades
                 modalidades_sp = valores_unicos.get('modalidades', [])
@@ -473,7 +496,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                         Modalidad.Id_Estatus == 1
                     ).all()
                     modalidades_formatted = [{"id": m.Id_Modalidad, "nombre": m.Modalidad} for m in modalidades_db]
-                    print(f"🎓 Modalidades mapeadas ({len(modalidades_formatted)}): {[m['nombre'] for m in modalidades_formatted]}")
+                    print(f"Modalidades mapeadas ({len(modalidades_formatted)}): {[m['nombre'] for m in modalidades_formatted]}")
                 
                 # Mapear Boletas
                 boletas_sp = valores_unicos.get('boletas', [])
@@ -483,7 +506,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                         Boleta.Id_Estatus == 1
                     ).order_by(Boleta.Boleta.desc()).all()
                     boletas_formatted = [{"id": b.Id_Boleta, "nombre": b.Boleta} for b in boletas_db]
-                    print(f"📋 Boletas mapeadas ({len(boletas_formatted)}): {[b['nombre'] for b in boletas_formatted]}")
+                    print(f"Boletas mapeadas ({len(boletas_formatted)}): {[b['nombre'] for b in boletas_formatted]}")
                 
                 # Mapear Generaciones
                 generaciones_sp = valores_unicos.get('generaciones', [])
@@ -493,7 +516,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                         Generacion.Id_Estatus == 1
                     ).order_by(Generacion.Generacion.desc()).all()
                     generaciones_formatted = [{"id": g.Id_Generacion, "nombre": g.Generacion} for g in generaciones_db]
-                    print(f"🎓 Generaciones mapeadas ({len(generaciones_formatted)}): {[g['nombre'] for g in generaciones_formatted]}")
+                    print(f"Generaciones mapeadas ({len(generaciones_formatted)}): {[g['nombre'] for g in generaciones_formatted]}")
                 
                 # Mapear Turnos
                 turnos_sp = valores_unicos.get('turnos', [])
@@ -503,19 +526,19 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                         Turno.Id_Estatus == 1
                     ).all()
                     turnos_formatted = [{"id": t.Id_Turno, "nombre": t.Turno} for t in turnos_db]
-                    print(f"🕐 Turnos mapeados ({len(turnos_formatted)}): {[t['nombre'] for t in turnos_formatted]}")
+                    print(f"Turnos mapeados ({len(turnos_formatted)}): {[t['nombre'] for t in turnos_formatted]}")
                 
                 # Mapear Sexos (Opcional, si el SP los retorna)
                 sexos_db = db.query(Sexo).filter(Sexo.Id_Estatus == 1).all()
                 sexos_formatted = [{"id": s.Id_Sexo, "nombre": s.Sexo} for s in sexos_db]
-                print(f"⚧ Sexos disponibles: {[s['nombre'] for s in sexos_formatted]}")
+                print(f"Sexos disponibles: {[s['nombre'] for s in sexos_formatted]}")
                 
                 # Extraer edades del SP (pueden venir como números, rangos o comparadores)
                 edades_sp = valores_unicos.get('edades', [])
                 if edades_sp:
                     # Usar el string como ID y nombre (soporta "<=18", "35-40", ">=65", etc.)
                     edades_formatted = [{"id": edad, "nombre": edad} for edad in edades_sp]
-                    print(f"🎂 Edades mapeadas ({len(edades_formatted)}): {edades_sp}")
+                    print(f"Edades mapeadas ({len(edades_formatted)}): {edades_sp}")
                 else:
                     edades_formatted = []
                 
@@ -531,10 +554,10 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                         programa_a_modalidades[prog_db["id"]] = ids_modalidades
                 
                 programa_a_modalidades_json = json.dumps(programa_a_modalidades)
-                print(f"🔗 Mapeo ID_Programa -> IDs_Modalidad: {programa_a_modalidades_json}")
+                print(f"Mapeo ID_Programa -> IDs_Modalidad: {programa_a_modalidades_json}")
             else:
                 # Si el SP no retorna datos, dejar todo vacío
-                print(f"⚠️ El SP no retornó datos para esta UA/Nivel/Periodo")
+                print(f"   El SP no retornó datos para esta UA/Nivel/Periodo")
                 print(f"   No se cargarán programas ni modalidades (esperando datos del SP)")
                 programas_formatted = []
                 modalidades_formatted = []
@@ -590,14 +613,14 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
             'color': color
         })
     
-    print(f"📊 Estados del semáforo cargados: {len(semaforo_data)}")
+    print(f" Estados del semáforo cargados: {len(semaforo_data)}")
     for estado in semaforo_data:
         print(f"  - ID {estado['id']}: {estado['descripcion']} ({estado['color']})")
 
     # Renderizar la plantilla - usar egresados_consulta_limpio.html para todos los roles
     template_name = "egresados_consulta_limpio.html"
     
-    print(f"📄 Renderizando template: {template_name}")
+    print(f"Renderizando template: {template_name}")
     
     return templates.TemplateResponse(template_name, {
         "request": request,
@@ -1357,7 +1380,7 @@ async def guardar_avance_egresados(request: Request, sess=Depends(get_current_se
                     unidad_sigla = unidad_obj.Sigla
         
         # Obtener usuario y host
-        usuario_sp = nombre_completo or 'sistema'
+        usuario_sp = str(getattr(sess, 'usuario', '') or '').strip() or nombre_completo or 'sistema'
         host_sp = get_request_host(request)
         
         # Obtener período desde el request
@@ -1524,7 +1547,7 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
                     unidad_sigla = unidad_obj.Sigla
         
         # Obtener usuario y host
-        usuario_sp = nombre_completo or 'sistema'
+        usuario_sp = str(getattr(sess, 'usuario', '') or '').strip() or nombre_completo or 'sistema'
         host_sp = get_request_host(request)
         
         # Obtener parámetros desde el request
@@ -1600,6 +1623,21 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
             Temp_Egresados.Nivel == nivel
         ).count()
         print(f"📊 Registros en Temp_Egresados (Periodo='{periodo_busqueda}', UA='{unidad_sigla}', Nivel='{nivel}'): {temp_count}")
+
+        # Fallback: si el nivel literal no coincide exactamente, validar por periodo+UA
+        # para no bloquear la ejecución del SP cuando sí existen datos capturados.
+        if temp_count == 0:
+            temp_count_ua_periodo = db.query(Temp_Egresados).filter(
+                Temp_Egresados.Periodo == periodo_busqueda,
+                Temp_Egresados.Sigla == unidad_sigla,
+            ).count()
+            if temp_count_ua_periodo > 0:
+                print(
+                    f"⚠️ No hubo match exacto por nivel ('{nivel}'), "
+                    f"pero hay {temp_count_ua_periodo} registro(s) por UA+Periodo. "
+                    "Se continuará con la ejecución del SP."
+                )
+                temp_count = temp_count_ua_periodo
         
         # Ejecutar el stored procedure
         sql = text("""
@@ -1763,90 +1801,143 @@ async def obtener_estados_semaforo_por_turnos(request: Request, sess=Depends(get
         data = await request.json()
         periodo_input = data.get('periodo')
         programa_id = data.get('programa')
-        modalidad_id = data.get('modalidad')
-        
-        # Obtener información del usuario
-        id_unidad_academica = getattr(sess, 'id_unidad_academica', None)
-        id_nivel = getattr(sess, 'id_nivel', None)
-        
-        if not id_unidad_academica or not id_nivel:
-            return {"success": False, "error": "No se pudo identificar la unidad académica o nivel"}
-        
-        # Convertir período a ID
+        modalidad_id = data.get('modalidad')  # informativo; el cálculo es por programa
+        id_unidad_payload = data.get('id_unidad_academica')
+
+        if not programa_id:
+            return {"success": False, "error": "No se recibió programa"}
+
+        def _norm(valor: Any) -> str:
+            import unicodedata
+            txt = str(valor or '').strip().lower()
+            txt = unicodedata.normalize('NFD', txt)
+            txt = ''.join(ch for ch in txt if unicodedata.category(ch) != 'Mn')
+            return txt
+
+        def _resolver_estado_id(row: Dict[str, Any]) -> int:
+            for key in ("Id_Semaforo", "id_semaforo", "ID_SEMAFORO"):
+                v = row.get(key)
+                if v is not None and str(v).strip() != '':
+                    try:
+                        estado = int(v)
+                        if estado in (1, 2, 3):
+                            return estado
+                    except Exception:
+                        pass
+
+            texto_estado = row.get('Estado_Semaforo') or row.get('estado_semaforo') or ''
+            txt = _norm(texto_estado)
+            if 'final' in txt or 'complet' in txt or 'validad' in txt:
+                return 3
+            if 'proceso' in txt or 'captura' in txt:
+                return 2
+            return 1
+
+        # Resolver período literal
+        periodo_literal = None
         if periodo_input:
             if str(periodo_input).isdigit():
-                periodo_id = int(periodo_input)
+                per = db.query(Periodo).filter(Periodo.Id_Periodo == int(periodo_input)).first()
+                periodo_literal = per.Periodo if per else None
             else:
-                periodo_obj = db.query(Periodo).filter(Periodo.Periodo == periodo_input).first()
-                periodo_id = periodo_obj.Id_Periodo if periodo_obj else None
-        else:
-            periodo_id, _ = get_ultimo_periodo(db)
-        
-        if not periodo_id:
-            return {"success": False, "error": "No se pudo identificar el período"}
-        
-        # Obtener el Id_Modalidad_Programa para la combinación programa + modalidad
-        modalidad_programa_id = None
-        if programa_id and modalidad_id:
-            prog_mod = db.query(ProgramaModalidad).filter(
-                ProgramaModalidad.Id_Programa == int(programa_id),
-                ProgramaModalidad.Id_Modalidad == int(modalidad_id)
-            ).first()
-            if prog_mod:
-                modalidad_programa_id = prog_mod.Id_Modalidad_Programa
-        
+                periodo_literal = str(periodo_input)
+        if not periodo_literal:
+            _, periodo_literal = get_ultimo_periodo(db)
+        if not periodo_literal:
+            return {"success": False, "error": "No se pudo resolver el período"}
+
+        # Resolver UA y nivel para ejecutar el mismo SP de consulta
+        id_unidad_academica = id_unidad_payload or getattr(sess, 'id_unidad_academica', None)
+        unidad_sigla = ''
+        if id_unidad_academica:
+            try:
+                ua = db.query(Unidad_Academica).filter(
+                    Unidad_Academica.Id_Unidad_Academica == int(id_unidad_academica)
+                ).first()
+                unidad_sigla = ua.Sigla if ua else ''
+            except Exception:
+                unidad_sigla = ''
+        if not unidad_sigla:
+            unidad_sigla = str(getattr(sess, 'sigla_unidad_academica', '') or '').strip()
+        if not unidad_sigla:
+            return {"success": False, "error": "No se pudo resolver la unidad académica"}
+
+        nivel_nombre = str(getattr(sess, 'nombre_nivel', '') or '').strip()
+        if not nivel_nombre:
+            id_nivel_sess = getattr(sess, 'id_nivel', None)
+            try:
+                if id_nivel_sess and str(id_nivel_sess).strip() not in ('', 'None'):
+                    niv = db.query(Nivel).filter(Nivel.Id_Nivel == int(id_nivel_sess)).first()
+                    nivel_nombre = niv.Nivel if niv else ''
+            except Exception:
+                nivel_nombre = ''
+        if not nivel_nombre:
+            return {"success": False, "error": "No se pudo resolver el nivel académico"}
+
+        programa = db.query(Programas).filter(Programas.Id_Programa == int(programa_id)).first()
+        if not programa:
+            return {"success": False, "error": "Programa no válido"}
+        programa_nombre = str(programa.Nombre_Programa or '').strip()
+
+        usuario_sp = str(getattr(sess, 'usuario', '') or 'sistema')
+        host_sp = get_request_host(request)
+
         print(f"\n{'='*60}")
-        print(f"OBTENIENDO ESTADOS DE SEMÁFORO POR TURNOS")
-        print(f"Período ID: {periodo_id}")
-        print(f"Unidad Académica ID: {id_unidad_academica}")
-        print(f"Formato: 3 (Egresados)")
-        print(f"Programa ID: {programa_id}")
-        print(f"Modalidad ID: {modalidad_id}")
-        print(f"Modalidad-Programa ID: {modalidad_programa_id}")
+        print("OBTENIENDO SEMÁFORO DESDE SP_Consulta_Egresados")
+        print(f"Periodo: {periodo_literal}")
+        print(f"UA: {unidad_sigla}")
+        print(f"Nivel: {nivel_nombre}")
+        print(f"Programa ID: {programa_id} | Programa: {programa_nombre}")
+        print(f"Modalidad seleccionada (informativa): {modalidad_id}")
         print(f"{'='*60}")
-        
-        # ========================================================================
-        # 🔴 NOTA: Ajustar esta consulta según la estructura real de la BD
-        # ========================================================================
-        # En la tabla SemaforoSemestreUnidadAcademica:
-        # - Id_Semestre podría corresponder al Id_Turno (1=Matutino, 2=Vespertino, 3=Mixto)
-        # - O podría necesitarse una consulta diferente según el SP
-        #
-        # Por ahora, consulto SemaforoSemestreUnidadAcademica asumiendo que Id_Semestre = Id_Turno
-        estados_semaforo = {}
-        
-        if modalidad_programa_id:
-            # Consultar estados de semáforo por "semestre" (que podrían ser turnos)
-            registros = db.query(SemaforoSemestreUnidadAcademica).filter(
-                SemaforoSemestreUnidadAcademica.Id_Periodo == periodo_id,
-                SemaforoSemestreUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
-                SemaforoSemestreUnidadAcademica.Id_Formato == 3,  # Formato 3 = Egresados
-                SemaforoSemestreUnidadAcademica.Id_Modalidad_Programa == modalidad_programa_id
-            ).all()
-            
-            print(f"📊 Registros encontrados en SemaforoSemestreUnidadAcademica: {len(registros)}")
-            
-            for registro in registros:
-                # Asumimos que Id_Semestre corresponde al Id_Turno
-                # Ajustar si la lógica es diferente
-                turno_id = registro.Id_Semestre
-                estado_id = registro.Id_Semaforo
-                estados_semaforo[str(turno_id)] = estado_id
-                print(f"  🚦 Turno {turno_id}: Estado {estado_id}")
-        
-        # Si no hay estados registrados, inicializar todos los turnos en rojo (1)
-        if not estados_semaforo:
-            print("⚠️ No se encontraron estados de semáforo, inicializando todos en rojo (1)")
-            # Obtener todos los turnos disponibles
-            turnos = db.query(Turno).all()
-            for turno in turnos:
-                estados_semaforo[str(turno.Id_Turno)] = 1  # Estado 1 = Rojo (sin datos)
-        
-        print(f"✅ Estados de semáforo a retornar: {estados_semaforo}")
-        
+
+        rows_sp, _ = execute_egresados_sp(
+            db=db,
+            unidad_sigla=unidad_sigla,
+            periodo_literal=periodo_literal,
+            nivel_nombre=nivel_nombre,
+            usuario=usuario_sp,
+            host=host_sp,
+        )
+
+        rows_programa = [
+            r for r in rows_sp
+            if _norm(r.get('Nombre_Programa') or r.get('nombre_programa')) == _norm(programa_nombre)
+        ]
+
+        print(f"📊 Filas SP totales: {len(rows_sp)}")
+        print(f"📊 Filas SP del programa '{programa_nombre}': {len(rows_programa)}")
+
+        turnos_db = db.query(Turno).filter(Turno.Id_Estatus == 1).all()
+        turno_nombre_a_id = {_norm(t.Turno): int(t.Id_Turno) for t in turnos_db}
+        estado_por_turno: Dict[str, int] = {str(int(t.Id_Turno)): 1 for t in turnos_db}
+
+        for row in rows_programa:
+            turno_id = None
+            v_turno_id = row.get('Id_Turno') or row.get('id_turno')
+            if v_turno_id is not None and str(v_turno_id).strip() != '':
+                try:
+                    turno_id = int(v_turno_id)
+                except Exception:
+                    turno_id = None
+
+            if turno_id is None:
+                turno_nombre = _norm(row.get('Turno') or row.get('turno'))
+                turno_id = turno_nombre_a_id.get(turno_nombre)
+
+            if not turno_id:
+                continue
+
+            estado_id = _resolver_estado_id(row)
+            key_turno = str(int(turno_id))
+            estado_actual = int(estado_por_turno.get(key_turno, 1))
+            estado_por_turno[key_turno] = max(estado_actual, estado_id)
+
+        print(f"✅ Estados de semáforo mapeados desde SP: {estado_por_turno}")
+
         return {
             "success": True,
-            "estados_semaforo": estados_semaforo
+            "estados_semaforo": estado_por_turno,
         }
         
     except Exception as e:

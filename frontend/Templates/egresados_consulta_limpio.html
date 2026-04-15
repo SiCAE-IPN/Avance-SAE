@@ -823,6 +823,7 @@
     const periodoLiteral = {{ periodo_default_literal | tojson }};
     const esCapturista = {{ 'true' if es_capturista else 'false' }};
     const idRol = {{ id_rol }};
+    const idUnidadActual = {{ (unidad_actual.Id_Unidad_Academica if unidad_actual else None) | tojson }};
     
     // Estado de filtros para la tabla de informe
     let activeFilters = {};
@@ -1051,8 +1052,8 @@
 
     function obtenerTextoSemaforo(estadoId) {
         const textos = {
-            1: 'No hay datos capturados',
-            2: 'En proceso de Captura',
+            1: 'No Hay Datos Capturados',
+            2: 'En Proceso De Captura',
             3: 'Captura Finalizada'
         };
         return textos[estadoId] || textos[1];
@@ -1122,7 +1123,8 @@
                 body: JSON.stringify({
                     periodo: periodo.value,
                     programa: programa.value,
-                    modalidad: modalidad.value
+                    modalidad: modalidad.value,
+                    id_unidad_academica: idUnidadActual
                 })
             });
 
@@ -1542,9 +1544,9 @@
             console.log('✅ Datos guardados en Temp_Egresados');
             
             // ========================================================================
-            // PAUSA - SP COMENTADO (GUARDAR AVANCE)
+            // PAUSA - SP COMENTADO (GUARDAR AVANCE) Comentar en dado caso de querer guardar datos en Temp_Egresados
             // ========================================================================
-            /*
+
             const response = await fetch('/egresados/guardar_avance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1575,17 +1577,18 @@
             } else {
                 alert(`❌ Error: ${resultado.error || 'No se pudo guardar el avance'}`);
             }
-            */
+            
             // ========================================================================
             // ...hasta aquí para activar el SP de Guardar Avance
             // ========================================================================
             
+
             // 🟢 MENSAJE TEMPORAL (mientras el SP está pausado)
-            alert(`✅ Datos guardados en Temp_Egresados\n\n` +
-                  `📊 Registros guardados: ${filasEgresados.length}\n\n` +
-                  `⚠️ NOTA: Los Stored Procedures están pausados.\n` +
-                  `Los datos se guardan solo en la tabla temporal.`);
-            console.log('✅ Guardado en Temp_Egresados (SP pausado)');
+            // alert(`✅ Datos guardados en Temp_Egresados\n\n` +
+            //       `📊 Registros guardados: ${filasEgresados.length}\n\n` +
+            //       `⚠️ NOTA: Los Stored Procedures están pausados.\n` +
+            //       `Los datos se guardan solo en la tabla temporal.`);
+            // console.log('✅ Guardado en Temp_Egresados (SP pausado)');
             
             // Mantener solo filas donde todos los turnos tienen 0 (las demás ya se guardaron)
             filasEgresados = filasEgresados.filter(fila =>
@@ -1605,7 +1608,6 @@
             ocultarOverlayCarga();
         }
     }
-    
     /**
      * Finalizar Captura de Egresados
      * Ejecuta el SP que marca el turno específico como completado (semáforo ID=3)
@@ -1687,7 +1689,7 @@
             // 🔴 PAUSA - SP COMENTADO (FINALIZAR CAPTURA)
             // Para reactivar los Stored Procedures, descomenta desde aquí...
             // ========================================================================
-            /*
+            
             const response = await fetch('/egresados/finalizar_captura', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1716,19 +1718,19 @@
             } else {
                 alert(`❌ Error: ${resultado.error || 'No se pudo finalizar la captura'}`);
             }
-            */
+            
             // ========================================================================
             // ...hasta aquí para activar el SP de Finalizar Captura
             // ========================================================================
             
             // 🟢 MENSAJE TEMPORAL (mientras el SP está pausado)
-            alert(`✅ Datos guardados en Temp_Egresados\n\n` +
-                  `📚 Programa: ${programaNombre}\n` +
-                  `📋 Modalidad: ${modalidadNombre}\n` +
-                  `📊 Registros guardados: ${filasEgresados.length}\n\n` +
-                  `⚠️ NOTA: Los Stored Procedures están pausados.\n` +
-                  `Los datos se guardan solo en la tabla temporal.`);
-            console.log('✅ Guardado en Temp_Egresados (SP pausado)');
+            // alert(`✅ Datos guardados en Temp_Egresados\n\n` +
+            //       `📚 Programa: ${programaNombre}\n` +
+            //       `📋 Modalidad: ${modalidadNombre}\n` +
+            //       `📊 Registros guardados: ${filasEgresados.length}\n\n` +
+            //       `⚠️ NOTA: Los Stored Procedures están pausados.\n` +
+            //       `Los datos se guardan solo en la tabla temporal.`);
+            // console.log('✅ Guardado en Temp_Egresados (SP pausado)');
             
             filasEgresados = [];
             renderizarTablaEgresados();
@@ -1741,7 +1743,6 @@
             ocultarOverlayCarga();
         }
     }
-    
     /* ==============================================
        FUNCIONES DE INFORME
        ============================================== */
