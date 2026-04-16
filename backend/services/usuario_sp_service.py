@@ -256,11 +256,54 @@ def get_formatos_activos(db: Session) -> list[CatFormatos]:
     )
 
 
+def _nombres_formatos_para_temp(
+    db: Session,
+    id_rol: int,
+    formatos_seleccionados: list[CatFormatos],
+) -> list[str]:
+    if id_rol == ROL_CAPTURISTA:
+        return [f.Formato for f in formatos_seleccionados]
+
+    return [f.Formato for f in get_formatos_activos(db)]
+
+
 def _row_value(row: dict[str, Any], *keys: str) -> str:
     for key in keys:
         if key in row and row[key] is not None:
             return str(row[key]).strip()
     return ""
+
+
+def _formatear_usuario_vista(
+    usuario_model: Usuario,
+    *,
+    nombre: str,
+    paterno: str,
+    materno: str,
+    email: str,
+    sigla_ua: str,
+    rol_nombre: str,
+    nivel_nombre: str,
+    formatos_ids: list[int],
+    formatos_nombres: list[str],
+) -> dict[str, Any]:
+    return {
+        "id_usuario": int(usuario_model.Id_Usuario),
+        "nombre": nombre or (usuario_model.Nombre or ""),
+        "paterno": paterno or (usuario_model.Paterno or ""),
+        "materno": materno or (usuario_model.Materno or ""),
+        "usuario": str(usuario_model.Usuario or ""),
+        "email": email or (usuario_model.Email or ""),
+        "id_unidad_academica": int(usuario_model.Id_Unidad_Academica or 0),
+        "sigla_ua": sigla_ua,
+        "id_rol": int(usuario_model.Id_Rol or 0),
+        "rol": rol_nombre,
+        "id_nivel": int(usuario_model.Id_Nivel or 0),
+        "nivel": nivel_nombre,
+        "formatos_ids": formatos_ids,
+        "formatos_nombres": formatos_nombres,
+        "formatos_texto": ", ".join(formatos_nombres) if formatos_nombres else "Sin formato",
+    }
 
 
 def get_usuarios_vista_sp(
@@ -335,23 +378,38 @@ def get_usuarios_vista_sp(
             continue
 
         if key not in agrupados:
-            agrupados[key] = {
-                "id_usuario": int(usuario_model.Id_Usuario),
-                "nombre": _row_value(row, "Nombre", "nombre") or (usuario_model.Nombre or ""),
-                "paterno": _row_value(row, "Paterno", "paterno") or (usuario_model.Paterno or ""),
-                "materno": _row_value(row, "Materno", "materno") or (usuario_model.Materno or ""),
-                "usuario": username,
-                "email": _row_value(row, "Email", "email") or (usuario_model.Email or ""),
-                "id_unidad_academica": int(usuario_model.Id_Unidad_Academica or 0),
-                "sigla_ua": _row_value(row, "SIGLA", "Sigla", "sigla") or unidades_map.get(int(usuario_model.Id_Unidad_Academica or 0), ""),
-                "id_rol": int(usuario_model.Id_Rol or 0),
-                "rol": _row_value(row, "Rol", "rol") or roles_map.get(int(usuario_model.Id_Rol or 0), ""),
-                "id_nivel": int(usuario_model.Id_Nivel or 0),
-                "nivel": _row_value(row, "Nivel", "nivel") or niveles_map.get(int(usuario_model.Id_Nivel or 0), ""),
-                "formatos_ids": [],
-                "formatos_nombres": [],
-                "formatos_texto": "Sin formato",
-            }
+            agrupados[key] = _formatear_usuario_vista(
+                usuario_model,
+                nombre=_row_value(row, "Nombre", "nombre"),
+                paterno=_row_value(row, "Paterno", "paterno"),
+                materno=_row_value(row, "Materno", "materno"),
+                email=_row_value(row, "Email", "email"),
+                sigla_ua=_row_value(row, "SIGLA", "Sigla", "sigla") or unidades_map.get(int(usuario_model.Id_Unidad_Academica or 0), ""),
+                rol_nombre=_row_value(row, "Rol", "rol") or roles_map.get(int(usuario_model.Id_Rol or 0), ""),
+                nivel_nombre=_row_value(row, "Nivel", "nivel") or niveles_map.get(int(usuario_model.Id_Nivel or 0), ""),
+                formatos_ids=[],
+                formatos_nombres=[],
+            )
+
+    usuarios_rol_5 = [u for u in usuarios_activos if int(u.Id_Rol or 0) == 5 and u.Usuario]
+    for usuario_model in usuarios_rol_5:
+        key = str(usuario_model.Usuario).strip().lower()
+        if not key or key in agrupados:
+            continue
+
+        formatos_info = formatos_por_usuario.get(key, {"ids": set(), "nombres": set()})
+        agrupados[key] = _formatear_usuario_vista(
+            usuario_model,
+            nombre=str(usuario_model.Nombre or ""),
+            paterno=str(usuario_model.Paterno or ""),
+            materno=str(usuario_model.Materno or ""),
+            email=str(usuario_model.Email or ""),
+            sigla_ua=unidades_map.get(int(usuario_model.Id_Unidad_Academica or 0), ""),
+            rol_nombre=roles_map.get(int(usuario_model.Id_Rol or 0), ""),
+            nivel_nombre=niveles_map.get(int(usuario_model.Id_Nivel or 0), ""),
+            formatos_ids=sorted(list(formatos_info["ids"])),
+            formatos_nombres=sorted(list(formatos_info["nombres"])),
+        )
 
     salida: list[dict[str, Any]] = []
     for username_key, item in agrupados.items():
@@ -427,6 +485,7 @@ def registrar_usuario_sp(
             raise ValueError("El email esta marcado como eliminado y no puede reutilizarse.")
 
     unidad, rol, nivel, formatos = _resolver_catalogos(db, id_unidad, id_rol, id_nivel, id_formatos)
+    nombres_formatos_temp = _nombres_formatos_para_temp(db, id_rol, formatos)
 
     if generar_password_automatica:
         password_temporal = generate_random_password()
@@ -493,7 +552,7 @@ def registrar_usuario_sp(
         paterno=paterno,
         materno=materno,
         nombre_nivel=nivel.Nivel if nivel else "",
-        nombres_formatos=[f.Formato for f in formatos],
+        nombres_formatos=nombres_formatos_temp,
     )
 
     try:
@@ -607,6 +666,7 @@ def modificar_usuario_sp(
         raise ValueError("Debes seleccionar al menos un formato.")
 
     unidad, rol, nivel, formatos = _resolver_catalogos(db, id_unidad, id_rol, id_nivel, id_formatos)
+    nombres_formatos_temp = _nombres_formatos_para_temp(db, id_rol, formatos)
     periodo_literal = _get_periodo_literal(db)
 
     usuario_objetivo = str(usuario_actual.Usuario).strip()
@@ -620,7 +680,7 @@ def modificar_usuario_sp(
         paterno=paterno,
         materno=materno,
         nombre_nivel=nivel.Nivel if nivel else "",
-        nombres_formatos=[f.Formato for f in formatos],
+        nombres_formatos=nombres_formatos_temp,
     )
 
     try:
@@ -660,7 +720,6 @@ def modificar_usuario_sp(
 
         db.commit()
 
-        # Modo estricto SP-only: no actualizar ORM ni formatos en Python.
         # Solo refrescar el estado persistido por el SP.
         db.refresh(usuario_actual)
         return usuario_actual

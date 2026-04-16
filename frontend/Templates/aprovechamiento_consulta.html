@@ -3,76 +3,94 @@
 {% block title %}Aprovechamiento (SP){% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="/static/css/components/header.css">
-<link rel="stylesheet" href="/static/css/components/tables.css">
-<link rel="stylesheet" href="/static/css/components/matricula_consulta.css">
-<link rel="stylesheet" href="/static/css/panel-rechazo.css">
-<script src="/static/js/matricula_inputs.js"></script>
-<style>
-    /* Ocultar el submenu de categorias que viene de base.html en esta vista */
-    .submenu-categorias-box {
-        display: none !important;
-    }
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    /* 3. Asegúrate de que el div.tabla-header no añada un espacio innecesario */
-    .tabla-matricula-container .tabla-header {
-        margin: 0;
-        padding: 0;
-    }
+    <!-- MISMO CSS que matrícula — un solo archivo para los dos -->
+    <link rel="stylesheet" href="/static/css/components/header.css">
+    <link rel="stylesheet" href="/static/css/components/tables.css">
+    <link rel="stylesheet" href="/static/css/components/matricula_consulta.css">
+    <link rel="stylesheet" href="/static/css/panel-rechazo.css">
+    <link rel="stylesheet" href="/static/css/components/botones_validacion.css">
+    <script src="/static/js/matricula_inputs.js"></script>
 
-    /* Estilos visuales para inputs bloqueados */
-    .input-matricula-nueva.input-disabled {
-        background-color: #f3f4f6 !important;
-        /* gris claro */
-        color: #6b7280 !important;
-        /* gris medio */
-        border-color: #e5e7eb !important;
-        cursor: not-allowed !important;
-    }
+    <style>
+        /* Ocultar submenú de categorías */
+        .submenu-categorias-box { display: none !important; }
 
-    /* Atenuar y desactivar interacción del contenedor cuando está bloqueado */
-    .matricula-box.input-container-disabled {
-        position: relative;
-        opacity: 0.6;
-        pointer-events: none;
-        /* evita focus/click */
-    }
+        /* Inputs bloqueados */
+        .input-matricula-nueva.input-disabled {
+            background-color: #f3f4f6 !important;
+            color: #6b7280 !important;
+            border-color: #e5e7eb !important;
+            cursor: not-allowed !important;
+        }
 
-    /* Tooltip simple usando el atributo data-tooltip */
-    .matricula-box.input-container-disabled:hover::after {
-        opacity: 0.95;
-    }
+        /* ── Scrollbar invisible en reposo, aparece al hacer hover ── */
+        .tabla-scroll {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 600px;
+        }
 
-    .matricula-box.input-container-disabled::after {
-        content: attr(data-tooltip);
-        position: absolute;
-        top: -26px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #111827;
-        color: #fff;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-size: 12px;
-        white-space: nowrap;
-        opacity: 0;
-        pointer-events: none;
-        z-index: 10;
-    }
+        /* La tabla se expande al contenido sin comprimirse */
+        .tabla-scroll .tabla-matricula-completa {
+            width: auto;
+            min-width: 100%;
+            table-layout: auto;
+            border-collapse: collapse;
+            white-space: nowrap; /* Toda la tabla en nowrap para evitar quiebres */
+        }
 
-    /* Apariencia deshabilitada para Total Grupos */
-    #input-total-grupos.input-disabled {
-        background-color: #f3f4f6 !important;
-        color: #6b7280 !important;
-        border-color: #e5e7eb !important;
-        cursor: not-allowed !important;
-    }
-</style>
+        /* thead fijo al hacer scroll vertical */
+        .tabla-scroll .tabla-matricula-completa thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        /* Scrollbar oculto por defecto — Chrome/Edge/Safari */
+        .tabla-scroll::-webkit-scrollbar {
+            width: 0px;
+            height: 0px;
+            background: transparent;
+        }
+
+        /* Aparece delgado al hacer hover sobre la tabla */
+        .tabla-scroll:hover::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .tabla-scroll:hover::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .tabla-scroll:hover::-webkit-scrollbar-thumb {
+            background: rgba(110, 3, 67, 0.35);
+            border-radius: 10px;
+        }
+        .tabla-scroll:hover::-webkit-scrollbar-thumb:hover {
+            background: rgba(110, 3, 67, 0.65);
+        }
+        .tabla-scroll::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+
+        /* Firefox — oculto por defecto */
+        .tabla-scroll {
+            scrollbar-width: none;
+        }
+        .tabla-scroll:hover {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(110,3,67,0.35) transparent;
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
 <div class="container">
-    <!-- **VERIFICACIÓN DE ACCESO RESTRINGIDO** -->
+
+    <!-- ACCESO RESTRINGIDO -->
     {% if acceso_restringido %}
     <div class="header-usuarios">
         <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario }}</strong></div>
@@ -81,34 +99,29 @@
         </form>
     </div>
 
-    <div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
-        <div
-            style="text-align: center; max-width: 600px; padding: 40px; background: linear-gradient(135deg, #6e0343 0%, #6e0343 100%); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
-            <div style="font-size: 80px; margin-bottom: 20px;">🔒</div>
-            <h2 style="color: white; margin-bottom: 20px; font-size: 28px;">En proceso de Validación por: {{ nombre_rol
-                }}</h2>
-            <p style="color: rgba(255,255,255,0.95); font-size: 18px; line-height: 1.6; margin-bottom: 30px;">
-                {{ mensaje_restriccion }}
-            </p>
+    <div style="display:flex; justify-content:center; align-items:center; min-height:60vh;">
+        <div style="text-align:center; max-width:600px; padding:40px; background:linear-gradient(135deg,#6e0343 0%,#6e0343 100%); border-radius:20px; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+            <div style="font-size:80px; margin-bottom:20px;">🔒</div>
+            <h2 style="color:white; margin-bottom:20px; font-size:28px;">En proceso de Validación por: {{ nombre_rol }}</h2>
+            <p style="color:rgba(255,255,255,0.95); font-size:18px; line-height:1.6; margin-bottom:30px;">{{ mensaje_restriccion }}</p>
             {% if estado_actual %}
-            <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-                <p style="color: white; margin: 0; font-size: 16px;">
-                    <strong>Estado actual:</strong> {{ estado_actual }}
-                </p>
+            <div style="background:rgba(255,255,255,0.2); padding:15px; border-radius:10px; margin-bottom:20px;">
+                <p style="color:white; margin:0; font-size:16px;"><strong>Estado actual:</strong> {{ estado_actual }}</p>
             </div>
             {% endif %}
-            <a href="/mod_principal"
-                style="display: inline-block; padding: 12px 30px; background: white; color: #6e0343; text-decoration: none; border-radius: 25px; font-weight: bold; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            <a href="/mod_principal" style="display:inline-block; padding:12px 30px; background:white; color:#6e0343; text-decoration:none; border-radius:25px; font-weight:bold; transition:all 0.3s; box-shadow:0 4px 15px rgba(0,0,0,0.2);">
                 Volver al Menú Principal
             </a>
         </div>
     </div>
-    {% endif %}
 
+    {% else %}
+    <!-- CONTENIDO NORMAL -->
 
-    <!-- **CONTENIDO NORMAL DE LA MATRÍCULA** -->
+    <!-- Header — misma clase que matrícula -->
     <div class="header-usuarios">
-        <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario }}</strong>
+        <div class="bienvenido">
+            Bienvenido: <strong>{{ nombre_usuario }}</strong>
             &nbsp;|&nbsp; Periodo: <strong id="periodo-texto">{{ periodo }}</strong>
             &nbsp;|&nbsp; Unidad Académica: <strong id="unidad-texto">{{ unidad_academica }}</strong>
             <strong hidden id="rama-texto">{{ rama }}</strong>
@@ -119,132 +132,218 @@
     </div>
 
     <h2>Aprovechamiento</h2>
+
+    <!-- Notificaciones (solo cuando hay rechazo) — misma estructura que matrícula -->
+    {% if rechazo_info %}
+    <div class="notificaciones-container">
+        <button class="btn-notificaciones" onclick="togglePanelNotificaciones()" title="Ver notificaciones">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span class="notificacion-badge">1</span>
+        </button>
+
+        <div id="panel-notificaciones" class="panel-notificaciones" style="display:none;">
+            <div class="panel-notificaciones-header">
+                <h4>🔔 Notificaciones</h4>
+                <button class="btn-cerrar-panel" onclick="togglePanelNotificaciones()">✕</button>
+            </div>
+            <div class="panel-notificaciones-body">
+                <div class="notificacion-item notificacion-rechazo">
+                    <div class="notificacion-icon">⚠️</div>
+                    <div class="notificacion-contenido">
+                        <h5>Aprovechamiento Rechazado</h5>
+                        <p class="notificacion-fecha">{{ rechazo_info.fecha }}</p>
+                        <p class="notificacion-motivo">{{ rechazo_info.motivo }}</p>
+                        <p class="notificacion-autor">Por: {{ rechazo_info.rechazado_por }}</p>
+                        <button class="btn-mostrar-banner" onclick="mostrarBannerRechazo()">
+                            📋 Ver Detalles Completos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Banner de rechazo — misma clase que matrícula -->
+    <div id="banner-rechazo" class="banner-rechazo" style="display:none;">
+        <div class="banner-rechazo-icon">
+            <span class="icono-advertencia-grande">⚠️</span>
+        </div>
+        <div style="text-align:center; color:white;">
+            <h3 style="margin:10px 0;">❌ APROVECHAMIENTO RECHAZADO — CORRECCIONES REQUERIDAS</h3>
+            <p style="margin:5px 0;"><strong>Motivo:</strong> {{ rechazo_info.motivo }}</p>
+            <p style="margin:5px 0; font-size:13px; opacity:0.85;">
+                Por: {{ rechazo_info.rechazado_por }} &nbsp;·&nbsp; {{ rechazo_info.fecha }}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
     {% if not aprovechamientos %}
     <div class="alert-info">
         <strong>Información:</strong> No hay aprovechamientos disponibles para su nivel y unidad académica.
     </div>
+
     {% else %}
-    <!-- Sección de Filtros para roles de validación (4 y 5) - HABILITADOS -->
+
+    <!-- Filtros — misma clase que matrícula -->
     <div class="filtros-container">
         <div class="filtros-row">
-            <!-- Periodo - Campo oculto (se usa el periodo por defecto del sistema) -->
             <input type="hidden" id="periodo" name="periodo" value="{{ periodo_default_id }}">
 
             <div class="filtro-item" id="programa-container">
                 <label for="programa"><strong>Programa Académico:</strong></label>
                 <select id="programa" name="programa" required></select>
-                <span class="no-info" style="display:none;">Información no disponible</span>
             </div>
 
             <div class="filtro-item" id="modalidad-container">
                 <label for="modalidad"><strong>Modalidad:</strong></label>
                 <select id="modalidad" name="modalidad" required></select>
-                <span class="no-info" style="display:none;">Información no disponible</span>
             </div>
 
-
-            <!-- Campos ocultos para semestre y turno (se manejan con pestañas y botones) -->
             <input type="hidden" id="semestre" name="semestre" value="1">
-            <input type="hidden" id="turno" name="turno" value="1">
+            <input type="hidden" id="turno"    name="turno"    value="1">
 
-            <!-- Unidad Académica - Campo oculto (roles 4 y 5 solo ven su propia UA) -->
             {% if unidad_actual %}
-            <input type="hidden" id="unidad_academica" name="unidad_academica"
-                value="{{ unidad_actual.Id_Unidad_Academica }}">
+            <input type="hidden" id="unidad_academica" name="unidad_academica" value="{{ unidad_actual.Id_Unidad_Academica }}">
             {% else %}
             <input type="hidden" id="unidad_academica" name="unidad_academica" value="0">
             {% endif %}
         </div>
-
     </div>
-    <!-- Leyenda del Semáforo -->
+
+    <!-- Leyenda semáforo — misma clase que matrícula -->
     <div class="semaforo-leyenda">
         <div class="leyenda-titulo">
-            <span style="font-weight: 600; color: #6e0343;">📊 Estado de Semestres:</span>
+            <span style="font-weight:600; color:#6e0343;">📊 Estado de Semestres:</span>
         </div>
         <div class="leyenda-items">
             <div class="leyenda-item">
-                <div class="leyenda-color" style="background-color: #ff4444;"></div>
+                <div class="leyenda-color" style="background-color:#ff4444;"></div>
                 <span class="leyenda-texto">Sin Datos</span>
             </div>
             <div class="leyenda-item">
-                <div class="leyenda-color" style="background-color: #ffbb33;"></div>
+                <div class="leyenda-color" style="background-color:#ffbb33;"></div>
                 <span class="leyenda-texto">Datos Parciales</span>
             </div>
             <div class="leyenda-item">
-                <div class="leyenda-color" style="background-color: #00C851;"></div>
+                <div class="leyenda-color" style="background-color:#00C851;"></div>
                 <span class="leyenda-texto">Datos Completos</span>
             </div>
         </div>
     </div>
-    <!-- Sección de Captura con tabla completa -->
+
+    <!-- Captura — misma estructura que matrícula -->
     <div class="captura-container">
-        <!-- Pestañas de Semestres -->
-        <div class="semestres-tabs" id="semestres-tabs">
-            <!-- Las pestañas se generarán dinámicamente con JavaScript -->
-        </div>
 
-        <!-- Navegación de Turnos con Semestre integrado -->
-        <div class="turno-navigation">
+        <!-- Pestañas — misma clase que matrícula -->
+        <div class="semestres-tabs" id="semestres-tabs"></div>
 
-            <div class="semestre-display">
-                <h2 id="semestre-titulo" style="margin:0; font-size:28px; font-weight:700; color:#ffffff;">
-                    Semestre <span id="semestre-num">1</span>
-                </h2>
+        <!-- Tabla — MISMAS clases que matrícula -->
+        <div class="tabla-matricula-container">
+
+            <!-- Barra de contexto semestre/programa/modalidad -->
+            <div class="tabla-header"></div>
+
+            <!-- Scroll de tabla — MISMA clase que matrícula -->
+            <div class="tabla-scroll">
+                <table class="tabla-matricula-completa">
+                    <thead id="tabla-header"></thead>
+                    <tbody id="tabla-body">
+                        <tr><td colspan="4" style="text-align:center; padding:40px; color:#666;">
+                            <div id="pantalla-carga" style="display:flex; flex-direction:column; align-items:center; gap:15px;">
+                                <div style="font-size:48px;">📊</div>
+                                <p style="margin:0; font-size:16px;">Cargando datos de aprovechamiento...</p>
+                            </div>
+                        </td></tr>
+                    </tbody>
+                </table>
             </div>
 
+        </div><!-- /tabla-matricula-container -->
 
-        </div>
-
-
-
-
-
-        <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
-            <table class="table table-bordered table-hover" style="width: 100%; table-layout: auto;"
-                id="tabla-unificada">
-                <thead id="tabla-header" style="position: sticky; top: 0; z-index: 10;">
-                </thead>
-                <tbody id="tabla-body">
-                    <div id="pantalla-carga"
-                        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease;">
-                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                        </div>
-                        <h4 style="margin-top: 20px; color: #555; font-family: sans-serif;">Cargando Información...</h4>
-                    </div>
-                </tbody>
-            </table>
-        </div>
-
-
-        <!-- Botones justo después de la tabla -->
+        <!-- Botones — misma sección que matrícula -->
         <div class="actions-section actions-after-table">
             {% if rol == 'Capturista' %}
-            <!-- Botones para Capturista (rol ID 3) -->
             <button id="btn-guardar-matricula" type="button" class="btn-primary" onclick="guardarTablaUnificada()">
                 💾 Guardar Avance
             </button>
-            <button id="btn-validar-matricula" type="button" class="btn-success" onclick="validarCapturaSemestre()">
-                ✅ Finalizar Captura
+            <button id="btn-validar-matricula" type="button" class="btn-finalizar" onclick="validarCapturaSemestre()">
+                🎯 Finalizar Semestre
             </button>
+            {% else %}
+            <!-- Roles de validación -->
+            <button id="btn-validar-semestre" type="button" class="btn btn-success" onclick="validarSemestre()"
+                {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado este aprovechamiento"{% endif %}>
+                ✅ Validar
+            </button>
+            <button id="btn-rechazar-semestre" type="button" class="btn btn-danger" onclick="rechazarSemestre()"
+                {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado este aprovechamiento"{% endif %}>
+                ❌ Rechazar
+            </button>
+
+            {% if usuario_ya_valido or usuario_ya_rechazo %}
+            <div class="mensaje-validacion-previa {% if usuario_ya_valido %}validada{% else %}rechazada{% endif %}">
+                <span class="icono-info">{% if usuario_ya_valido %}✅{% else %}❌{% endif %}</span>
+                <span class="texto-info">
+                    {% if usuario_ya_valido %}Ya has <strong>validado</strong> este aprovechamiento.
+                    {% else %}Ya has <strong>rechazado</strong> este aprovechamiento.{% endif %}
+                </span>
+            </div>
+            {% endif %}
             {% endif %}
         </div>
 
+        <!-- Panel de rechazo — misma clase que matrícula -->
+        <div id="panel-rechazo" class="panel-rechazo" style="display:none;">
+            <div class="panel-rechazo-header">
+                <h3>Rechazar Aprovechamiento</h3>
+                <button class="btn-cerrar-panel" onclick="cerrarPanelRechazo()"><span>✕</span></button>
+            </div>
+            <div class="panel-rechazo-body">
+                <div class="panel-warning">
+                    Está a punto de rechazar el aprovechamiento completo. Esta acción devolverá todos los datos al capturista para que realice las correcciones necesarias.
+                </div>
+                <div class="form-group">
+                    <label for="motivo-rechazo-panel">
+                        Motivo del Rechazo <span style="color:#8b2332;">*</span>
+                        <span class="texto-ayuda">Explique detalladamente por qué se rechaza (mínimo 10 caracteres)</span>
+                    </label>
+                    <textarea
+                        id="motivo-rechazo-panel"
+                        rows="5"
+                        maxlength="250"
+                        placeholder="Ejemplo: Los datos del Semestre 3 no coinciden con los registros oficiales. Se requiere verificación de las cifras en el turno matutino."
+                        class="textarea-motivo-rechazo"
+                        oninput="actualizarContadorPanel()"
+                    ></textarea>
+                    <div class="contador-caracteres">
+                        <span id="contador-caracteres-panel">0</span> / 250 caracteres
+                    </div>
+                </div>
+            </div>
+            <div class="panel-footer">
+                <button class="btn-cancelar" onclick="cerrarPanelRechazo()">Cancelar</button>
+                <button class="btn-confirmar-rechazo" onclick="confirmarRechazoPanel()">✅ Confirmar Rechazo</button>
+            </div>
+        </div>
 
-    </div>
-
+    </div><!-- /captura-container -->
     {% endif %}
-</div>
 
+    {% endif %}{# fin acceso_restringido #}
+
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
     window.aprovechamientos = {{ aprovechamientos | tojson }};
-    window.inscritos = {{ inscritos | tojson }};
-    window.reincorporados = {{ reincorporados | tojson }};
+    window.inscritos        = {{ inscritos        | tojson }};
+    window.reincorporados   = {{ reincorporados   | tojson }};
+    window.rechazoInfo      = {{ rechazo_info     | tojson if rechazo_info else 'null' }};
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="/static/js/aprovechamiento.js"></script>
 {% endblock %}
