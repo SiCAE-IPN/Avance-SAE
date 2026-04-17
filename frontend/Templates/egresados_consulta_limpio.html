@@ -719,100 +719,153 @@
 
 {% block scripts %}
 <style>
-/* Estilos para filtros tipo Excel */
+/* Estilos para filtros tipo Excel (rediseno visual) */
+.filterable-header {
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    user-select: none;
+}
+
+.filterable-header:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.filterable-header.is-open {
+    background-color: rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.45);
+}
+
+.filterable-header.has-filter {
+    background-color: rgba(255, 255, 255, 0.2);
+    box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.9);
+}
+
 .filter-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
     font-size: 10px;
-    margin-left: 5px;
-    opacity: 0.7;
+    opacity: 0.85;
+    transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
 
 .filterable-header:hover .filter-icon {
     opacity: 1;
 }
 
+.filterable-header.is-open .filter-icon {
+    transform: rotate(180deg);
+}
+
+.filterable-header.has-filter .filter-icon {
+    background: #ffffff;
+    color: #6e0343;
+    opacity: 1;
+}
+
 .filter-dropdown {
-    position: absolute;
-    top: 100%;
+    position: fixed;
+    top: 0;
     left: 0;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    z-index: 1000;
-    min-width: 200px;
-    max-height: 300px;
-    overflow-y: auto;
-    display: none;
-    color: #333;
+    background: #ffffff;
+    border: 1px solid #e8d8e1;
+    border-radius: 12px;
+    box-shadow: 0 16px 32px rgba(50, 8, 32, 0.2);
+    z-index: 5000;
+    min-width: 220px;
+    max-width: min(520px, calc(100vw - 24px));
+    max-height: 360px;
+    overflow: hidden;
+    color: #2d2d2d;
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.filter-dropdown::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    left: var(--anchor-offset, 24px);
+    width: 12px;
+    height: 12px;
+    background: #ffffff;
+    border-left: 1px solid #e8d8e1;
+    border-top: 1px solid #e8d8e1;
+    transform: rotate(45deg);
+}
+
+.filter-dropdown.open-up::before {
+    top: auto;
+    bottom: -7px;
+    transform: rotate(225deg);
 }
 
 .filter-dropdown.active {
-    display: block;
-}
-
-.filter-search {
-    width: calc(100% - 20px);
-    margin: 10px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
 }
 
 .filter-options {
-    padding: 5px 0;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.filter-options::-webkit-scrollbar {
+    width: 8px;
+}
+
+.filter-options::-webkit-scrollbar-thumb {
+    background: #c8b0be;
+    border-radius: 8px;
 }
 
 .filter-option {
-    padding: 8px 15px;
+    padding: 8px 10px;
     cursor: pointer;
     display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 13px;
+    border-radius: 8px;
+    transition: background-color 0.18s ease;
+}
+
+.filter-option span {
+    flex: 1;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .filter-option:hover {
-    background: #f0f0f0;
+    background: #f7edf3;
+}
+
+.filter-option.is-checked {
+    background: #f3e5ee;
+    font-weight: 600;
 }
 
 .filter-option input[type="checkbox"] {
     cursor: pointer;
+    margin-top: 1px;
+    accent-color: #6e0343;
 }
 
-.filter-actions {
-    border-top: 1px solid #ddd;
-    padding: 10px;
-    display: flex;
-    justify-content: space-between;
-    gap: 5px;
-}
-
-.filter-actions button {
-    padding: 6px 12px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.filter-actions .btn-apply {
-    background: #6e0343;
-    color: white;
-}
-
-.filter-actions .btn-clear {
-    background: #dc3545;
-    color: white;
-}
-
-.filter-actions .btn-apply:hover {
-    background: #8b1257;
-}
-
-.filter-actions .btn-clear:hover {
-    background: #c82333;
+@media (max-width: 768px) {
+    .filter-dropdown {
+        min-width: 220px;
+        max-width: 84vw;
+    }
 }
 </style>
 <script>
@@ -828,6 +881,7 @@
     // Estado de filtros para la tabla de informe
     let activeFilters = {};
     let currentFilterDropdown = null;
+    let currentFilterHeaderEl = null;
     let spEnEjecucion = false;
     let interfazBloqueada = false;
     
@@ -1577,7 +1631,7 @@
             } else {
                 alert(`❌ Error: ${resultado.error || 'No se pudo guardar el avance'}`);
             }
-            
+           
             // ========================================================================
             // ...hasta aquí para activar el SP de Guardar Avance
             // ========================================================================
@@ -2185,7 +2239,11 @@
             selectModalidad.disabled = true;
             
             selectPrograma.addEventListener('change', function() {
+                // Al cambiar programa, regresar al estado inicial de captura
+                ocultarSeccionCaptura();
+                selectModalidad.value = '';
                 filtrarModalidadesPorPrograma();
+                actualizarBannerSeleccion();
                 actualizarInformeEgresados();
             });
             
@@ -2228,6 +2286,9 @@
             if (currentFilterDropdown && !event.target.closest('.filterable-header') && !event.target.closest('.filter-dropdown')) {
                 currentFilterDropdown.remove();
                 currentFilterDropdown = null;
+                currentFilterHeaderEl = null;
+                unbindFilterDropdownAutoPosition();
+                clearHeaderOpenState();
             }
         });
         
@@ -2247,6 +2308,7 @@
     
     function initTableFilters() {
         const headers = document.querySelectorAll('.filterable-header');
+        updateFilterHeaderStates();
         
         headers.forEach(header => {
             header.addEventListener('click', function(e) {
@@ -2258,6 +2320,9 @@
                     currentFilterDropdown.remove();
                     if (currentFilterDropdown.dataset.column == columnIndex) {
                         currentFilterDropdown = null;
+                        currentFilterHeaderEl = null;
+                        unbindFilterDropdownAutoPosition();
+                        clearHeaderOpenState();
                         return;
                     }
                 }
@@ -2265,6 +2330,21 @@
                 // Crear nuevo dropdown
                 showFilterDropdown(this, columnIndex);
             });
+        });
+    }
+
+    function clearHeaderOpenState() {
+        document.querySelectorAll('.filterable-header.is-open').forEach(header => {
+            header.classList.remove('is-open');
+        });
+    }
+
+    function updateFilterHeaderStates() {
+        const headers = document.querySelectorAll('.filterable-header');
+        headers.forEach(header => {
+            const columnKey = String(header.dataset.column);
+            const hasFilter = Object.prototype.hasOwnProperty.call(activeFilters, columnKey);
+            header.classList.toggle('has-filter', hasFilter);
         });
     }
     
@@ -2297,6 +2377,8 @@
             }
             return a.localeCompare(b, 'es', {numeric: true});
         });
+
+        const dropdownWidth = calculateDynamicDropdownWidth(sortedValues, headerElement);
         
         // Crear dropdown
         const dropdown = document.createElement('div');
@@ -2307,16 +2389,6 @@
         dropdown.addEventListener('click', function(e) {
             e.stopPropagation();
         });
-        
-        // Input de búsqueda
-        const searchInput = document.createElement('input');
-        searchInput.type = 'text';
-        searchInput.className = 'filter-search';
-        searchInput.placeholder = 'Buscar...';
-        searchInput.addEventListener('click', function(e) {
-            e.stopPropagation();
-        });
-        dropdown.appendChild(searchInput);
         
         // Contenedor de opciones
         const optionsContainer = document.createElement('div');
@@ -2334,46 +2406,16 @@
         
         dropdown.appendChild(optionsContainer);
         
-        // Botones de acción
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'filter-actions';
-        
-        const applyBtn = document.createElement('button');
-        applyBtn.className = 'btn-apply';
-        applyBtn.textContent = 'Aplicar';
-        applyBtn.onclick = (e) => {
-            e.stopPropagation();
-            applyColumnFilter(columnIndex, dropdown);
-        };
-        
-        const clearBtn = document.createElement('button');
-        clearBtn.className = 'btn-clear';
-        clearBtn.textContent = 'Limpiar';
-        clearBtn.onclick = (e) => {
-            e.stopPropagation();
-            clearColumnFilter(columnIndex);
-        };
-        
-        actionsDiv.appendChild(applyBtn);
-        actionsDiv.appendChild(clearBtn);
-        dropdown.appendChild(actionsDiv);
-        
         // Posicionar dropdown
-        headerElement.style.position = 'relative';
-        headerElement.appendChild(dropdown);
+        clearHeaderOpenState();
+        headerElement.classList.add('is-open');
+        dropdown.style.width = `${dropdownWidth}px`;
+
+        document.body.appendChild(dropdown);
+        positionFilterDropdown(dropdown, headerElement, dropdownWidth);
         currentFilterDropdown = dropdown;
-        
-        // Funcionalidad de búsqueda
-        searchInput.addEventListener('input', function(e) {
-            e.stopPropagation();
-            const searchTerm = this.value.toLowerCase();
-            const options = optionsContainer.querySelectorAll('.filter-option:not(:first-child)');
-            
-            options.forEach(option => {
-                const text = option.textContent.toLowerCase();
-                option.style.display = text.includes(searchTerm) ? 'flex' : 'none';
-            });
-        });
+        currentFilterHeaderEl = headerElement;
+        bindFilterDropdownAutoPosition();
         
         // Marcar checkboxes según filtros activos
         const activeColumnFilter = activeFilters[columnIndex];
@@ -2382,11 +2424,120 @@
             checkboxes.forEach(checkbox => {
                 const value = checkbox.dataset.value;
                 checkbox.checked = activeColumnFilter.includes(value);
+                setOptionCheckedStyle(checkbox);
             });
         } else {
             // Por defecto, todos seleccionados
             const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(checkbox => checkbox.checked = true);
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+                setOptionCheckedStyle(checkbox);
+            });
+        }
+    }
+
+    function positionFilterDropdown(dropdown, headerElement, dropdownWidth) {
+        const headerRect = headerElement.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        const minMargin = 10;
+        const gap = 8;
+        const optionsContainer = dropdown.querySelector('.filter-options');
+
+        let left = headerRect.left;
+        if (left + dropdownWidth > viewportWidth - minMargin) {
+            left = viewportWidth - dropdownWidth - minMargin;
+        }
+        if (left < minMargin) {
+            left = minMargin;
+        }
+
+        const spaceBelow = viewportHeight - headerRect.bottom - gap - minMargin;
+        const spaceAbove = headerRect.top - gap - minMargin;
+
+        const contentHeight = Math.ceil(dropdown.scrollHeight || 240);
+        const prefersAbove = spaceBelow < 120 && spaceAbove > spaceBelow;
+        let openAbove = prefersAbove;
+
+        if (!prefersAbove && contentHeight > spaceBelow && spaceAbove > spaceBelow) {
+            openAbove = true;
+        }
+
+        const availableHeight = openAbove ? spaceAbove : spaceBelow;
+        const safeHeight = Math.max(90, Math.floor(availableHeight));
+        if (optionsContainer) {
+            const reservedChrome = 22;
+            optionsContainer.style.maxHeight = `${Math.max(70, safeHeight - reservedChrome)}px`;
+        }
+
+        const panelHeight = Math.ceil(dropdown.offsetHeight || safeHeight);
+        let top = openAbove
+            ? (headerRect.top - panelHeight - gap)
+            : (headerRect.bottom + gap);
+
+        if (top + panelHeight > viewportHeight - minMargin) {
+            top = viewportHeight - panelHeight - minMargin;
+        }
+
+        if (top < minMargin) {
+            top = minMargin;
+        }
+
+        const anchorX = Math.round((headerRect.left + (headerRect.width / 2)) - left - 6);
+        const arrowMin = 14;
+        const arrowMax = Math.max(arrowMin, dropdownWidth - 26);
+        const arrowOffset = Math.min(Math.max(anchorX, arrowMin), arrowMax);
+
+        dropdown.style.left = `${Math.round(left)}px`;
+        dropdown.style.top = `${Math.round(top)}px`;
+        dropdown.style.setProperty('--anchor-offset', `${arrowOffset}px`);
+        dropdown.classList.toggle('open-up', openAbove);
+    }
+
+    function repositionCurrentFilterDropdown() {
+        if (!currentFilterDropdown || !currentFilterHeaderEl) return;
+        const currentWidth = currentFilterDropdown.offsetWidth || parseInt(currentFilterDropdown.style.width || '220', 10);
+        positionFilterDropdown(currentFilterDropdown, currentFilterHeaderEl, currentWidth);
+    }
+
+    function bindFilterDropdownAutoPosition() {
+        window.addEventListener('resize', repositionCurrentFilterDropdown);
+        document.addEventListener('scroll', repositionCurrentFilterDropdown, true);
+    }
+
+    function unbindFilterDropdownAutoPosition() {
+        window.removeEventListener('resize', repositionCurrentFilterDropdown);
+        document.removeEventListener('scroll', repositionCurrentFilterDropdown, true);
+    }
+
+    function calculateDynamicDropdownWidth(values, headerElement) {
+        const allValues = ['(Seleccionar todo)', ...values.map(v => String(v || ''))];
+        const longestText = allValues.reduce((max, current) => {
+            return current.length > max.length ? current : max;
+        }, '');
+
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        context.font = '600 13px Segoe UI';
+
+        const textWidth = Math.ceil(context.measureText(longestText).width);
+        const headerWidth = Math.ceil(headerElement.getBoundingClientRect().width);
+
+        const estimatedWidth = Math.max(
+            headerWidth + 28,
+            textWidth + 88,
+            220
+        );
+
+        const maxAllowedByViewport = Math.max(220, window.innerWidth - 24);
+        return Math.min(estimatedWidth, 520, maxAllowedByViewport);
+    }
+
+    function setOptionCheckedStyle(checkboxElement) {
+        const option = checkboxElement.closest('.filter-option');
+        if (option) {
+            option.classList.toggle('is-checked', checkboxElement.checked);
         }
     }
     
@@ -2422,7 +2573,12 @@
                 e.stopPropagation();
                 const dropdown = this.closest('.filter-dropdown');
                 const allCheckboxes = dropdown.querySelectorAll('.filter-option:not(:first-child) input[type="checkbox"]');
-                allCheckboxes.forEach(cb => cb.checked = this.checked);
+                allCheckboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                    setOptionCheckedStyle(cb);
+                });
+                setOptionCheckedStyle(this);
+                applyColumnFilter(columnIndex, dropdown, false);
             });
         } else {
             checkbox.addEventListener('change', function(e) {
@@ -2432,6 +2588,9 @@
                 const allCheckboxes = dropdown.querySelectorAll('.filter-option:not(:first-child) input[type="checkbox"]');
                 const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
                 selectAllCheckbox.checked = allChecked;
+                setOptionCheckedStyle(this);
+                setOptionCheckedStyle(selectAllCheckbox);
+                applyColumnFilter(columnIndex, dropdown, false);
             });
         }
         
@@ -2440,11 +2599,12 @@
         
         option.appendChild(checkbox);
         option.appendChild(labelSpan);
+        setOptionCheckedStyle(checkbox);
         
         return option;
     }
     
-    function applyColumnFilter(columnIndex, dropdown) {
+    function applyColumnFilter(columnIndex, dropdown, closeDropdown = true) {
         const checkboxes = dropdown.querySelectorAll('.filter-option:not(:first-child) input[type="checkbox"]');
         const selectedValues = [];
         
@@ -2465,22 +2625,31 @@
         }
         
         applyAllFilters();
-        
-        // Cerrar dropdown
-        dropdown.remove();
-        currentFilterDropdown = null;
-        
+        updateFilterHeaderStates();
+
+        if (closeDropdown) {
+            dropdown.remove();
+            currentFilterDropdown = null;
+            currentFilterHeaderEl = null;
+            unbindFilterDropdownAutoPosition();
+            clearHeaderOpenState();
+        }
+
         console.log('✅ Filtro aplicado en columna', columnIndex, ':', selectedValues.length, 'valores');
     }
     
     function clearColumnFilter(columnIndex) {
         delete activeFilters[columnIndex];
         applyAllFilters();
+        updateFilterHeaderStates();
         
         if (currentFilterDropdown) {
             currentFilterDropdown.remove();
             currentFilterDropdown = null;
+            currentFilterHeaderEl = null;
+            unbindFilterDropdownAutoPosition();
         }
+        clearHeaderOpenState();
         
         console.log('🗑️ Filtro limpiado en columna', columnIndex);
     }
@@ -2510,6 +2679,8 @@
             row.style.display = shouldShow ? '' : 'none';
             if (shouldShow) visibleCount++;
         });
+
+        updateFilterHeaderStates();
         
         console.log(`📊 Filtros aplicados: ${visibleCount}/${rows.length} filas visibles`);
     }

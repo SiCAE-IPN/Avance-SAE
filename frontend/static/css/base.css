@@ -3,17 +3,34 @@
 /* Estilos generales del body */
 body {
     font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #6e0343 60%, #ffffff 100%);
-    min-height: 100vh;
     margin: 0;
     padding: 0;
+    display: flex;
+}
+
+/* Si hay sidebar, el background es gradiente guinda-blanco en main */
+main {
+    flex: 1;
+    background: linear-gradient(135deg, #6e0343 0%, #ffffff 100%);
+    min-height: 100vh;
+}
+
+/* Cuando NO hay sidebar (login, portada, etc) */
+body:not(:has(.sidebar)) {
+    background: linear-gradient(135deg, #6e0343 60%, #ffffff 100%);
+    display: block;
+}
+
+body:not(:has(.sidebar)) main {
+    background: transparent;
+    margin-left: 0;
 }
 
 /* Container principal */
 .container {
     max-width: 1200px;
     margin: 40px auto;
-    background: #f9f9f9;
+    background: rgba(255, 255, 255, 0.95);
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     padding: 32px 24px;

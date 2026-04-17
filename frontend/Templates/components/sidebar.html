@@ -1,0 +1,38 @@
+<!-- components/sidebar.html -->
+<aside class="sidebar" id="sidebar">
+    <!-- Botón hamburguesa para móvil -->
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menú">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <!-- Header del sidebar con nombre del módulo -->
+    <div class="sidebar-header">
+        <h2>SiCAE</h2>
+           <button class="sidebar-close-mobile" id="sidebarCloseMobile">×</button>
+           <br>
+           <div class="sidebar-subtitle">Sistema de Captura y Análisis de la Estadística</div>
+    </div>
+
+    <!-- Menú del módulo actual (se genera dinámicamente) -->
+    <nav class="sidebar-nav" id="sidebarNav">
+        <!-- Se llena con JavaScript basándose en la URL -->
+    </nav>
+
+    <!-- Divisor visual -->
+    <div class="sidebar-divider"></div>
+
+    <!-- Footer de la sidebar -->
+    <nav class="sidebar-footer">
+        <a href="/mod_principal" class="sidebar-item sidebar-home">
+            <i>🏠</i><span>Módulo Principal</span>
+        </a>
+        <a href="/login" class="sidebar-item sidebar-logout">
+            <i>⏻</i><span>Cerrar Sesión</span>
+        </a>
+    </nav>
+</aside>
+
+<!-- Overlay para cerrar en móvil -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>

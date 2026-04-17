@@ -11,22 +11,32 @@
     
     <!-- CSS Base -->
     <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/sidebar.css">
     
     <!-- CSS específico de página -->
     {% block styles %}{% endblock %}
 </head>
 <body>
-    <!-- Header con navegación -->
-    {% include 'components/header.html' %}
+    <!-- Sidebar global (visible por defecto, excepto si se define mostrar_sidebar = false) -->
+    {% if mostrar_sidebar is not defined or mostrar_sidebar %}
+        {% include 'components/sidebar.html' %}
+    {% endif %}
 
     <!-- Contenido principal -->
     <main>
+        <!-- Header opcional (depende del módulo) -->
+        {% if mostrar_header %}
+            {% include 'components/header.html' %}
+        {% endif %}
+
+        <!-- Contenido específico -->
         {% block content %}{% endblock %}
     </main>
 
     <!-- Scripts base -->
     <script src="/static/js/config.js"></script>
     <script src="/static/js/utils.js"></script>
+    <script src="/static/js/sidebar.js"></script>
     
     <!-- Scripts específicos de página -->
     {% block scripts %}{% endblock %}

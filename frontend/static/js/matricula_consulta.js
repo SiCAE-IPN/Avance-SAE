@@ -3788,7 +3788,9 @@ function updateInputsBySemestre(semestreNum) {
         }
         
         // Agregar eventos a los filtros para cargar datos existentes
-        const filtros = ['periodo', 'programa', 'modalidad'];
+        // NOTA: modalidad se gestiona en onFiltroChange() y en el flujo de render del SP.
+        // Incluirla aqui provoca una limpieza posterior que borra los datos recien cargados.
+        const filtros = ['periodo', 'programa'];
         filtros.forEach(filtroId => {
             const elemento = document.getElementById(filtroId);
             if (elemento) {

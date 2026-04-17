@@ -1484,8 +1484,9 @@ async def guardar_captura_completa(request: Request, sess=Depends(get_current_se
         apellidoM_usuario = sess.apellidoM_usuario
         nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
         
-        # Obtener usuario y host
-        usuario_sp = nombre_completo or 'sistema'
+        # El SP espera el login del usuario en @UUsuario, no el nombre completo
+        usuario_login = str(getattr(sess, 'usuario', '') or '').strip()
+        usuario_sp = usuario_login or nombre_completo or 'sistema'
         host_sp = get_request_host(request)
         
         # Extraer información base
@@ -1796,7 +1797,9 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
                 print("⚠️ Cookie unidad_sigla ausente y no hay Id_Unidad_Academica válido")
 
         # Obtener usuario y host
-        usuario_sp = nombre_completo or 'sistema'
+        # ✅ USAR LOGIN (sess.usuario) EN LUGAR DE NOMBRE COMPLETO para el SP
+        usuario_login = str(getattr(sess, 'usuario', '') or '').strip()
+        usuario_sp = usuario_login or nombre_completo or 'sistema'
         host_sp = get_request_host(request)
         
         # Obtener período y total_grupos desde el request o usar valores por defecto
@@ -1937,7 +1940,7 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
         print(f"\n=== PARÁMETROS DEL SP ===")
         print(f"@UUnidad_Academica = '{unidad_sigla}' (tipo: {type(unidad_sigla).__name__})")
         print(f"@SSalones = '{total_grupos}' (tipo: {type(total_grupos).__name__})")
-        print(f"@UUsuario = '{sess.id_usuario}' (tipo: {type(usuario_sp).__name__})")
+        print(f"@UUsuario = '{usuario_sp}' (LOGIN del usuario)")
         print(f"@PPeriodo = '{periodo}' (tipo: {type(periodo).__name__})")
         print(f"@HHost = '{host_sp}' (tipo: {type(host_sp).__name__})")
         print(f"@NNivel = '{nivel}' (tipo: {type(nivel).__name__})")

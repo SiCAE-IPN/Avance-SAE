@@ -55,7 +55,7 @@ body {
 .principal-container {
     max-width: 500px;
     margin: 60px auto;
-    background: #fff;
+    background: linear-gradient(135deg, #6e0343 0%, #ffffff 100%);
     border-radius: 12px;
     box-shadow: 0 2px 12px rgba(110,3,67,0.13);
     padding: 36px 32px 32px 32px;

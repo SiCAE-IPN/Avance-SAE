@@ -23,7 +23,7 @@ function normalizarSemestre(semestre) {
     if (typeof semestre === 'number') return semestre;
     const mapa = {
         'primer': 1, 'primero': 1, 'segundo': 2, 'tercer': 3, 'tercero': 3,
-        'cuarto': 4, 'quinto': 5, 'sexto': 6, 'septimo': 7, 'septimo': 7,
+        'cuarto': 4, 'quinto': 5, 'sexto': 6, 'septimo': 7,
         'octavo': 8, 'noveno': 9, 'decimo': 10
     };
     const texto = String(semestre).toLowerCase().trim()
@@ -72,11 +72,9 @@ function procesarEstadosSemaforoAprovechamiento(prog, mod) {
 function actualizarColorPestana(tab, semestreNum) {
     const idSem = estadosSemaforoPorSemestre[semestreNum] ?? 1;
     const info  = SEMAFORO_COLORES[idSem] || SEMAFORO_COLORES[1];
-    // Solo clases — el CSS de matrícula tiene .semaforo-estado-1/2/3 con !important
     tab.classList.remove('semaforo-estado-1', 'semaforo-estado-2', 'semaforo-estado-3');
     tab.classList.add(`semaforo-estado-${idSem}`);
     tab.title = info.descripcion;
-    // Limpiar cualquier background inline previo para que el CSS tome control
     tab.style.backgroundColor = '';
 }
 
@@ -88,7 +86,7 @@ function actualizarColoresPestanas() {
 }
 
 // ==========================================
-// 4. Renderizado de Pestanas — identico a Matricula
+// 4. Renderizado de Pestanas
 // ==========================================
 window.cargarSemestresTabs = function (prog, mod, semForzado = null) {
     const container = document.getElementById('semestres-tabs');
@@ -121,20 +119,13 @@ window.cargarSemestresTabs = function (prog, mod, semForzado = null) {
         tab.className = 'semestre-tab';
         tab.textContent = `Semestre ${sem}`;
         tab.setAttribute('data-semestre', sem);
-
-        // Color del semáforo — solo esto, el resto lo maneja el CSS de matrícula
         actualizarColorPestana(tab, sem);
-
-        if (sem === semestreActual) {
-            tab.classList.add('active');
-        }
-
+        if (sem === semestreActual) tab.classList.add('active');
         fragment.appendChild(tab);
     });
 
     container.appendChild(fragment);
 
-    // Event delegation (igual que matricula)
     container.onclick = function (e) {
         const tab = e.target.closest('.semestre-tab');
         if (!tab) return;
@@ -146,7 +137,7 @@ window.cargarSemestresTabs = function (prog, mod, semForzado = null) {
 };
 
 // ==========================================
-// 5. Seleccionar Semestre (igual que matricula)
+// 5. Seleccionar Semestre
 // ==========================================
 function seleccionarSemestre(sem) {
     const prog = document.getElementById('programa')?.value;
@@ -175,7 +166,7 @@ function seleccionarSemestre(sem) {
 }
 
 // ==========================================
-// 6. Barra de semestre actual (igual que matricula)
+// 6. Barra de semestre actual
 // ==========================================
 function actualizarBarraSemestreActual(semestreNum) {
     const headers = document.querySelectorAll('.tabla-matricula-container .tabla-header');
@@ -201,37 +192,37 @@ function actualizarBarraSemestreActual(semestreNum) {
 }
 
 // ==========================================
-// 7. Encabezado de la Tabla — Sin fila Hombre/Mujer, una sola fila
+// 7. Encabezado de la Tabla — Una sola fila, sin subencabezados H/M
 // ==========================================
 function renderizarEncabezadoTabla(turnos) {
     const thead = document.getElementById('tabla-header');
     if (!thead) return;
     thead.innerHTML = '';
 
-    // Una sola fila de encabezado
+    // Una sola fila de encabezado — sin fila secundaria Hombre/Mujer
     const row1 = document.createElement('tr');
     row1.style.background = 'linear-gradient(135deg, #6e0343 0%, #8B0A4A 100%)';
     row1.style.color = 'white';
 
-    // Columna "Situación Académica" — ancho fijo generoso
+    // Columna "Situación Académica" con ancho fijo para que no se corte
     const thSit = document.createElement('th');
     thSit.textContent = 'Situación Académica';
     Object.assign(thSit.style, {
         verticalAlign: 'middle',
         textAlign: 'center',
-        padding: '18px 16px',
+        padding: '18px 12px',
         fontWeight: '700',
-        fontSize: '16px',
-        whiteSpace: 'nowrap',
+        fontSize: '15px',
+        whiteSpace: 'normal',
+        wordBreak: 'keep-all',
         borderRight: '3px solid rgba(255,255,255,0.5)',
-        minWidth: '180px',
-        width: '180px'
+        minWidth: '160px',
+        width: '160px'
     });
     row1.appendChild(thSit);
 
     turnos.forEach(t => {
         const thT = document.createElement('th');
-        thT.colSpan = 1;        // <-- ya NO son 2 columnas H y M separadas
         thT.textContent = t;
         Object.assign(thT.style, {
             textAlign: 'center',
@@ -248,7 +239,7 @@ function renderizarEncabezadoTabla(turnos) {
 }
 
 // ==========================================
-// 8. Renderizado de la Tabla — Estilo Matricula
+// 8. Renderizado de la Tabla
 // ==========================================
 window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
     const thead = document.getElementById('tabla-header');
@@ -262,17 +253,17 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
     const sem  = Number(semestre);
 
     // Detectar bloqueo
-    const idSemaforo       = estadosSemaforoPorSemestre[sem] ?? 1;
+    const idSemaforo          = estadosSemaforoPorSemestre[sem] ?? 1;
     const esSemestreBloqueado = (idSemaforo === 3);
 
     const btnGuardar = document.getElementById('btn-guardar-matricula');
     const btnValidar = document.getElementById('btn-validar-matricula');
 
     if (btnGuardar) {
-        btnGuardar.disabled     = esSemestreBloqueado;
+        btnGuardar.disabled      = esSemestreBloqueado;
         btnGuardar.style.display = esSemestreBloqueado ? 'none' : 'inline-block';
-        btnGuardar.innerHTML    = esSemestreBloqueado ? '🔒 Finalizado' : '💾 Guardar Avance';
-        btnGuardar.className    = esSemestreBloqueado ? 'btn btn-secondary' : 'btn btn-primary';
+        btnGuardar.innerHTML     = esSemestreBloqueado ? '🔒 Finalizado' : '💾 Guardar Avance';
+        btnGuardar.className     = esSemestreBloqueado ? 'btn btn-secondary' : 'btn btn-primary';
     }
     if (btnValidar) {
         btnValidar.disabled  = esSemestreBloqueado;
@@ -354,7 +345,7 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
     crearFilaTotalizador(tbody, 'Total Matricula', turnos, 'total-matricula', '#e8f5e9');
 
     const trSep = document.createElement('tr');
-    trSep.innerHTML = `<td colspan="${1 + turnos.length * 2}" style="background:#dee2e6; height:6px; padding:0;"></td>`;
+    trSep.innerHTML = `<td colspan="${1 + turnos.length}" style="background:#dee2e6; height:6px; padding:0;"></td>`;
     tbody.appendChild(trSep);
 
     const listaSit = Object.keys(datosAprovechamiento).length > 0
@@ -379,17 +370,19 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
 };
 
 // ==========================================
-// 9. Crear Filas — Estilo Matricula (inputs mini H/M)
+// 9. Crear Filas — inputs H/M en una sola celda por turno
 // ==========================================
+
 function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFila, esBloqueadoGral) {
     const tr = document.createElement('tr');
     tr.className = claseFila;
     tr.style.borderBottom = '1px solid #e0e0e0';
-    tr.style.transition   = 'all 0.2s ease';
+    tr.style.transition = 'all 0.2s ease';
     tr.onmouseover = () => tr.style.backgroundColor = '#f5f5f5';
-    tr.onmouseout  = () => tr.style.backgroundColor = '';
+    tr.onmouseout = () => tr.style.backgroundColor = '';
 
-    let html = `<td style="font-weight:600; padding:14px 16px; border:1px solid #dee2e6; vertical-align:middle; font-size:14px; color:#333; background:#f8f9fa; white-space:nowrap; min-width:180px; width:180px; max-width:180px;">${titulo}</td>`;
+    // Primera columna - Situación Académica
+    let html = `<td style="font-weight:600; padding:14px 12px; border:1px solid #dee2e6; vertical-align:middle; font-size:14px; color:#333; background:#f8f9fa; min-width:160px; width:160px;">${titulo}</td>`;
 
     turnos.forEach((t, indexTurno) => {
         const valoresDB = datosMapa[t] || { H: 0, M: 0 };
@@ -399,30 +392,30 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
         let valH = cambiosGlobales.hasOwnProperty(keyH) ? cambiosGlobales[keyH] : (valoresDB.H !== 0 || esSoloLectura ? valoresDB.H : '');
         let valM = cambiosGlobales.hasOwnProperty(keyM) ? cambiosGlobales[keyM] : (valoresDB.M !== 0 || esSoloLectura ? valoresDB.M : '');
 
-        let attr = ''; let bgH = '#fff'; let bgM = '#fff';
-        if (esBloqueadoGral)    { attr = 'disabled'; bgH = '#e9ecef'; bgM = '#e9ecef'; }
-        else if (esSoloLectura) { attr = 'readonly'; bgH = '#f8f9fa'; bgM = '#f8f9fa'; }
+        let attr = ''; 
+        let extraStyle = '';
+        if (esBloqueadoGral) { attr = 'disabled'; extraStyle = 'background-color: #e9ecef; opacity: 0.8;'; }
+        else if (esSoloLectura) { attr = 'readonly'; extraStyle = 'background-color: #f8f9fa; border-color: #ccc;'; }
 
         const borderRight = indexTurno < turnos.length - 1 ? 'border-right:3px solid #8B0A4A;' : '';
 
+        // Se utilizan los estilos de MATRICULA_CONFIG.inputStyles
         html += `
         <td style="padding:10px 8px; text-align:center; border:1px solid #dee2e6; ${borderRight}">
-            <div style="display:inline-flex; gap:8px; justify-content:center; align-items:center;">
-                <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px; background:#e3f2fd; border-radius:6px; border:1px solid #90caf9;">
-                    <div style="font-weight:700; color:#1976d2; font-size:12px; min-width:14px; text-align:center;">H</div>
+            <div class="matricula-pair-horizontal" style="${MATRICULA_CONFIG.inputStyles.container}">
+                <div class="matricula-box matricula-hombre" style="${MATRICULA_CONFIG.inputStyles.boxMale}">
+                    <span class="matricula-label" style="${MATRICULA_CONFIG.inputStyles.labelMale}">${MATRICULA_CONFIG.labels.male}</span>
                     <input type="number" min="0"
-                        class="input-matricula-nueva"
                         data-tipo="${titulo}" data-turno="${t}" data-sexo="Hombre"
                         value="${valH}" oninput="registrarCambio(this)" ${attr}
-                        style="width:64px; padding:4px 6px; border:2px solid #2196f3; border-radius:4px; background:${bgH}; color:#1976d2; font-weight:600; text-align:center; font-size:13px;">
+                        style="width:34px;padding:1px 2px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:10px;line-height:1.1;" >
                 </div>
-                <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px; background:#fce4ec; border-radius:6px; border:1px solid #f48fb1;">
-                    <div style="font-weight:700; color:#c2185b; font-size:12px; min-width:14px; text-align:center;">M</div>
+                <div class="matricula-box matricula-mujer" style="${MATRICULA_CONFIG.inputStyles.boxFemale}">
+                    <span class="matricula-label" style="${MATRICULA_CONFIG.inputStyles.labelFemale}">${MATRICULA_CONFIG.labels.female}</span>
                     <input type="number" min="0"
-                        class="input-matricula-nueva"
                         data-tipo="${titulo}" data-turno="${t}" data-sexo="Mujer"
                         value="${valM}" oninput="registrarCambio(this)" ${attr}
-                        style="width:64px; padding:4px 6px; border:2px solid #e91e63; border-radius:4px; background:${bgM}; color:#c2185b; font-weight:600; text-align:center; font-size:13px;">
+                        style="width:34px;padding:1px 2px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#e91e63;font-weight:600;text-align:center;font-size:10px;line-height:1.1;" >
                 </div>
             </div>
         </td>`;
@@ -435,22 +428,24 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
 function crearFilaTotalizador(tbody, titulo, turnos, idBase, colorFondo) {
     const tr = document.createElement('tr');
     tr.style.backgroundColor = colorFondo;
-    tr.style.borderTop       = '2px solid #dee2e6';
+    tr.style.borderTop = '2px solid #dee2e6';
 
-    let html = `<td style="text-align:right; padding:14px 20px; font-weight:700; font-size:14px; border:1px solid #dee2e6; color:#333; background:#f8f9fa; white-space:nowrap;">${titulo}:</td>`;
+    let html = `<td style="text-align:right; padding:14px 12px; font-weight:700; font-size:14px; border:1px solid #dee2e6; color:#333; background:#f8f9fa; min-width:160px; width:160px;">${titulo}:</td>`;
 
     turnos.forEach((t, indexTurno) => {
         const borderRight = indexTurno < turnos.length - 1 ? 'border-right:3px solid #8B0A4A;' : '';
+        
+        // El totalizador usa una versión escalada de los boxes (padding y font-size mayores)
         html += `
-        <td style="text-align:center; border:1px solid #dee2e6; ${borderRight} padding:10px 8px;">
-            <div style="display:inline-flex; gap:8px; justify-content:center;">
-                <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; background:#e3f2fd; border-radius:6px;">
-                    <span style="font-size:12px; color:#1976d2; font-weight:700;">H</span>
-                    <span id="${idBase}-${t}-Hombre" style="font-weight:800; color:#1976d2; font-size:22px; min-width:30px; display:inline-block; text-align:center;">0</span>
+        <td style="text-align:center; border:1px solid #dee2e6; ${borderRight} padding:12px 8px;">
+            <div style="${MATRICULA_CONFIG.inputStyles.container} gap:10px;">
+                <div style="${MATRICULA_CONFIG.inputStyles.boxMale} padding:6px 14px; border-width:2px; border-radius:8px;">
+                    <span style="font-size:14px; color:#1976d2; font-weight:800; margin-right:4px;"></span>
+                    <span id="${idBase}-${t}-Hombre" style="font-weight:800; color:#1976d2; font-size:24px; min-width:28px; display:inline-block; text-align:center; line-height:1;">0</span>
                 </div>
-                <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; background:#fce4ec; border-radius:6px;">
-                    <span style="font-size:12px; color:#c2185b; font-weight:700;">M</span>
-                    <span id="${idBase}-${t}-Mujer" style="font-weight:800; color:#c2185b; font-size:22px; min-width:30px; display:inline-block; text-align:center;">0</span>
+                <div style="${MATRICULA_CONFIG.inputStyles.boxFemale} padding:6px 14px; border-width:2px; border-radius:8px;">
+                    <span style="font-size:14px; color:#c2185b; font-weight:800; margin-right:4px;"></span>
+                    <span id="${idBase}-${t}-Mujer" style="font-weight:800; color:#c2185b; font-size:24px; min-width:28px; display:inline-block; text-align:center; line-height:1;">0</span>
                 </div>
             </div>
         </td>`;
@@ -496,10 +491,10 @@ window.calcularTablaUnificada = function () {
                 const totalA = sumaAprov[key]     || 0;
                 if (totalM !== totalA) {
                     span.style.color = '#dc3545';
-                    span.innerHTML   = `${totalA} <i class="fas fa-exclamation-circle"></i>`;
+                    span.innerHTML   = `${totalA} <i class="fas fa-exclamation-circle" style="font-size:16px;"></i>`;
                 } else {
                     span.style.color = '#198754';
-                    span.innerHTML   = `${totalA} <i class="fas fa-check"></i>`;
+                    span.innerHTML   = `${totalA} <i class="fas fa-check" style="font-size:16px;"></i>`;
                 }
             });
         });
@@ -512,7 +507,7 @@ function hayErroresDeTotales() {
 }
 
 // ==========================================
-// 11. Bloqueo por Semaforo (igual que matricula)
+// 11. Bloqueo por Semaforo
 // ==========================================
 function aplicarBloqueoPorSemaforo() {
     const estado    = estadosSemaforoPorSemestre[semestreActual] ?? 1;
@@ -542,7 +537,7 @@ function deshabilitarTodaLaVista() {
 // 12. Helpers
 // ==========================================
 function prepararDatosParaEnvio(claves) {
-    const programaVal = document.getElementById('programa')?.value.trim();
+    const programaVal  = document.getElementById('programa')?.value.trim();
     const modalidadVal = document.getElementById('modalidad')?.value.trim();
     const periodoVal   = document.getElementById('periodo-texto')?.textContent.trim() || '';
 
@@ -724,7 +719,7 @@ window.validarCapturaSemestre = async function () {
 
             await Swal.fire({ title: '¡Finalizado!', text: 'Semestre validado correctamente.', icon: 'success', timer: 1500, showConfirmButton: false });
 
-            // Auto-avance al siguiente semestre (igual que matricula)
+            // Auto-avance al siguiente semestre
             const idx = semestresDisponiblesSP.indexOf(semestreActual);
             if (idx !== -1 && idx < semestresDisponiblesSP.length - 1) {
                 setTimeout(() => seleccionarSemestre(semestresDisponiblesSP[idx + 1]), 1000);
@@ -858,7 +853,6 @@ window.togglePanelNotificaciones = function () {
     if (!panel) return;
     const abierto = panel.style.display === 'block';
     panel.style.display = abierto ? 'none' : 'block';
-    // Marcar badge como leído al abrir
     if (!abierto) {
         const badge = document.querySelector('.notificacion-badge');
         if (badge) badge.style.display = 'none';
@@ -955,7 +949,7 @@ document.addEventListener('DOMContentLoaded', function () {
         window.cargarSemestresTabs(programaSelect.value, this.value);
     });
 
-    // Restaurar estado (igual que matricula)
+    // Restaurar estado
     setTimeout(() => {
         try {
             const guardado = JSON.parse(localStorage.getItem('filtro_aprovechamiento'));
