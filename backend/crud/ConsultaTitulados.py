@@ -3,7 +3,8 @@ from sqlalchemy import text
 from typing import List, Dict, Any
 import pyodbc
 from backend.database.connection import get_db
-
+from backend.database.models.Temp_Titulados import Temp_Titulados
+import time
 
 def get_titulados(
     db: Session,
@@ -51,14 +52,29 @@ def get_titulados(
         db.rollback()
         raise RuntimeError(f"Error al ejecutar SP_Consulta_Titulados_Unidad_Academica: {e}")
     
+def insertar_temp_titulados(db: Session, registros: list[Temp_Titulados]) -> int:
+    try:
+        db.add_all(registros)
+        db.commit()
+        return len(registros)
+    except Exception as e:
+        db.rollback()
+        raise e
+    
 if __name__ == "__main__":
+    inicio = time.time()
     with next(get_db()) as db:
         resultado = get_titulados(
             db=db,
-            unidad_academica='ENBA',
+            unidad_academica='ESIME Zacatenco',
             periodo='2025-2026/2',
-            nivel='Superior',
+            nivel='Posgrado',
             usuario='eesquivelo1300',
             host='Test'
         )
-        print(resultado)
+        print(len(resultado))
+    
+    #resultado = ejercicioDOS(18446744073709551629,  1, 3, (3942083613116040372 , 17718673197222366791 , 1), ( 13261599668560413002 , 18256791380151134939 , 1))
+    print(resultado)
+    fin = time.time()
+    print(f"Tiempo de ejecución: {fin - inicio:.4f} segundos")

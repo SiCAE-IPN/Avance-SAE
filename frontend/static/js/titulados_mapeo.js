@@ -5,6 +5,11 @@ const selectTipoTitulacion = document.getElementById('filtro-generacion');
 const selectTurno = document.getElementById('filtro-turno');
 const contenedor = document.getElementById("tabla-edades-seleccion");
 
+selectModalidad.disabled = true;
+selectBoleta.disabled = true;
+selectTipoTitulacion.disabled = true;
+selectTurno.disabled = true;
+
 function resetSelect(select, placeholder) {
     select.innerHTML = `<option value="">${placeholder}</option>`;
     select.disabled = true;
@@ -134,37 +139,3 @@ function actualizarBarraTitulados() {
     
     console.log('Barra actualizada:', nombrePrograma, nombreModalidad);
 }
-
-const edades =  [...new Set(datosFilas.map(f => f.Grupo_Edad))];
-console.log('Edades únicas antes de ordenar:', edades);
-edades.sort ((a, b) => obtenerValorOrdenEdad(a) - obtenerValorOrdenEdad(b));
-console.log('Edades únicas después de ordenar:', edades);
-
-edades.forEach(edad => {
-
-    const label = document.createElement("label");
-    label.style = `
-        display:flex;
-        align-items:center;
-        gap:8px;
-        padding:8px 12px;
-        background:#f8f9fa;
-        border:1px solid #dee2e6;
-        border-radius:6px;
-        cursor:pointer;
-    `;
-
-    label.innerHTML = `
-        <input type="checkbox"
-            class="checkbox-edad"
-            value="${edad}"
-            data-nombre="${edad}"
-            style="width:18px;height:18px;cursor:pointer;">
-        <span style="font-weight:500;color:#333;font-size:14px;">
-            ${edad}
-        </span>
-    `;
-
-    contenedor.appendChild(label);
-
-});

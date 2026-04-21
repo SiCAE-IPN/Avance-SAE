@@ -1,6 +1,4 @@
 
-let filasEgresados = [];
-
 function seleccionarTodasEdades(seleccionar) {
     const checkboxes = document.querySelectorAll('.checkbox-edad');
     checkboxes.forEach(cb => cb.checked = seleccionar);
@@ -86,23 +84,22 @@ function agregarFilasEgresados() {
         if (existe) {
             filasDuplicadas++;
             console.warn(`⚠️ Ya existe una fila para edad: ${edadNombre}`);
-            return; // Skip this edad
+            return; 
         }
         
-        // Crear objeto de fila
+        
         const fila = {
             id: Date.now() + Math.random(), // ID único
-            programa: programa.value,
+            //programa: programa.value,
             programaNombre: programa.options[programa.selectedIndex].text,
-            modalidad: modalidad.value,
+            //modalidad: modalidad.value,
             modalidadNombre: modalidad.options[modalidad.selectedIndex].text,
-            turno: turnoId,
+            //turno: turnoId,
             turnoNombre: turnoNombre,
-            boleta: boleta.value,
             boletaNombre: boleta.options[boleta.selectedIndex].text,
-            generacion: generacion.value,
+            //generacion: generacion.value,
             generacionNombre: generacion.options[generacion.selectedIndex].text,
-            edad: edadValor,
+            //edad: edadValor,
             edadNombre: edadNombre,
             hombres: '',
             mujeres: ''
@@ -213,7 +210,7 @@ function renderizarTablaEgresados() {
     console.log(`Tabla renderizada con ${filasEgresados.length} filas`);
     
    
-    actualizarInformeEgresados();
+   // actualizarInformeEgresados();
 }
 
 function limpiarTabla() {
@@ -233,7 +230,7 @@ function eliminarFilaEgresado(id) {
     if (confirm('¿Está seguro de eliminar este registro?')) {
         filasEgresados = filasEgresados.filter(f => f.id !== id);
         renderizarTablaEgresados();
-        console.log(`🗑️ Fila eliminada: ${id}`);
+       
     }
 }
 

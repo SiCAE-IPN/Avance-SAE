@@ -1,15 +1,34 @@
+from typing import List
 from os import error, nice
+import re
 from fastapi import APIRouter, Depends, Request, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from backend.api import unidad_academica
 from backend.database.connection import get_db
 from backend.core.templates import templates
 from backend.schemas import Nivel
-from backend.services.titulados_service import obtener_titulados
-from backend.services.periodo_service import get_ultimo_periodo
-from backend.database.models.CatBoleta import CatBoleta as Boleta
+from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados
+from backend.crud.ConsultaTitulados import insertar_temp_titulados
+from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
+from backend.database.models.Temp_Titulados import Temp_Titulados as TituladosModel
+
+
+def valor_orden_edad(edad: str):
+    edad = edad.strip()
+
+    if edad.startswith("<"):
+        return int(edad.replace("<", "")) - 0.5
+    
+    if edad.startswith(">="):
+        return int(edad.replace(">=", "")) + 0.5
+    
+    if "-" in edad:
+        inicio = edad.split("-")[0]
+        return int(inicio)
+    
+    return int(edad)
 
 router = APIRouter()
 
@@ -40,7 +59,7 @@ async def consulta_titulados(
     host = "Test"
 
     try:
-        periodo_id, periodo_literal = get_ultimo_periodo(db)
+        periodo_id, periodo_literal = get_periodo_activo(db)
         if not periodo_id or not periodo_literal:
             return templates.TemplateResponse("error.html", {
                 "request": request,
@@ -80,34 +99,61 @@ async def consulta_titulados(
     es_rol_superior = (id_rol in [6, 7, 8, 9])  
     modo_vista = "captura" if es_capturista else "validacion"
 
-
-
-
     try:
-        
-        print(f"Obteniendo titulados para UA: {sigla_unidad_academica}, Periodo: {periodo_default_literal}, Nivel: {nombre_nivel}, Usuario: {usuario}")
+        print(
+            f"Obteniendo titulados para UA: {sigla_unidad_academica}, "
+            f"Periodo: {periodo_default_literal}, "
+            f"Nivel: {nombre_nivel}, "
+            f"Usuario: {usuario}"
+        )
+
         contexto, filas = obtener_titulados(
             db=db,
             unidad_academica=sigla_unidad_academica,
             periodo=periodo_default_literal,
             nivel=nombre_nivel,
             usuario=usuario,
-            host=host
+            host=host,
         )
 
-        boleta = contexto.get("Boleta", "N/A")
-        boletas = list(range(boleta + 1, boleta - 11, -1)) if boleta else []
-        print(f"Boletas obtenida: {boletas}")
+        if filas is None:
+            filas = []
 
-        
-    
-    
-
-    except ValueError as ve:
-        return templates.TemplateResponse("titulados_consulta.html", {"request": request, "error": str(ve)})
     except Exception as e:
-        return templates.TemplateResponse("titulados_consulta.html", {"request": request, "error": f"Error al obtener datos: {e}"})
-    
+        print(f"Error obteniendo titulados: {e}")
+
+        contexto = {}
+        filas = []
+
+    try:
+        boleta = contexto.get("Boleta")
+
+        if boleta:
+            boleta = int(boleta)
+            boletas = list(range(boleta + 1, boleta - 11, -1))
+
+        print(f"Boletas obtenidas: {boletas}")
+
+    except Exception as e:
+
+        print(f"Error calculando boletas: {e}")
+        boletas = []
+
+    try:
+        edades = set(
+            fila["Grupo_Edad"]
+            for fila in filas
+            if fila.get("Grupo_Edad")
+        )
+
+        edades_ordenadas = sorted(edades, key=valor_orden_edad)
+
+        print(f"Edades únicas encontradas: {edades_ordenadas}")
+
+    except Exception as e:
+
+        print(f"Error procesando edades: {e}")
+        edades_ordenadas = []
    
    # print(f"Contexto final: {contexto}")                
     return templates.TemplateResponse(
@@ -121,6 +167,54 @@ async def consulta_titulados(
              "contexto": contexto,
              "boletas": boletas,
              "filas": filas,
+             "edades" : edades_ordenadas,
              "es_capturista": es_capturista,
              "acceso_restringido" : False}
              )
+
+@router.post("/guardar-avance-titulados", response_class=JSONResponse)
+
+def guardar_titulados(request: Request, datos: List[dict], db: Session = Depends(get_db)):
+    
+    sigla_unidad_academica = request.cookies.get("sigla_unidad_academica", "UAP")
+    nombre_nivel = request.cookies.get("nombre_nivel", "Nivel de Prueba")
+
+    
+    try:
+        periodo_id, periodo_literal = get_periodo_activo(db)
+        if not periodo_id or not periodo_literal:
+            return templates.TemplateResponse("error.html", {
+                "request": request,
+                "error_message": "No hay un periodo activo configurado en el sistema.",
+                "redirect_url": "/mod_principal/"
+            })
+        
+        periodo_default_literal = periodo_literal
+        print(f" Periodo por defecto: {periodo_default_literal}")
+    except Exception as e:
+        print(f" Error al obtener periodo: {str(e)}")
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": f"Error al cargar el periodo: {str(e)}",
+            "redirect_url": "/mod_principal/"
+        }) 
+    #print(f"Datos recibidos para guardar: {datos}")
+
+    try:
+        registros = preparar_datos_temp_titulados(
+            datos=datos,
+            periodo=datos[0].get("periodo", "Periodo Desconocido"),
+            sigla=datos[0].get("sigla_unidad_academica", "SIGLA_DESCONOCIDA"),
+            rama=datos[0].get("rama", "Rama Desconocida"),
+            nivel=datos[0].get("nivel", "Nivel Desconocido")
+        )
+
+       # print(f"Registros preparados para guardar: {registros}")
+
+        total = insertar_temp_titulados(db, registros)
+
+    except Exception as e:
+        print(f"Error preparando datos para guardar: {e}")
+        return JSONResponse(content={"status": "error", "message": f"Error preparando datos: {str(e)}"}, status_code=500)
+    
+    return {"status": "guardado", "total_registros": total}

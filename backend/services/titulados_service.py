@@ -4,7 +4,7 @@ from backend.crud.ConsultaTitulados import get_titulados
 #from backend.schemas.titulados import TituladoSchema
 from typing import List, Dict, Any
 from backend.database.connection import get_db
-
+from backend.database.models.Temp_Titulados import Temp_Titulados
 
 def obtener_titulados(
     db: Session,
@@ -58,14 +58,59 @@ def obtener_titulados(
 
     return contexto, filas
 
+def limpiar_numero(val):
+                if val == '' or val is None:
+                    return 0
+                return int(val)
+
+def preparar_datos_temp_titulados(
+    datos: List[Dict[str, Any]],
+    periodo: str,
+    sigla: str,
+    rama: str,
+    nivel: str,
+) -> List[Temp_Titulados]:
+    
+    registros = []
+
+    for fila in datos:
+        base = {
+            "Periodo": periodo,
+            "Sigla": sigla,
+            "Nombre_Programa": fila.get("programaNombre", ""),
+            "Nombre_Rama": rama,
+            "Nivel": nivel,
+            "Modalidad": fila.get("modalidadNombre", ""),
+            "Grupo_Edad": fila.get("edadNombre", ""),
+            "Boleta": int(fila["boletaNombre"]) if str(fila.get("boletaNombre", "")).isdigit() else 0,
+            "Tipo_Titulacion": fila.get("generacionNombre", ""),
+            "Turno": fila.get("turnoNombre", ""),
+        }
+
+        registros.append(Temp_Titulados(
+            **base,
+            Sexo="Hombre",
+            Titulados=limpiar_numero(fila.get("hombres")),
+        ))
+
+        registros.append(Temp_Titulados(
+            **base,
+            Sexo="Mujer",
+            Titulados=limpiar_numero(fila.get("mujeres")),
+        ))
+
+    return registros
+          
+    
+    
 if __name__ == "__main__":
     with next(get_db()) as db:
         contexto, filas = obtener_titulados(
             db=db,
-            unidad_academica='CECyt 11',
+            unidad_academica='ESIME Zacatenco',
             periodo='2025-2026/2',
-            nivel='Medio Superior',
-            usuario='usuario_prueba',
+            nivel='Superior',
+            usuario='admin',
             host='Test'
         )
         print(f"Contexto: {contexto}")
