@@ -2142,7 +2142,7 @@ let semaforoEstados = __MAT.semaforoEstados ?? [];
                 console.log('📊 Sin cambios locales: se conservan valores que vienen del SP');
                 // Solo aplicar reglas de validación por semestre
                 updateInputsBySemestre(semestreActualRestaurar);
-                // ✨ CALCULAR totales ya que no se restaurarán datos
+                // CALCULAR totales ya que no se restaurarán datos
                 calcularTotales();
             }
         }, 100); // Pequeño delay para asegurar que los inputs estén renderizados
@@ -4265,15 +4265,13 @@ function updateInputsBySemestre(semestreNum) {
                     setTimeout(() => {
                         Swal.fire({
                             icon: 'success',
-                            title: '🎉 ¡FELICITACIONES!',
                             html: '<div style="text-align: center;">' +
-                                  '<p style="font-size: 18px; font-weight: bold; margin: 20px 0;">¡Has completado TODOS los semestres!</p>' +
+                                  '<p style="font-size: 18px; font-weight: bold; margin: 20px 0;">¡Has completado los semestres del Programa:!</p>' +
                                   '<hr style="margin: 15px 0; border-color: #28a745;">' +
                                   `<p><strong>📚 Programa:</strong> ${programaNombre}</p>` +
                                   `<p><strong>🎓 Modalidad:</strong> ${modalidadNombre}</p>` +
                                   `<p><strong>✅ Semestres completados:</strong> ${semestresDisponiblesSP.length}</p>` +
                                   '<hr style="margin: 15px 0; border-color: #28a745;">' +
-                                  '<p style="color: #28a745; font-weight: bold;">🔒 Proceso de captura finalizado completamente</p>' +
                                   '</div>',
                             confirmButtonText: 'Entendido',
                             confirmButtonColor: '#28a745',

@@ -30,11 +30,12 @@ label {
   color: #2d3a4a;
 }
 .input-form {
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.7rem 0.9rem;
   border: 1px solid #dbe2ef;
   border-radius: 6px;
   font-size: 1rem;
-  margin-bottom: 1.1rem;
   background: #f7f9fc;
   transition: border-color 0.2s;
 }
@@ -42,6 +43,38 @@ label {
   border-color: #6e0343;
   outline: none;
   background: #fff;
+}
+
+.password-wrapper {
+  position: relative;
+  width: 100%;
+  margin-bottom: 1.1rem;
+}
+
+.password-wrapper .input-form {
+  padding-right: 2.7rem;
+  margin-bottom: 0;
+}
+
+.toggle-eye {
+  position: absolute;
+  right: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #6e0343;
+  cursor: pointer;
+  padding: 0.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-eye:focus {
+  outline: 2px solid #6e0343;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 .btn-primary {
   background: #6e0343;

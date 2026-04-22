@@ -672,7 +672,7 @@ td .matricula-pair { flex-wrap:nowrap; }
     position: sticky;
     bottom: 0;
     z-index: 15; /* Mayor z-index para estar por encima del contenido */
-    box-shadow: 0 -4px 12px rgba(139,38,53,0.15);
+    box-shadow: 0 -4px 12px #6e0343;
     height: 45px; /* Altura fija para reservar espacio */
     min-height: 45px;
 }

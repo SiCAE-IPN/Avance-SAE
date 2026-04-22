@@ -2344,9 +2344,10 @@ async def validar_captura_semestre(request: Request, sess=Depends(get_current_se
         apellidoP_usuario = sess.apellidoP_usuario
         apellidoM_usuario = sess.apellidoM_usuario
         
-        # Construir nombre completo del usuario
+        # Construir nombre completo (solo fallback) y resolver LOGIN real para el SP
         nombre_completo = f"{nombre_usuario} {apellidoP_usuario} {apellidoM_usuario}".strip()
-        usuario_sp = nombre_completo or 'sistema'
+        usuario_login = str(getattr(sess, 'usuario', '') or '').strip()
+        usuario_sp = usuario_login or nombre_completo or 'sistema'
         
         # Obtener host
         host_sp = get_request_host(request)
@@ -2359,7 +2360,7 @@ async def validar_captura_semestre(request: Request, sess=Depends(get_current_se
         print(f"Programa ID: {programa}")
         print(f"Modalidad ID: {modalidad}")
         print(f"Semestre ID: {semestre}")
-        print(f"Usuario: {usuario_sp}")
+        print(f"Usuario login para SP: {usuario_sp}")
         print(f"Host: {host_sp}")
         
         # Validar parámetros obligatorios (sin turno)
@@ -2446,6 +2447,18 @@ async def validar_captura_semestre(request: Request, sess=Depends(get_current_se
         total_grupos = int(data.get('total_grupos', 0) or 0)
         print(f"Total de Grupos (salones) para validación: {total_grupos}")
         
+        print(f"\n=== PARÁMETROS DEL SP_Actualiza_Matricula_Por_Semestre_AU ===")
+        print(f"@UUnidad_Academica = '{unidad_sigla}'")
+        print(f"@PPrograma = '{programa_nombre}'")
+        print(f"@MModalidad = '{modalidad_nombre}'")
+        print(f"@SSemestre = '{semestre_nombre}'")
+        print(f"@SSalones = {total_grupos}")
+        print(f"@UUsuario = '{usuario_sp}'")
+        print(f"@PPeriodo = '{periodo_literal}'")
+        print(f"@HHost = '{host_sp}'")
+        print(f"@NNivel = '{nivel_nombre}'")
+        print(f"==========================================================")
+
         # Ejecutar SP de validación por semestre
         rows_list = execute_sp_actualiza_matricula_por_semestre_au(
             db,
@@ -2733,9 +2746,14 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
         #print(f"   @semaforo = 3")
         print(f"   @NNivel (Id) = {id_nivel}")
         # Estado previo del semáforo
+        semaforo_prev = None
+        periodo_id_validar = None
         try:
-            # Obtener el periodo_id dinámicamente
-            periodo_id_validar, _ = get_ultimo_periodo(db)
+            # Obtener el periodo_id a partir del período seleccionado
+            periodo_row = db.query(Periodo).filter(Periodo.Periodo == periodo_literal).first()
+            periodo_id_validar = periodo_row.Id_Periodo if periodo_row else None
+            if not periodo_id_validar:
+                periodo_id_validar, _ = get_ultimo_periodo(db)
             if not periodo_id_validar:
                 periodo_id_validar = 1  # Fallback
             
@@ -2748,6 +2766,25 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
             print(f"🔎 Semáforo antes de validar: {semaforo_prev.Id_Semaforo if semaforo_prev else 'N/A'}")
         except Exception as _e_prev:
             print(f"ℹ️ No se pudo leer semáforo previo: {_e_prev}")
+
+        # Si ya está validado, no re-ejecutar el SP para evitar transacciones inválidas (SQL 3930)
+        if semaforo_prev and semaforo_prev.Id_Semaforo == 3:
+            print("⏭️ Semáforo ya está en estado 3. Se omite ejecución de SP_Valida_Matricula.")
+            return {
+                "success": True,
+                "mensaje": "La matrícula ya estaba validada previamente.",
+                "data": {
+                    "validado_por": nombre_completo,
+                    "usuario_login": usuario_sp,
+                    "id_usuario": id_usuario,
+                    "id_rol": id_rol,
+                    "fecha_validacion": datetime.now().isoformat(),
+                    "periodo": periodo_literal,
+                    "unidad_academica": unidad_sigla,
+                    "sp_omitido": True,
+                    "motivo": "Semáforo en estado 3"
+                }
+            }
         
         execute_sp_valida_matricula(
             db,
@@ -2778,8 +2815,10 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
             print(f"ℹ️ No se pudo ejecutar diagnóstico de Semaforo_UA: {_e_diag}")
         # Releer semáforo después del SP
         try:
-            # Obtener el periodo_id dinámicamente
-            periodo_id_post, _ = get_ultimo_periodo(db)
+            # Reutilizar el mismo periodo_id para evitar lecturas inconsistentes
+            periodo_id_post = periodo_id_validar
+            if not periodo_id_post:
+                periodo_id_post, _ = get_ultimo_periodo(db)
             if not periodo_id_post:
                 periodo_id_post = 1  # Fallback
             

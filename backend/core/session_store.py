@@ -1,7 +1,3 @@
-# backend/core/session_store.py
-# Simple in-memory session store (no DB, no Redis).
-# NOTE: Works best for single-instance deployments. If you run multiple instances, use Redis.
-
 from __future__ import annotations
 
 import secrets
@@ -77,5 +73,5 @@ class InMemorySessionStore:
             self._store[session_id] = (data, time.time() + ttl_seconds)
 
 
-# Global store instance (simple setup)
+# Instancia Global de Memoria (simple setup)
 session_store = InMemorySessionStore()
