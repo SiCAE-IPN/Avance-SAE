@@ -18,16 +18,22 @@ from backend.database.models.Temp_Titulados import Temp_Titulados as TituladosMo
 def valor_orden_edad(edad: str):
     edad = edad.strip()
 
-    if edad.startswith("<"):
-        return int(edad.replace("<", "")) - 0.5
-    
+    if edad.startswith("<="):
+        return int(edad.replace("<=", "")) - 0.5
+
     if edad.startswith(">="):
         return int(edad.replace(">=", "")) + 0.5
-    
+
+    if edad.startswith("<"):
+        return int(edad.replace("<", "")) - 0.5
+
+    if edad.startswith(">"):
+        return int(edad.replace(">", "")) + 0.5
+
     if "-" in edad:
         inicio = edad.split("-")[0]
         return int(inicio)
-    
+
     return int(edad)
 
 router = APIRouter()
@@ -145,6 +151,7 @@ async def consulta_titulados(
             for fila in filas
             if fila.get("Grupo_Edad")
         )
+        print(f"Edades únicas sin ordenar: {edades}")
 
         edades_ordenadas = sorted(edades, key=valor_orden_edad)
 
