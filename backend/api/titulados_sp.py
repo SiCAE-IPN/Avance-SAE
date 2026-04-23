@@ -47,18 +47,18 @@ async def consulta_titulados(
     filas = []
     
     # Identificar la vista para usuarios (Quitar los default ya que conecte a la base)
-    id_rol = int(request.cookies.get("id_rol",0))
-    nombre_rol = request.cookies.get("nombre_rol", "Capturista")
-    nombre = request.cookies.get("nombre_usuario", "Prueba")
-    apellidoP_usuario = request.cookies.get("apellidoP_usuario", "123")
-    apellidoM_usuario = request.cookies.get("apellidoM_usuario", "456")
+    id_rol = int(request.session.get("id_rol",0))
+    nombre_rol = request.session.get("nombre_rol", "Capturista")
+    nombre = request.session.get("nombre_usuario", "Prueba")
+    apellidoP_usuario = request.session.get("apellidoP_usuario", "123")
+    apellidoM_usuario = request.session.get("apellidoM_usuario", "456")
     nombre_usuario = " ".join(filter(None, [nombre, apellidoP_usuario, apellidoM_usuario]))
     
-    unidad_academica = request.cookies.get("unidad_academica", "unidad_prueba")
-    sigla_unidad_academica = request.cookies.get("sigla_unidad_academica", "UAP")
-    nombre_nivel = request.cookies.get("nombre_nivel", "Nivel de Prueba")
-    nivel_acceso = request.cookies.get("id_nivel")
-    usuario = request.cookies.get("usuario", "usuario_prueba")
+    unidad_academica = request.session.get("unidad_academica", "unidad_prueba")
+    sigla_unidad_academica = request.session.get("sigla_unidad_academica", "UAP")
+    nombre_nivel = request.session.get("nombre_nivel", "Nivel de Prueba")
+    nivel_acceso = request.session.get("id_nivel")
+    usuario = request.session.get("usuario", "usuario_prueba")
 
     host = "Test"
 
