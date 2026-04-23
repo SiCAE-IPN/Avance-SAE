@@ -1,6 +1,4 @@
 from typing import List
-from os import error, nice
-import re
 from fastapi import APIRouter, Depends, Request, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
