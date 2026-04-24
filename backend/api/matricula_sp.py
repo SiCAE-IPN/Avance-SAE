@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Request, Depends
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import json
 from typing import List, Dict, Any
 from fastapi import HTTPException
 from datetime import datetime
+from pathlib import Path
 
 from backend.core.templates import templates
 from backend.core.auth import get_current_session
@@ -26,6 +27,7 @@ from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcadem
 from backend.database.models.SemaforoSemestreUnidadAcademica import SemaforoSemestreUnidadAcademica
 from backend.database.models.ProgramaModalidad import ProgramaModalidad
 from backend.database.models.Validacion import Validacion
+from backend.database.models.Usuario import Usuario
 from backend.services.matricula_service import (
     execute_matricula_sp_with_context,
     get_matricula_metadata_from_sp,
@@ -37,12 +39,72 @@ from backend.services.matricula_service import (
     execute_sp_rechaza_matricula,
     extract_unique_values_from_sp,
 )
+from backend.services.acuse_service import (
+    build_folio_acuse,
+    get_user_acuse_file,
+    list_user_acuses,
+    save_acuse_pdf_for_user,
+)
 from backend.utils.request import get_request_host
+from backend.utils.acuse_pdf import generar_acuse_matricula_pdf_en_memoria
+from backend.utils.email import send_email, EmailSendError
 from backend.database.models.Temp_Matricula import Temp_Matricula
 from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
 
 router = APIRouter()
+
+
+def _html_correo_acuse(*, nombre_completo: str, periodo: str, unidad_sigla: str, folio: str) -> str:
+    return f"""
+    <html>
+      <body style=\"font-family: Arial, sans-serif; color: #222;\">
+        <h2 style=\"color: #6e0343;\">Acuse de Matricula generado</h2>
+        <p>Hola <strong>{nombre_completo}</strong>,</p>
+        <p>Se genero un nuevo acuse de matricula con los siguientes datos:</p>
+        <ul>
+          <li><strong>Periodo:</strong> {periodo}</li>
+          <li><strong>Unidad Academica:</strong> {unidad_sigla}</li>
+          <li><strong>Folio:</strong> {folio}</li>
+        </ul>
+        <p>Se adjunta el PDF de acuse para su consulta.</p>
+      </body>
+    </html>
+    """
+
+
+@router.get('/acuses')
+async def matricula_acuses_view(request: Request, sess=Depends(get_current_session)):
+    return templates.TemplateResponse(
+        "matricula_acuses.html",
+        {
+            "request": request,
+            "mostrar_header": False,
+            "nombre_usuario": sess.nombre_completo,
+            "usuario_login": sess.usuario,
+        },
+    )
+
+
+@router.get('/acuses/listado')
+async def listar_acuses_usuario(sess=Depends(get_current_session)):
+    return {
+        "success": True,
+        "items": list_user_acuses(sess.usuario),
+    }
+
+
+@router.get('/acuses/download/{file_name}')
+async def descargar_acuse(file_name: str, sess=Depends(get_current_session)):
+    acuse_file = get_user_acuse_file(sess.usuario, file_name)
+    if not acuse_file:
+        raise HTTPException(status_code=404, detail="Acuse no encontrado")
+
+    return FileResponse(
+        path=str(acuse_file),
+        media_type="application/pdf",
+        filename=Path(acuse_file).name,
+    )
 
 
 @router.get('/consulta')
@@ -2767,26 +2829,47 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
         except Exception as _e_prev:
             print(f"ℹ️ No se pudo leer semáforo previo: {_e_prev}")
 
-        # Si ya está validado, no re-ejecutar el SP para evitar transacciones inválidas (SQL 3930)
-        if semaforo_prev and semaforo_prev.Id_Semaforo == 3:
-            print("⏭️ Semáforo ya está en estado 3. Se omite ejecución de SP_Valida_Matricula.")
-            return {
-                "success": True,
-                "mensaje": "La matrícula ya estaba validada previamente.",
-                "data": {
-                    "validado_por": nombre_completo,
-                    "usuario_login": usuario_sp,
-                    "id_usuario": id_usuario,
-                    "id_rol": id_rol,
-                    "fecha_validacion": datetime.now().isoformat(),
-                    "periodo": periodo_literal,
-                    "unidad_academica": unidad_sigla,
-                    "sp_omitido": True,
-                    "motivo": "Semáforo en estado 3"
+        # Regla del SP_Valida_Matricula:
+        # solo valida cuando Id_Semaforo == (Id_Rol - 1) para Formato 1.
+        if semaforo_prev:
+            semaforo_actual = int(semaforo_prev.Id_Semaforo or 0)
+            semaforo_esperado = int(id_rol) - 1
+
+            if semaforo_actual >= int(id_rol):
+                print(
+                    f"⏭️ Semáforo ya fue procesado para rol {id_rol} "
+                    f"(actual={semaforo_actual}). Se omite SP_Valida_Matricula."
+                )
+                return {
+                    "success": True,
+                    "mensaje": "La matrícula ya estaba validada previamente para este rol.",
+                    "data": {
+                        "validado_por": nombre_completo,
+                        "usuario_login": usuario_sp,
+                        "id_usuario": id_usuario,
+                        "id_rol": id_rol,
+                        "fecha_validacion": datetime.now().isoformat(),
+                        "periodo": periodo_literal,
+                        "unidad_academica": unidad_sigla,
+                        "sp_omitido": True,
+                        "motivo": f"Semáforo actual ({semaforo_actual}) ya no requiere validación para rol {id_rol}"
+                    }
                 }
-            }
+
+            if semaforo_actual != semaforo_esperado:
+                print(
+                    f"⛔ Semáforo en estado no válido para rol {id_rol}: "
+                    f"actual={semaforo_actual}, esperado={semaforo_esperado}."
+                )
+                return {
+                    "success": False,
+                    "error": (
+                        f"El estado actual ({semaforo_actual}) no permite validar con este rol. "
+                        f"Se esperaba {semaforo_esperado}."
+                    )
+                }
         
-        execute_sp_valida_matricula(
+        sp_rows = execute_sp_valida_matricula(
             db,
             periodo=periodo_literal,
             unidad_sigla=unidad_sigla,
@@ -2796,6 +2879,98 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
             nivel=id_nivel,
             nota=f"Validado por {nombre_completo}"
         )
+        print(
+            "🧾 validar_semestre_rol -> respuesta de SP_Valida_Matricula: "
+            f"rows={len(sp_rows)}, periodo={periodo_literal}, unidad={unidad_sigla}, "
+            f"nivel={id_nivel}, usuario={usuario_sp}"
+        )
+
+        acuse_info = None
+        correo_acuse_enviado = False
+        correo_acuse_error = None
+        acuse_error = None
+
+        # "En dado caso": solo generar acuse si el SP devolvio filas de acuse.
+        if sp_rows:
+            try:
+                first_row = sp_rows[0]
+                estatus_entrega = str(first_row.get("EEntrega") or first_row.get("Estatus") or "")
+                folio_acuse = build_folio_acuse(
+                    periodo_literal=periodo_literal,
+                    unidad_sigla=unidad_sigla,
+                    estatus_entrega=estatus_entrega,
+                )
+
+                pdf_bytes = generar_acuse_matricula_pdf_en_memoria(
+                    escuela=str(getattr(unidad, "Nombre", "") or unidad_sigla),
+                    sigla=unidad_sigla,
+                    folio=folio_acuse,
+                    fecha_evento=datetime.now(),
+                )
+
+                acuse_guardado = save_acuse_pdf_for_user(
+                    usuario_login=usuario_sp,
+                    folio=folio_acuse,
+                    periodo_literal=periodo_literal,
+                    unidad_sigla=unidad_sigla,
+                    pdf_bytes=pdf_bytes,
+                )
+                acuse_info = {
+                    "folio": acuse_guardado.folio,
+                    "file_name": acuse_guardado.file_name,
+                    "download_url": acuse_guardado.relative_url,
+                }
+
+                usuario_db = db.query(Usuario).filter(Usuario.Id_Usuario == id_usuario).first()
+                correo_destino = str(usuario_db.Email or "").strip() if usuario_db else ""
+                if correo_destino:
+                    try:
+                        send_email(
+                            to_email=correo_destino,
+                            subject="Acuse de Matricula",
+                            html_body=_html_correo_acuse(
+                                nombre_completo=nombre_completo,
+                                periodo=periodo_literal,
+                                unidad_sigla=unidad_sigla,
+                                folio=folio_acuse,
+                            ),
+                            attachments=[
+                                {
+                                    "filename": acuse_guardado.file_name,
+                                    "content": pdf_bytes,
+                                    "mime_type": "application/pdf",
+                                }
+                            ],
+                        )
+                        correo_acuse_enviado = True
+                        print(
+                            "📧 Acuse enviado por correo correctamente -> "
+                            f"destino={correo_destino}, archivo={acuse_guardado.file_name}"
+                        )
+                    except EmailSendError as e_mail:
+                        correo_acuse_error = str(e_mail)
+                        print(
+                            "❌ Fallo envio de correo de acuse -> "
+                            f"destino={correo_destino}, error={correo_acuse_error}"
+                        )
+                else:
+                    print(
+                        "⚠️ No se envio correo de acuse: usuario sin email registrado. "
+                        f"usuario={usuario_sp}"
+                    )
+            except Exception as e_acuse:
+                acuse_error = str(e_acuse)
+                print(
+                    "❌ Error al generar/guardar acuse PDF -> "
+                    f"periodo={periodo_literal}, unidad={unidad_sigla}, usuario={usuario_sp}, "
+                    f"error={acuse_error}"
+                )
+        else:
+            print(
+                "⚠️ No se genero acuse porque SP_Valida_Matricula devolvio 0 filas -> "
+                f"periodo={periodo_literal}, unidad={unidad_sigla}, nivel={id_nivel}, "
+                f"usuario={usuario_sp}"
+            )
         # Diagnóstico: Mostrar filas de Semaforo_UA para esta UA+Periodo con y sin Id_Nivel
         try:
             from sqlalchemy import text as _sql_text
@@ -2844,7 +3019,11 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
                 "id_rol": id_rol,
                 "fecha_validacion": datetime.now().isoformat(),
                 "periodo": periodo_literal,
-                "unidad_academica": unidad_sigla
+                "unidad_academica": unidad_sigla,
+                "acuse": acuse_info,
+                "acuse_error": acuse_error,
+                "correo_acuse_enviado": correo_acuse_enviado,
+                "correo_acuse_error": correo_acuse_error,
             }
         }
         

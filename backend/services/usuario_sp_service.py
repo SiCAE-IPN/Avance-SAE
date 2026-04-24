@@ -267,6 +267,18 @@ def _nombres_formatos_para_temp(
     return [f.Formato for f in get_formatos_activos(db)]
 
 
+def _ids_formatos_a_asignar(
+    db: Session,
+    id_rol: int,
+    id_formatos_payload: list[int],
+) -> list[int]:
+    if id_rol == ROL_CAPTURISTA:
+        return sorted(list(set(id_formatos_payload)))
+
+    formatos_activos = get_formatos_activos(db)
+    return sorted([int(f.Id_Formato) for f in formatos_activos if f.Id_Formato])
+
+
 def _row_value(row: dict[str, Any], *keys: str) -> str:
     for key in keys:
         if key in row and row[key] is not None:
@@ -485,6 +497,7 @@ def registrar_usuario_sp(
             raise ValueError("El email esta marcado como eliminado y no puede reutilizarse.")
 
     unidad, rol, nivel, formatos = _resolver_catalogos(db, id_unidad, id_rol, id_nivel, id_formatos)
+    formatos_ids_a_asignar = _ids_formatos_a_asignar(db, id_rol, id_formatos)
     nombres_formatos_temp = _nombres_formatos_para_temp(db, id_rol, formatos)
 
     if generar_password_automatica:
@@ -514,7 +527,7 @@ def registrar_usuario_sp(
         _sincronizar_formatos_usuario(
             db,
             id_usuario=int(usuario_existente.Id_Usuario),
-            id_formatos=id_formatos,
+            id_formatos=formatos_ids_a_asignar,
         )
 
         db.commit()
@@ -564,7 +577,6 @@ def registrar_usuario_sp(
                     @UUnidad_Academica = :unidad,
                     @HHost = :host,
                     @UUsuario = :usuario_operador,
-                    @UUsuarioNvo = :usuario_nuevo,
                     @CContrasena = :password,
                     @EEmail = :email,
                     @NNombre = :nombre,
@@ -595,6 +607,13 @@ def registrar_usuario_sp(
         )
         if not usuario_creado:
             raise ValueError("No fue posible confirmar el alta del usuario.")
+
+        _sincronizar_formatos_usuario(
+            db,
+            id_usuario=int(usuario_creado.Id_Usuario),
+            id_formatos=formatos_ids_a_asignar,
+        )
+        db.commit()
 
         _registrar_bitacora_password_temporal(
             db,
@@ -666,6 +685,7 @@ def modificar_usuario_sp(
         raise ValueError("Debes seleccionar al menos un formato.")
 
     unidad, rol, nivel, formatos = _resolver_catalogos(db, id_unidad, id_rol, id_nivel, id_formatos)
+    formatos_ids_a_asignar = _ids_formatos_a_asignar(db, id_rol, id_formatos)
     nombres_formatos_temp = _nombres_formatos_para_temp(db, id_rol, formatos)
     periodo_literal = _get_periodo_literal(db)
 
@@ -716,6 +736,12 @@ def modificar_usuario_sp(
                 "paterno": paterno,
                 "materno": materno,
             },
+        )
+
+        _sincronizar_formatos_usuario(
+            db,
+            id_usuario=int(usuario_actual.Id_Usuario),
+            id_formatos=formatos_ids_a_asignar,
         )
 
         db.commit()

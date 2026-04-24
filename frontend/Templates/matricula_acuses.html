@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Acuses de Matricula{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/matricula_acuses.css">
+{% endblock %}
+
+{% block content %}
+<div class="acuses-page">
+    <div class="acuses-header">
+        <div>
+            <h1>Acuses de Matricula</h1>
+            <p>Usuario: <strong>{{ nombre_usuario }}</strong></p>
+        </div>
+        <div class="acuses-actions">
+            <a class="btn-secondary" href="/matricula/consulta">Volver a Matricula</a>
+            <button id="btn-recargar-acuses" class="btn-primary" type="button">Recargar</button>
+        </div>
+    </div>
+
+    <div id="acuses-empty" class="acuses-empty" style="display: none;">
+        Aun no tienes acuses generados.
+    </div>
+
+    <div class="acuses-table-wrap">
+        <table class="acuses-table" id="acuses-table">
+            <thead>
+                <tr>
+                    <th>Archivo</th>
+                    <th>Fecha</th>
+                    <th>Tamano</th>
+                    <th>Accion</th>
+                </tr>
+            </thead>
+            <tbody id="acuses-tbody">
+                <tr>
+                    <td colspan="4" class="loading-cell">Cargando acuses...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.__ACUSES_CTX = {
+    usuarioLogin: "{{ usuario_login }}"
+};
+</script>
+<script src="/static/js/matricula_acuses.js"></script>
+{% endblock %}

@@ -9,6 +9,7 @@ from backend.crud.Matricula import (
 from sqlalchemy.orm import Session
 from typing import Dict, List, Any, Optional, Tuple
 from sqlalchemy import text
+from sqlalchemy.exc import ResourceClosedError, ProgrammingError
 from datetime import datetime
 
 
@@ -491,7 +492,7 @@ def execute_sp_valida_matricula(
     #semaforo: int,
     nivel: Any,
     nota: str = ""
-) -> None:
+) -> list[dict[str, Any]]:
     """
     Ejecuta SP_Valida_Matricula.
     Este SP se ejecuta cuando un rol de validación (4 o 5) aprueba la matrícula.
@@ -507,6 +508,12 @@ def execute_sp_valida_matricula(
         # Ya es un nombre; usarlo tal cual
         nivel_literal = str(nivel)
 
+    print(
+        "🧭 execute_sp_valida_matricula() -> "
+        f"periodo={periodo}, unidad={unidad_sigla}, nivel_entrada={nivel}, "
+        f"nivel_resuelto={nivel_literal}, usuario={usuario}, host={host}"
+    )
+
     sql = text(
         """
         EXEC [dbo].[SP_Valida_Matricula]
@@ -520,7 +527,7 @@ def execute_sp_valida_matricula(
     )
     
     try:
-        db.execute(sql, {
+        result = db.execute(sql, {
             'periodo': periodo,
             'unidad': unidad_sigla,
                         'usuario': usuario,
@@ -528,9 +535,37 @@ def execute_sp_valida_matricula(
                         'nivel_literal': nivel_literal,
             'nota': nota or '',
         })
+
+        try:
+            rows = [dict(r) for r in result.mappings().all()]
+        except ResourceClosedError:
+            rows = []
+
+        print(
+            "📦 SP_Valida_Matricula resultado -> "
+            f"rows={len(rows)}"
+        )
+        if not rows:
+            print(
+                "⚠️ SP_Valida_Matricula no devolvio filas. "
+                "Sin filas no se genera acuse ni se envia correo."
+            )
+
         db.commit()
         print(f"✅ SP_Valida_Matricula ejecutado exitosamente")
+        return rows
     except Exception as e:
+        print(
+            "❌ Excepcion en execute_sp_valida_matricula() -> "
+            f"periodo={periodo}, unidad={unidad_sigla}, nivel={nivel_literal}, "
+            f"usuario={usuario}, host={host}, error={str(e)}"
+        )
+        if isinstance(e, ProgrammingError) and "(3930)" in str(e):
+            db.rollback()
+            raise ValueError(
+                "El SP_Valida_Matricula dejo la transaccion SQL en estado invalido (3930). "
+                "Revise el CATCH del SP para hacer ROLLBACK con XACT_STATE() y unifique el uso de @NNivel."
+            ) from e
         print(f"❌ Error al ejecutar SP_Valida_Matricula: {str(e)}")
         db.rollback()
         raise
