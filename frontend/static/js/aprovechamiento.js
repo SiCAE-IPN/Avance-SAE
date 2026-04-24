@@ -7,7 +7,6 @@ let turnosEnPantalla = [];
 let cambiosGlobales = {};
 let scrollPendiente = null;
 
-// Semáforo de estados por semestre (igual que matrícula)
 let estadosSemaforoPorSemestre = {};
 let semestresDisponiblesSP = [];
 const SEMAFORO_COLORES = {
@@ -41,7 +40,7 @@ function semestreNumeroATexto(num) {
 }
 
 // ==========================================
-// 3. Semaforo — Procesar, Colorear y Pestanas
+// 3. Semaforo
 // ==========================================
 function procesarEstadosSemaforoAprovechamiento(prog, mod) {
     estadosSemaforoPorSemestre = {};
@@ -86,7 +85,7 @@ function actualizarColoresPestanas() {
 }
 
 // ==========================================
-// 4. Renderizado de Pestanas
+// 4. Pestanas de semestres
 // ==========================================
 window.cargarSemestresTabs = function (prog, mod, semForzado = null) {
     const container = document.getElementById('semestres-tabs');
@@ -147,9 +146,8 @@ function seleccionarSemestre(sem) {
     semestreActual = sem;
 
     document.querySelectorAll('.semestre-tab').forEach(tab => {
-        const tabSem   = parseInt(tab.getAttribute('data-semestre'));
-        const isActive = tabSem === sem;
-        tab.classList.toggle('active', isActive);
+        const tabSem = parseInt(tab.getAttribute('data-semestre'));
+        tab.classList.toggle('active', tabSem === sem);
     });
 
     actualizarBarraSemestreActual(sem);
@@ -169,7 +167,7 @@ function seleccionarSemestre(sem) {
 // 6. Barra de semestre actual
 // ==========================================
 function actualizarBarraSemestreActual(semestreNum) {
-    const headers = document.querySelectorAll('.tabla-matricula-container .tabla-header');
+    const headers    = document.querySelectorAll('.tabla-matricula-container .tabla-header');
     const nombreProg = document.getElementById('programa')?.selectedOptions?.[0]?.textContent?.trim() || '';
     const nombreMod  = document.getElementById('modalidad')?.selectedOptions?.[0]?.textContent?.trim() || '';
 
@@ -192,19 +190,17 @@ function actualizarBarraSemestreActual(semestreNum) {
 }
 
 // ==========================================
-// 7. Encabezado de la Tabla — Una sola fila, sin subencabezados H/M
+// 7. Encabezado de la tabla
 // ==========================================
 function renderizarEncabezadoTabla(turnos) {
     const thead = document.getElementById('tabla-header');
     if (!thead) return;
     thead.innerHTML = '';
 
-    // Una sola fila de encabezado — sin fila secundaria Hombre/Mujer
     const row1 = document.createElement('tr');
     row1.style.background = 'linear-gradient(135deg, #6e0343 0%, #8B0A4A 100%)';
     row1.style.color = 'white';
 
-    // Columna "Situación Académica" con ancho fijo para que no se corte
     const thSit = document.createElement('th');
     thSit.textContent = 'Situación Académica';
     Object.assign(thSit.style, {
@@ -239,7 +235,7 @@ function renderizarEncabezadoTabla(turnos) {
 }
 
 // ==========================================
-// 8. Renderizado de la Tabla
+// 8. Renderizado principal de la tabla
 // ==========================================
 window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
     const thead = document.getElementById('tabla-header');
@@ -252,7 +248,6 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
     const mod  = String(modalidad).trim().toUpperCase();
     const sem  = Number(semestre);
 
-    // Detectar bloqueo
     const idSemaforo          = estadosSemaforoPorSemestre[sem] ?? 1;
     const esSemestreBloqueado = (idSemaforo === 3);
 
@@ -298,10 +293,8 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
     if (turnos.length === 0) turnos = ['Matutino'];
     window.turnosActualesPantalla = turnos;
 
-    // Encabezado
     renderizarEncabezadoTabla(turnos);
 
-    // Mapear datos
     function mapearDatos(fuente) {
         const mapa = {};
         if (!fuente) return mapa;
@@ -339,7 +332,6 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
         else if (s.startsWith('M')) datosAprovechamiento[sit][t].M += val;
     });
 
-    // Renderizar filas
     crearFilaInput(tbody, 'Inscritos',      turnos, datosInscritos,      true,  'fila-matricula',      esSemestreBloqueado);
     crearFilaInput(tbody, 'Reincorporados', turnos, datosReincorporados, false, 'fila-matricula',      esSemestreBloqueado);
     crearFilaTotalizador(tbody, 'Total Matricula', turnos, 'total-matricula', '#e8f5e9');
@@ -366,23 +358,22 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
     setTimeout(() => {
         aplicarBloqueoPorSemaforo();
         actualizarColoresPestanas();
-    }, 50);
+        renderizarSeccionTotales();
+    }, 80);
 };
 
 // ==========================================
-// 9. Crear Filas — inputs H/M en una sola celda por turno
+// 9. Filas de inputs y totalizadores
 // ==========================================
-
 function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFila, esBloqueadoGral) {
     const tr = document.createElement('tr');
     tr.className = claseFila;
     tr.style.borderBottom = '1px solid #e0e0e0';
-    tr.style.transition = 'all 0.2s ease';
+    tr.style.transition   = 'all 0.2s ease';
     tr.onmouseover = () => tr.style.backgroundColor = '#f5f5f5';
-    tr.onmouseout = () => tr.style.backgroundColor = '';
+    tr.onmouseout  = () => tr.style.backgroundColor = '';
 
-    // Primera columna - Situación Académica
-    let html = `<td style="font-weight:600; padding:14px 12px; border:1px solid #dee2e6; vertical-align:middle; font-size:14px; color:#333; background:#f8f9fa; min-width:160px; width:160px;">${titulo}</td>`;
+    let html = `<td style="font-weight:600; padding:14px 12px; border:1px solid #dee2e6; vertical-align:middle; font-size:14px; color:#333; background:#f8f9fa; white-space:normal; word-break:keep-all; min-width:160px; width:160px; max-width:160px;">${titulo}</td>`;
 
     turnos.forEach((t, indexTurno) => {
         const valoresDB = datosMapa[t] || { H: 0, M: 0 };
@@ -392,30 +383,30 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
         let valH = cambiosGlobales.hasOwnProperty(keyH) ? cambiosGlobales[keyH] : (valoresDB.H !== 0 || esSoloLectura ? valoresDB.H : '');
         let valM = cambiosGlobales.hasOwnProperty(keyM) ? cambiosGlobales[keyM] : (valoresDB.M !== 0 || esSoloLectura ? valoresDB.M : '');
 
-        let attr = ''; 
-        let extraStyle = '';
-        if (esBloqueadoGral) { attr = 'disabled'; extraStyle = 'background-color: #e9ecef; opacity: 0.8;'; }
-        else if (esSoloLectura) { attr = 'readonly'; extraStyle = 'background-color: #f8f9fa; border-color: #ccc;'; }
+        let attr = ''; let bgH = '#fff'; let bgM = '#fff';
+        if (esBloqueadoGral)    { attr = 'disabled'; bgH = '#e9ecef'; bgM = '#e9ecef'; }
+        else if (esSoloLectura) { attr = 'readonly'; bgH = '#f8f9fa'; bgM = '#f8f9fa'; }
 
         const borderRight = indexTurno < turnos.length - 1 ? 'border-right:3px solid #8B0A4A;' : '';
 
-        // Se utilizan los estilos de MATRICULA_CONFIG.inputStyles
         html += `
         <td style="padding:10px 8px; text-align:center; border:1px solid #dee2e6; ${borderRight}">
-            <div class="matricula-pair-horizontal" style="${MATRICULA_CONFIG.inputStyles.container}">
-                <div class="matricula-box matricula-hombre" style="${MATRICULA_CONFIG.inputStyles.boxMale}">
-                    <span class="matricula-label" style="${MATRICULA_CONFIG.inputStyles.labelMale}">${MATRICULA_CONFIG.labels.male}</span>
+            <div style="display:inline-flex; gap:8px; justify-content:center; align-items:center;">
+                <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px; background:#e3f2fd; border-radius:6px; border:1px solid #90caf9;">
+                    <div style="font-weight:700; color:#1976d2; font-size:12px; min-width:14px; text-align:center;">H</div>
                     <input type="number" min="0"
+                        class="input-matricula-nueva"
                         data-tipo="${titulo}" data-turno="${t}" data-sexo="Hombre"
                         value="${valH}" oninput="registrarCambio(this)" ${attr}
-                        style="width:34px;padding:1px 2px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:10px;line-height:1.1;" >
+                        style="width:64px; padding:4px 6px; border:2px solid #2196f3; border-radius:4px; background:${bgH}; color:#1976d2; font-weight:600; text-align:center; font-size:13px;">
                 </div>
-                <div class="matricula-box matricula-mujer" style="${MATRICULA_CONFIG.inputStyles.boxFemale}">
-                    <span class="matricula-label" style="${MATRICULA_CONFIG.inputStyles.labelFemale}">${MATRICULA_CONFIG.labels.female}</span>
+                <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px; background:#fce4ec; border-radius:6px; border:1px solid #f48fb1;">
+                    <div style="font-weight:700; color:#c2185b; font-size:12px; min-width:14px; text-align:center;">M</div>
                     <input type="number" min="0"
+                        class="input-matricula-nueva"
                         data-tipo="${titulo}" data-turno="${t}" data-sexo="Mujer"
                         value="${valM}" oninput="registrarCambio(this)" ${attr}
-                        style="width:34px;padding:1px 2px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#e91e63;font-weight:600;text-align:center;font-size:10px;line-height:1.1;" >
+                        style="width:64px; padding:4px 6px; border:2px solid #e91e63; border-radius:4px; background:${bgM}; color:#c2185b; font-weight:600; text-align:center; font-size:13px;">
                 </div>
             </div>
         </td>`;
@@ -428,24 +419,22 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
 function crearFilaTotalizador(tbody, titulo, turnos, idBase, colorFondo) {
     const tr = document.createElement('tr');
     tr.style.backgroundColor = colorFondo;
-    tr.style.borderTop = '2px solid #dee2e6';
+    tr.style.borderTop       = '2px solid #dee2e6';
 
-    let html = `<td style="text-align:right; padding:14px 12px; font-weight:700; font-size:14px; border:1px solid #dee2e6; color:#333; background:#f8f9fa; min-width:160px; width:160px;">${titulo}:</td>`;
+    let html = `<td style="text-align:right; padding:14px 12px; font-weight:700; font-size:14px; border:1px solid #dee2e6; color:#333; background:#f8f9fa; white-space:normal; word-break:keep-all; min-width:160px; width:160px; max-width:160px;">${titulo}:</td>`;
 
     turnos.forEach((t, indexTurno) => {
         const borderRight = indexTurno < turnos.length - 1 ? 'border-right:3px solid #8B0A4A;' : '';
-        
-        // El totalizador usa una versión escalada de los boxes (padding y font-size mayores)
         html += `
         <td style="text-align:center; border:1px solid #dee2e6; ${borderRight} padding:12px 8px;">
-            <div style="${MATRICULA_CONFIG.inputStyles.container} gap:10px;">
-                <div style="${MATRICULA_CONFIG.inputStyles.boxMale} padding:6px 14px; border-width:2px; border-radius:8px;">
-                    <span style="font-size:14px; color:#1976d2; font-weight:800; margin-right:4px;"></span>
-                    <span id="${idBase}-${t}-Hombre" style="font-weight:800; color:#1976d2; font-size:24px; min-width:28px; display:inline-block; text-align:center; line-height:1;">0</span>
+            <div style="display:inline-flex; gap:10px; justify-content:center; align-items:center;">
+                <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#e3f2fd; border-radius:8px; border:2px solid #90caf9;">
+                    <span style="font-size:14px; color:#1976d2; font-weight:800;">H</span>
+                    <span id="${idBase}-${t}-Hombre" style="font-weight:800; color:#1976d2; font-size:26px; min-width:28px; display:inline-block; text-align:center; line-height:1;">0</span>
                 </div>
-                <div style="${MATRICULA_CONFIG.inputStyles.boxFemale} padding:6px 14px; border-width:2px; border-radius:8px;">
-                    <span style="font-size:14px; color:#c2185b; font-weight:800; margin-right:4px;"></span>
-                    <span id="${idBase}-${t}-Mujer" style="font-weight:800; color:#c2185b; font-size:24px; min-width:28px; display:inline-block; text-align:center; line-height:1;">0</span>
+                <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#fce4ec; border-radius:8px; border:2px solid #f48fb1;">
+                    <span style="font-size:14px; color:#c2185b; font-weight:800;">M</span>
+                    <span id="${idBase}-${t}-Mujer" style="font-weight:800; color:#c2185b; font-size:26px; min-width:28px; display:inline-block; text-align:center; line-height:1;">0</span>
                 </div>
             </div>
         </td>`;
@@ -456,12 +445,13 @@ function crearFilaTotalizador(tbody, titulo, turnos, idBase, colorFondo) {
 }
 
 // ==========================================
-// 10. Calculos
+// 10. Cálculos
 // ==========================================
 window.registrarCambio = function (input) {
     const key = `${semestreActual}|${input.dataset.tipo}|${input.dataset.turno}|${input.dataset.sexo}`;
     cambiosGlobales[key] = input.value === '' ? '' : parseInt(input.value);
     calcularTablaUnificada();
+    renderizarSeccionTotales();
 };
 
 window.calcularTablaUnificada = function () {
@@ -507,11 +497,285 @@ function hayErroresDeTotales() {
 }
 
 // ==========================================
-// 11. Bloqueo por Semaforo
+// 11. TOTALES + TABLA RESUMEN + SEMÁFORO
+// ==========================================
+function obtenerTotalesAprovechamiento() {
+    let totalH = 0, totalM = 0;
+    const porConcepto = {};
+
+    document.querySelectorAll('.fila-aprovechamiento input').forEach(input => {
+        const val      = parseInt(input.value) || 0;
+        const concepto = input.dataset.tipo || 'Sin especificar';
+        const sexo     = input.dataset.sexo;
+
+        if (!porConcepto[concepto]) porConcepto[concepto] = { H: 0, M: 0 };
+        if (sexo === 'Hombre') { totalH += val; porConcepto[concepto].H += val; }
+        else if (sexo === 'Mujer') { totalM += val; porConcepto[concepto].M += val; }
+    });
+
+    return { totalH, totalM, porConcepto };
+}
+
+// Construye el HTML del panel semáforo con TODOS los programas/modalidades de la escuela
+function buildResumenSemaforo() {
+    if (!window.aprovechamientos || window.aprovechamientos.length === 0) return '';
+
+    const cfg = {
+        1: { bar:'#e24b4a', bg:'rgba(226,75,74,.07)',  dot:'#e24b4a', label:'Sin datos', textColor:'#a32d2d' },
+        2: { bar:'#ef9f27', bg:'rgba(239,159,39,.08)', dot:'#ef9f27', label:'Parcial',   textColor:'#854f0b' },
+        3: { bar:'#639922', bg:'rgba(99,153,34,.07)',  dot:'#639922', label:'Completo',  textColor:'#3b6d11' },
+    };
+
+    // Agrupar: { "PROG||MOD": { prog, mod, sems: { numSem: idSemaforo } } }
+    const grupos = {};
+    window.aprovechamientos.forEach(r => {
+        const prog  = String(r.Nombre_Programa || '').trim();
+        const mod   = String(r.Modalidad || '').trim();
+        const sem   = normalizarSemestre(r.Semestre || r.semestre);
+        const idSem = r.Id_Semaforo ?? r.id_semaforo ?? 1;
+        if (!prog || !mod || isNaN(sem) || sem <= 0) return;
+        const key = `${prog.toUpperCase()}||${mod.toUpperCase()}`;
+        if (!grupos[key]) grupos[key] = { prog, mod, sems: {} };
+        const actual = grupos[key].sems[sem] ?? 0;
+        if (idSem > actual) grupos[key].sems[sem] = idSem;
+    });
+
+    const progActual = document.getElementById('programa')?.value?.trim().toUpperCase() || '';
+    const modActual  = document.getElementById('modalidad')?.value?.trim().toUpperCase() || '';
+
+    // Contadores globales
+    const totales = { 1:0, 2:0, 3:0 };
+    Object.values(grupos).forEach(g =>
+        Object.values(g.sems).forEach(id => totales[id] = (totales[id]||0)+1)
+    );
+
+    // Ordenar grupos alfabéticamente por programa
+    const gruposOrdenados = Object.entries(grupos)
+        .sort(([, a], [, b]) => a.prog.localeCompare(b.prog, 'es'));
+
+    const bloques = gruposOrdenados.map(([key, g]) => {
+        const esActivo = key === `${progActual}||${modActual}`;
+        const semestresList = Object.keys(g.sems).map(Number).sort((a,b)=>a-b);
+
+        // Tarjetas mini por semestre
+        const tarjetas = semestresList.map(sem => {
+            const id = g.sems[sem] ?? 1;
+            const c  = cfg[id] || cfg[1];
+            return `
+            <div onclick="irASemestreGlobal('${g.prog.replace(/'/g,"\\'")}','${g.mod.replace(/'/g,"\\'")}',${sem})"
+                 title="${g.prog} · ${g.mod} · Semestre ${sem} — ${c.label}"
+                 style="position:relative;cursor:pointer;border-radius:6px;
+                        border:1px solid rgba(0,0,0,.08);background:${c.bg};
+                        padding:6px 8px 5px;transition:transform .12s,box-shadow .12s;
+                        overflow:hidden;min-width:0;"
+                 onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 10px rgba(0,0,0,.12)'"
+                 onmouseout="this.style.transform='';this.style.boxShadow=''">
+                <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${c.bar};border-radius:6px 6px 0 0;"></div>
+                <div style="font-size:10px;color:#999;font-weight:500;margin-bottom:2px;">Sem. ${sem}</div>
+                <div style="display:flex;align-items:center;gap:4px;">
+                    <span style="width:7px;height:7px;border-radius:50%;background:${c.dot};flex-shrink:0;display:inline-block;"></span>
+                    <span style="font-size:10px;font-weight:600;color:${c.textColor};white-space:nowrap;">${c.label}</span>
+                </div>
+            </div>`;
+        }).join('');
+
+        const bordeActivo = esActivo
+            ? 'border:2px solid #6e0343; box-shadow:0 0 0 3px rgba(110,3,67,.1);'
+            : 'border:1px solid #e8e8e8;';
+
+        const badgeActivo = esActivo
+            ? `<span style="font-size:10px;padding:2px 8px;border-radius:100px;background:#6e0343;color:white;font-weight:600;flex-shrink:0;">Activo</span>`
+            : '';
+
+        // Nombre corto del programa
+        const shortProg = g.prog.length > 45 ? g.prog.slice(0,43)+'…' : g.prog;
+
+        return `
+        <div style="background:white;border-radius:10px;${bordeActivo} padding:12px 14px;">
+            <!-- Encabezado del bloque -->
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px;">
+                <div style="min-width:0;">
+                    <div style="font-size:12px;font-weight:600;color:#333;line-height:1.3;margin-bottom:2px;" title="${g.prog}">${shortProg}</div>
+                    <div style="font-size:11px;color:#888;">${g.mod}</div>
+                </div>
+                ${badgeActivo}
+            </div>
+            <!-- Grid de semestres -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;">
+                ${tarjetas}
+            </div>
+        </div>`;
+    }).join('');
+
+    return `
+    <div style="margin-top:28px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,.08);overflow:hidden;">
+
+        <!-- Encabezado -->
+        <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A);padding:14px 20px;
+                    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <span style="color:white;font-size:16px;font-weight:700;">📋 Estado de captura — todos los programas</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <span style="font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(226,75,74,.3);color:#ffcfcf;font-weight:600;">Sin datos: ${totales[1]}</span>
+                <span style="font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(239,159,39,.3);color:#ffe8b0;font-weight:600;">Parcial: ${totales[2]}</span>
+                <span style="font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(99,153,34,.3);color:#d0edaa;font-weight:600;">Completo: ${totales[3]}</span>
+            </div>
+        </div>
+
+        <!-- Leyenda -->
+        <div style="padding:10px 20px;display:flex;gap:16px;flex-wrap:wrap;border-bottom:1px solid #f0f0f0;background:#fafafa;">
+            <span style="font-size:11px;color:#888;display:flex;align-items:center;gap:4px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:#e24b4a;display:inline-block;"></span>Sin datos
+            </span>
+            <span style="font-size:11px;color:#888;display:flex;align-items:center;gap:4px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:#ef9f27;display:inline-block;"></span>Datos parciales
+            </span>
+            <span style="font-size:11px;color:#888;display:flex;align-items:center;gap:4px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:#639922;display:inline-block;"></span>Datos completos
+            </span>
+            <span style="font-size:11px;color:#bbb;margin-left:auto;">Clic en un semestre para navegar</span>
+        </div>
+
+        <!-- Grid de programas -->
+        <div style="padding:16px 20px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+            ${bloques}
+        </div>
+
+    </div>`;
+}
+
+// Navega a un programa/modalidad/semestre específico desde el panel global
+function irASemestreGlobal(prog, mod, sem) {
+    const programaSelect  = document.getElementById('programa');
+    const modalidadSelect = document.getElementById('modalidad');
+    if (!programaSelect || !modalidadSelect) return;
+
+    // Si el programa ya está en el select, seleccionarlo directamente
+    const optProg = Array.from(programaSelect.options).find(o => o.value === prog);
+    if (optProg) {
+        programaSelect.value = prog;
+        // Recargar modalidades y luego seleccionar semestre
+        cambiosGlobales = {}; estadosSemaforoPorSemestre = {};
+        const secTot = document.getElementById('seccion-totales-aprovechamiento');
+        if (secTot) secTot.remove();
+
+        // Poblar modalidades para el nuevo programa
+        modalidadSelect.innerHTML = '';
+        const modSet = new Set();
+        window.aprovechamientos.forEach(item => {
+            if (item.Nombre_Programa === prog && item.Modalidad && !modSet.has(item.Modalidad)) {
+                modSet.add(item.Modalidad);
+                const opt = document.createElement('option');
+                opt.value = item.Modalidad;
+                opt.textContent = item.Modalidad;
+                modalidadSelect.appendChild(opt);
+            }
+        });
+
+        const optMod = Array.from(modalidadSelect.options).find(o => o.value === mod);
+        if (optMod) modalidadSelect.value = mod;
+
+        window.cargarSemestresTabs(prog, mod, sem);
+
+        // Scroll suave a la tabla tras breve espera
+        setTimeout(() => {
+            const cont = document.querySelector('.tabla-matricula-container');
+            if (cont) {
+                const rect = cont.getBoundingClientRect();
+                window.scrollTo({ top: window.pageYOffset + rect.top - 150, behavior: 'smooth' });
+            }
+        }, 300);
+    }
+}
+
+function renderizarSeccionTotales() {
+    let contenedor = document.getElementById('seccion-totales-aprovechamiento');
+
+    if (!contenedor) {
+        const actionsSection = document.querySelector('.actions-after-table') || document.querySelector('.actions-section');
+        if (!actionsSection) return;
+        contenedor = document.createElement('div');
+        contenedor.id = 'seccion-totales-aprovechamiento';
+        contenedor.style.cssText = 'margin:24px 0 0 0; padding:0 25px 32px 25px;';
+        actionsSection.insertAdjacentElement('afterend', contenedor);
+    }
+
+    const { totalH, totalM, porConcepto } = obtenerTotalesAprovechamiento();
+    const totalGeneral = totalH + totalM;
+    const conceptos    = Object.keys(porConcepto);
+
+    const filasHTML = conceptos.length > 0
+        ? conceptos.map((concepto, i) => {
+            const { H, M } = porConcepto[concepto];
+            const total    = H + M;
+            const bg       = i % 2 === 0 ? '#ffffff' : '#fafafa';
+            return `
+            <tr style="background:${bg};">
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; font-size:14px; color:#333; font-weight:500;">${concepto}</td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#1565c0; font-weight:700;">${H.toLocaleString()}</td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#ad1457; font-weight:700;">${M.toLocaleString()}</td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#6e0343; font-weight:800;">${total.toLocaleString()}</td>
+            </tr>`;
+        }).join('')
+        : `<tr><td colspan="4" style="padding:24px; text-align:center; color:#999; font-style:italic; font-size:14px;">Sin datos capturados aún</td></tr>`;
+
+    contenedor.innerHTML = `
+
+        <!-- ── Barra de Totales Generales ── -->
+        
+        <!-- ── Tabla Resumen ── -->
+        <div style="background:white; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,.08); overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
+                padding:16px 24px; font-size:17px; font-weight:700; letter-spacing:.3px;">
+                📊 Resumen de Aprovechamiento — Semestre ${semestreActual}
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="padding:14px 20px; text-align:left; font-size:14px; font-weight:700;
+                                background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
+                                border:1px solid rgba(255,255,255,.2);">Situación Académica</th>
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
+                                background:#1565c0; color:white; border:1px solid rgba(255,255,255,.2);">Hombres</th>
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
+                                background:#ad1457; color:white; border:1px solid rgba(255,255,255,.2);">Mujeres</th>
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
+                                background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
+                                border:1px solid rgba(255,255,255,.2);">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>${filasHTML}</tbody>
+                    <tfoot>
+                        <tr>
+                            <td style="padding:14px 20px; font-weight:800; font-size:15px;
+                                background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
+                                border:1px solid rgba(255,255,255,.2);">TOTAL</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px;
+                                background:rgba(21,101,192,.85); color:white;
+                                border:1px solid rgba(255,255,255,.2);">${totalH.toLocaleString()}</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px;
+                                background:rgba(173,20,87,.85); color:white;
+                                border:1px solid rgba(255,255,255,.2);">${totalM.toLocaleString()}</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px;
+                                background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
+                                border:1px solid rgba(255,255,255,.2);">${totalGeneral.toLocaleString()}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── Panel Semáforo de Semestres ── -->
+        ${buildResumenSemaforo()}
+    `;
+}
+
+// ==========================================
+// 12. Bloqueo por Semáforo
 // ==========================================
 function aplicarBloqueoPorSemaforo() {
-    const estado    = estadosSemaforoPorSemestre[semestreActual] ?? 1;
-    const bloqueado = (estado === 3);
+    const estado     = estadosSemaforoPorSemestre[semestreActual] ?? 1;
+    const bloqueado  = (estado === 3);
     const btnGuardar = document.getElementById('btn-guardar-matricula');
     const btnValidar = document.getElementById('btn-validar-matricula');
 
@@ -534,7 +798,7 @@ function deshabilitarTodaLaVista() {
 }
 
 // ==========================================
-// 12. Helpers
+// 13. Helpers de envío y memoria local
 // ==========================================
 function prepararDatosParaEnvio(claves) {
     const programaVal  = document.getElementById('programa')?.value.trim();
@@ -553,7 +817,7 @@ function prepararDatosParaEnvio(claves) {
     }
     if (!rama) { const el = document.getElementById('rama-texto'); if (el) rama = el.textContent.trim(); }
 
-    const datos = [];
+    const datos     = [];
     const procesadas = new Set();
 
     claves.forEach(key => {
@@ -595,7 +859,7 @@ function actualizarMemoriaLocalConCambios(datosGuardados) {
                    String(rSexo).charAt(0) === String(dato.sexo).charAt(0);
         });
         if (existente) {
-            existente.Alumnos    = dato.alumnos;
+            existente.Alumnos     = dato.alumnos;
             if (existente.alumnos !== undefined) existente.alumnos = dato.alumnos;
             existente.Id_Semaforo = dato.id_semaforo;
         } else {
@@ -621,7 +885,7 @@ function guardarEstadoYRecargar() {
 }
 
 // ==========================================
-// 13. Acciones: Guardar y Validar (Capturista)
+// 14. Guardar y Validar (Capturista)
 // ==========================================
 window.guardarTablaUnificada = async function () {
     if (hayErroresDeTotales()) {
@@ -719,7 +983,6 @@ window.validarCapturaSemestre = async function () {
 
             await Swal.fire({ title: '¡Finalizado!', text: 'Semestre validado correctamente.', icon: 'success', timer: 1500, showConfirmButton: false });
 
-            // Auto-avance al siguiente semestre
             const idx = semestresDisponiblesSP.indexOf(semestreActual);
             if (idx !== -1 && idx < semestresDisponiblesSP.length - 1) {
                 setTimeout(() => seleccionarSemestre(semestresDisponiblesSP[idx + 1]), 1000);
@@ -733,7 +996,7 @@ window.validarCapturaSemestre = async function () {
 };
 
 // ==========================================
-// 14. Validar / Rechazar (Roles Validadores)
+// 15. Validar / Rechazar (Roles Validadores)
 // ==========================================
 window.validarSemestre = async function () {
     const btnValidar = document.getElementById('btn-validar-semestre');
@@ -809,7 +1072,7 @@ window.confirmarRechazoPanel = async function () {
 };
 
 // ==========================================
-// 15. Panel de Rechazo y Notificaciones
+// 16. Panel de Rechazo y Notificaciones
 // ==========================================
 window.abrirPanelRechazo = function () {
     const panel    = document.getElementById('panel-rechazo');
@@ -871,7 +1134,7 @@ window.mostrarBannerRechazo = function () {
 };
 
 // ==========================================
-// 16. Inicializacion
+// 17. Inicialización
 // ==========================================
 document.addEventListener('DOMContentLoaded', function () {
     const loader          = document.getElementById('pantalla-carga');
@@ -884,7 +1147,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (!window.aprovechamientos) { console.warn('⚠️ No hay datos en window.aprovechamientos'); ocultarLoader(); return; }
 
-    // Cerrar panel notificaciones al hacer clic fuera
     document.addEventListener('click', function (e) {
         const container = document.querySelector('.notificaciones-container');
         if (container && !container.contains(e.target)) {
@@ -893,16 +1155,20 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Solo numeros en inputs
     document.addEventListener('input', function (e) {
         if (e.target.classList.contains('input-matricula-nueva')) {
             e.target.value = e.target.value.replace(/[^0-9]/g, '');
         }
     });
 
+    function limpiarSeccionTotales() {
+        const sec = document.getElementById('seccion-totales-aprovechamiento');
+        if (sec) sec.remove();
+    }
+
     function cargarProgramas(estadoGuardado = null) {
         programaSelect.innerHTML = '';
-        const progSet = new Set();
+        const progSet  = new Set();
         const opciones = [];
         window.aprovechamientos.forEach(item => {
             if (item.Nombre_Programa && !progSet.has(item.Nombre_Programa)) {
@@ -922,7 +1188,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function cargarModalidades(prog, estadoGuardado = null) {
         modalidadSelect.innerHTML = '';
-        const modSet = new Set();
+        const modSet   = new Set();
         const opciones = [];
         window.aprovechamientos.forEach(item => {
             if (item.Nombre_Programa === prog && item.Modalidad && !modSet.has(item.Modalidad)) {
@@ -942,14 +1208,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     programaSelect.addEventListener('change', function () {
         semestreActual = 0; cambiosGlobales = {}; estadosSemaforoPorSemestre = {};
+        limpiarSeccionTotales();
         cargarModalidades(this.value);
     });
+
     modalidadSelect.addEventListener('change', function () {
         cambiosGlobales = {}; estadosSemaforoPorSemestre = {};
+        limpiarSeccionTotales();
         window.cargarSemestresTabs(programaSelect.value, this.value);
     });
 
-    // Restaurar estado
     setTimeout(() => {
         try {
             const guardado = JSON.parse(localStorage.getItem('filtro_aprovechamiento'));
