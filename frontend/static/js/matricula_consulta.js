@@ -4266,11 +4266,11 @@ function updateInputsBySemestre(semestreNum) {
                         Swal.fire({
                             icon: 'success',
                             html: '<div style="text-align: center;">' +
-                                  '<p style="font-size: 18px; font-weight: bold; margin: 20px 0;">¡Has completado los semestres del Programa:!</p>' +
+                                  '<p style="font-size: 18px; font-weight: bold; margin: 20px 0;">¡Has concluido la captura del...!</p>' +
                                   '<hr style="margin: 15px 0; border-color: #28a745;">' +
                                   `<p><strong>📚 Programa:</strong> ${programaNombre}</p>` +
                                   `<p><strong>🎓 Modalidad:</strong> ${modalidadNombre}</p>` +
-                                  `<p><strong>✅ Semestres completados:</strong> ${semestresDisponiblesSP.length}</p>` +
+                                  `<p><strong>✅ Semestres completados:</strong> ${semestresDisponiblesSP.length} semestre(s)</p>` +
                                   '<hr style="margin: 15px 0; border-color: #28a745;">' +
                                   '</div>',
                             confirmButtonText: 'Entendido',
@@ -4958,13 +4958,26 @@ function updateInputsBySemestre(semestreNum) {
             
             if (data.success) {
                 console.log('✅ Matrícula validada exitosamente:', data);
+
+                const acuse = data?.data?.acuse;
+                const acuseHtml = acuse
+                    ? `<b>Acuse:</b> ${acuse.file_name}<br>` +
+                      `<a href="${acuse.download_url}" target="_blank" rel="noopener">Abrir acuse PDF</a><br>`
+                    : '<b>Acuse:</b> No se genero en este evento<br>';
+
+                const correoEstado = data?.data?.correo_acuse_enviado
+                    ? 'Enviado'
+                    : (data?.data?.correo_acuse_error ? `Error: ${data.data.correo_acuse_error}` : 'No enviado');
+
                 await Swal.fire({
                     title: '¡Validado!',
                     html: `${data.mensaje}<br><br>` +
                         `<b>Validado por:</b> ${data.data.validado_por}<br>` +
                         `<b>Unidad Académica:</b> ${data.data.unidad_academica}<br>` +
                         `<b>Periodo:</b> ${data.data.periodo}<br>` +
-                        `<b>Fecha:</b> ${new Date(data.data.fecha_validacion).toLocaleString()}<br><br>` +
+                        `<b>Fecha:</b> ${new Date(data.data.fecha_validacion).toLocaleString()}<br>` +
+                        `${acuseHtml}` +
+                        `<b>Correo acuse:</b> ${correoEstado}<br><br>` +
                         `La matrícula ha sido aprobada completamente.`,
                     icon: 'success',
                     timer: 2500,

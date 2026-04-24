@@ -1,0 +1,98 @@
+.acuses-page {
+    max-width: 1100px;
+    margin: 24px auto;
+    padding: 0 16px 32px;
+}
+
+.acuses-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.acuses-header h1 {
+    margin: 0;
+    color: #6e0343;
+}
+
+.acuses-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-link {
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    text-decoration: none;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: #6e0343;
+    color: #fff;
+}
+
+.btn-secondary {
+    background: #ececec;
+    color: #222;
+}
+
+.btn-link {
+    display: inline-block;
+    background: #f6f6f6;
+    color: #6e0343;
+}
+
+.acuses-empty {
+    background: #fff7e6;
+    border: 1px solid #f6d8a8;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+}
+
+.acuses-table-wrap {
+    background: #fff;
+    border: 1px solid #e7e7e7;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.acuses-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.acuses-table thead th {
+    background: #6e0343;
+    color: #fff;
+    text-align: left;
+    padding: 12px;
+}
+
+.acuses-table tbody td {
+    border-top: 1px solid #eee;
+    padding: 12px;
+}
+
+.loading-cell {
+    text-align: center;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .acuses-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .acuses-table-wrap {
+        overflow-x: auto;
+    }
+}
