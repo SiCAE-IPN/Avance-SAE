@@ -517,6 +517,7 @@ function obtenerTotalesAprovechamiento() {
 }
 
 // Construye el HTML del panel semáforo con TODOS los programas/modalidades de la escuela
+
 function buildResumenSemaforo() {
     if (!window.aprovechamientos || window.aprovechamientos.length === 0) return '';
 
@@ -710,7 +711,7 @@ function renderizarSeccionTotales() {
             const bg       = i % 2 === 0 ? '#ffffff' : '#fafafa';
             return `
             <tr style="background:${bg};">
-                <td style="padding:12px 20px; border:1px solid #e0e0e0; font-size:14px; color:#333; font-weight:500;">${concepto}</td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#333; font-weight:500;">${concepto}</td>
                 <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#1565c0; font-weight:700;">${H.toLocaleString()}</td>
                 <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#ad1457; font-weight:700;">${M.toLocaleString()}</td>
                 <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#6e0343; font-weight:800;">${total.toLocaleString()}</td>
@@ -724,22 +725,22 @@ function renderizarSeccionTotales() {
         
         <!-- ── Tabla Resumen ── -->
         <div style="background:white; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,.08); overflow:hidden;">
-            <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
-                padding:16px 24px; font-size:17px; font-weight:700; letter-spacing:.3px;">
+            <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white; 
+                padding:16px 24px; font-size:20px; text-align:center; font-weight:700; letter-spacing:.3px;">
                 📊 Resumen de Aprovechamiento — Semestre ${semestreActual}
             </div>
             <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse;">
                     <thead>
                         <tr>
-                            <th style="padding:14px 20px; text-align:left; font-size:14px; font-weight:700;
+                            <th style="padding:14px 20px; text-align:center; font-size:20px; font-weight:700;
                                 background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
                                 border:1px solid rgba(255,255,255,.2);">Situación Académica</th>
-                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
+                            <th style="padding:14px 20px; text-align:center; font-size:20px; font-weight:700;
                                 background:#1565c0; color:white; border:1px solid rgba(255,255,255,.2);">Hombres</th>
-                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
+                            <th style="padding:14px 20px; text-align:center; font-size:20px; font-weight:700;
                                 background:#ad1457; color:white; border:1px solid rgba(255,255,255,.2);">Mujeres</th>
-                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
+                            <th style="padding:14px 20px; text-align:center; font-size:20px; font-weight:700;
                                 background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
                                 border:1px solid rgba(255,255,255,.2);">Total</th>
                         </tr>
@@ -747,7 +748,7 @@ function renderizarSeccionTotales() {
                     <tbody>${filasHTML}</tbody>
                     <tfoot>
                         <tr>
-                            <td style="padding:14px 20px; font-weight:800; font-size:15px;
+                            <td style="padding:14px 20px; text-align:center; font-weight:800; font-size:15px;
                                 background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
                                 border:1px solid rgba(255,255,255,.2);">TOTAL</td>
                             <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px;
@@ -766,7 +767,8 @@ function renderizarSeccionTotales() {
         </div>
 
         <!-- ── Panel Semáforo de Semestres ── -->
-        ${buildResumenSemaforo()}
+        
+        <!--Aqui colocar pesos {buildResumenSemaforo()} -->
     `;
 }
 
