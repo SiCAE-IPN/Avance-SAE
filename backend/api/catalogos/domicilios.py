@@ -22,7 +22,7 @@ def domicilios_view(
     """
     Vista para consultar los domicilios mediante un Stored Procedure.
     """
-    UUsuario = getUsuario(request)
+    UUsuario = str(sess.nombre_usuario)
     Rol = str(sess.nombre_rol)
     
     # Obtener periodo dinámico (priorizar activo)
@@ -54,6 +54,8 @@ def domicilios_view(
     except Exception as e:
         print("Error al ejecutar SP_Consulta_Catalogo_Unidad_Academica:", e)
         data = []
+        Rama = []
+        Entidad = []
 
     # Renderizar la plantilla HTML con los resultados
     return templates.TemplateResponse(
@@ -96,7 +98,7 @@ def registrar_ua(data: dict, request: Request, sess=Depends(get_current_session)
     print("Datos recibidos en REGISTRAR:")
     print(data)  # <-- imprime todo el JSON recibido
     try:
-        UUsuario = getUsuario(request)
+        UUsuario = str(sess.nombre_usuario)
         query = text("""
             EXEC [dbo].[SP_Alta_Catalogo_Unidad_Academica]
                 @UUnidad_Academica = :unidad_academica,
@@ -149,7 +151,7 @@ def actualizar_ua(data: dict, request: Request, sess=Depends(get_current_session
     print("\nDatos recibidos en ACTUALIZAR:")
     print("Body recibido:", data)
     try:
-        UUsuario = getUsuario(request)
+        UUsuario = str(sess.nombre_usuario)
         query = text("""
             EXEC [dbo].[SP_Modifica_Catalogo_Unidad_Academica]
                 @UUnidad_Academica = :unidad_academica,
@@ -196,7 +198,7 @@ def eliminar_ua(sigla: str, request: Request, sess=Depends(get_current_session),
 
     
     try:
-        UUsuario = getUsuario(request)
+        UUsuario = str(sess.nombre_usuario)
         query = text("""
             EXEC [dbo].[SP_Baja_Catalogo_Unidad_Academica]
                 @UUnidad_Academica = :unidad_academica,
@@ -222,6 +224,4 @@ def eliminar_ua(sigla: str, request: Request, sess=Depends(get_current_session),
     return {"status": "ok", "msg": "UA eliminada correctamente"}
 
 
-def getUsuario(request: Request, sess=Depends(get_current_session)):
-    UUsuario = sess.nombre_usuario
-    return UUsuario 
+
