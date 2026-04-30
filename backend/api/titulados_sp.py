@@ -10,6 +10,7 @@ from backend.schemas import Nivel
 from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados
 from backend.crud.ConsultaTitulados import insertar_temp_titulados
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
+from backend.core.auth import get_current_session
 from backend.database.models.Temp_Titulados import Temp_Titulados as TituladosModel
 
 
@@ -38,30 +39,36 @@ router = APIRouter()
 
 @router.get("/consulta", response_class=HTMLResponse)
 
+@router.get("/consulta", response_class=HTMLResponse)
 async def consulta_titulados(
     request: Request,
+    sess = Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
     
     contexto = {}
     filas = []
+   
+    id_rol = int(sess.id_rol)
+    nombre_rol = sess.nombre_rol
     
-    # Identificar la vista para usuarios (Quitar los default ya que conecte a la base)
-    id_rol = int(request.session.get("id_rol",0))
-    nombre_rol = request.session.get("nombre_rol", "Capturista")
-    nombre = request.session.get("nombre_usuario", "Prueba")
-    apellidoP_usuario = request.session.get("apellidoP_usuario", "123")
-    apellidoM_usuario = request.session.get("apellidoM_usuario", "456")
+    nombre = sess.nombre_usuario
+    apellidoP_usuario = sess.apellidoP_usuario
+    apellidoM_usuario = sess.apellidoM_usuario
+    
     nombre_usuario = " ".join(filter(None, [nombre, apellidoP_usuario, apellidoM_usuario]))
-    
-    unidad_academica = request.session.get("unidad_academica", "unidad_prueba")
-    sigla_unidad_academica = request.session.get("sigla_unidad_academica", "UAP")
-    nombre_nivel = request.session.get("nombre_nivel", "Nivel de Prueba")
-    nivel_acceso = request.session.get("id_nivel")
-    usuario = request.session.get("usuario", "usuario_prueba")
+    sigla_unidad_academica = sess.sigla_unidad_academica
+    nombre_nivel = sess.nombre_nivel
 
     host = "Test"
+    """
+    unidad_academica = sess.unidad_academica
+   
+    nombre_nivel = getattr(sess, 'nombre_nivel', "Nivel de Prueba")
+    nivel_acceso = getattr(sess, 'id_nivel', 0)
+    usuario = getattr(sess, 'usuario', "usuario_prueba")"""
 
+    print(f"Usuario: {nombre_usuario}, Rol: {nombre_rol} (ID: {id_rol}), Unidad Académica: {unidad_academica} ({sigla_unidad_academica}), Nivel: {nombre_nivel}, Host: {host}")
     try:
         periodo_id, periodo_literal = get_periodo_activo(db)
         if not periodo_id or not periodo_literal:
@@ -108,7 +115,7 @@ async def consulta_titulados(
             f"Obteniendo titulados para UA: {sigla_unidad_academica}, "
             f"Periodo: {periodo_default_literal}, "
             f"Nivel: {nombre_nivel}, "
-            f"Usuario: {usuario}"
+            f"Usuario: {nombre_usuario}"
         )
 
         contexto, filas = obtener_titulados(
@@ -116,7 +123,7 @@ async def consulta_titulados(
             unidad_academica=sigla_unidad_academica,
             periodo=periodo_default_literal,
             nivel=nombre_nivel,
-            usuario=usuario,
+            usuario=nombre_usuario,
             host=host,
         )
 
@@ -168,7 +175,7 @@ async def consulta_titulados(
              "periodo_default_literal": periodo_default_literal,
              "unidad_academica" : unidad_academica,
              "nombre_rol": nombre_rol,
-             "nivel_acceso" : nivel_acceso,
+            # "nivel_acceso" : nivel_acceso,
              "contexto": contexto,
              "boletas": boletas,
              "filas": filas,
