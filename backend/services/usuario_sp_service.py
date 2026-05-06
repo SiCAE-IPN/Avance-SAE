@@ -112,6 +112,14 @@ def _cargar_temp_usuarios(
     if not nombres_formatos:
         nombres_formatos = ["SIN_FORMATO"]
 
+    """print(
+        "Temp_Usuarios -> preparando carga: "
+        f"usuario_objetivo={usuario_objetivo}, sigla_unidad={sigla_unidad}, "
+        f"rol={nombre_rol}, nivel={nombre_nivel}, email={email}, "
+        f"nombre={nombre}, paterno={paterno}, materno={materno}, "
+        f"formatos={nombres_formatos}"
+    )"""
+
     _limpiar_temp_usuarios(db, usuario_objetivo)
 
     insert_sql = text(
@@ -124,6 +132,12 @@ def _cargar_temp_usuarios(
     )
 
     for formato in nombres_formatos:
+        """ print(
+            "Temp_Usuarios -> insertando fila: "
+            f"Sigla={sigla_unidad}, Usuario={usuario_objetivo}, Rol={nombre_rol}, "
+            f"Email={email}, Nombre={nombre}, Paterno={paterno}, Materno={materno}, "
+            f"Nivel={nombre_nivel}, Formato={formato}"
+        )"""
         db.execute(
             insert_sql,
             {
@@ -568,6 +582,13 @@ def registrar_usuario_sp(
         nombres_formatos=nombres_formatos_temp,
     )
 
+    print(
+        "Registrar usuario -> datos resueltos para Temp_Usuarios: "
+        f"usuario_nuevo={usuario_nuevo}, email={email}, "
+        f"unidad={unidad.Sigla}, rol={rol.Rol}, nivel={(nivel.Nivel if nivel else '')}, "
+        f"formatos={nombres_formatos_temp}, periodo={periodo_literal}"
+    )
+
     try:
         db.execute(
             text(
@@ -577,11 +598,7 @@ def registrar_usuario_sp(
                     @UUnidad_Academica = :unidad,
                     @HHost = :host,
                     @UUsuario = :usuario_operador,
-                    @CContrasena = :password,
-                    @EEmail = :email,
-                    @NNombre = :nombre,
-                    @PPaterno = :paterno,
-                    @MMaterno = :materno
+                    @CContrasena = :password 
                 """
             ),
             {
@@ -591,10 +608,6 @@ def registrar_usuario_sp(
                 "usuario_operador": usuario_operador,
                 "usuario_nuevo": usuario_nuevo,
                 "password": password_hash,
-                "email": email,
-                "nombre": nombre,
-                "paterno": paterno,
-                "materno": materno,
             },
         )
         db.commit()
@@ -647,6 +660,8 @@ def registrar_usuario_sp(
         except Exception:
             db.rollback()
 
+#    db.commit()
+#    return {"Id_Usuario": None, "temp_usuarios_cargado": True}
 
 def modificar_usuario_sp(
     db: Session,

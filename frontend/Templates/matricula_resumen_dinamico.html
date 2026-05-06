@@ -1073,6 +1073,8 @@
         const periodo = "{{ periodo }}";
         const nivel = "{{ nivel }}";
         const unidad = "{{ unidad }}";
+        const idUnidadAcademicaSeleccionada = {{ id_unidad_academica|default(0, true) }};
+        const idNivelSeleccionado = {{ id_nivel|default(0, true) }};
         const puedeValidar = {{ 'true' if puede_validar else 'false' }};
         const usuarioYaValido = {{ 'true' if usuario_ya_valido else 'false' }};
         const usuarioYaRechazo = {{ 'true' if usuario_ya_rechazo else 'false' }};
@@ -1178,8 +1180,21 @@
                 validar: '/matricula/validar_semestre_rol',
                 rechazar: '/matricula/rechazar_semestre_rol'
             },
-            buildValidarPayload: () => ({ periodo }),
-            buildRechazarPayload: (motivo) => ({ periodo, motivo }),
+            buildValidarPayload: () => ({
+                periodo,
+                ...(idRol >= 6 && idRol <= 9 ? {
+                    id_unidad_academica: idUnidadAcademicaSeleccionada,
+                    id_nivel: idNivelSeleccionado
+                } : {})
+            }),
+            buildRechazarPayload: (motivo) => ({
+                periodo,
+                motivo,
+                ...(idRol >= 6 && idRol <= 9 ? {
+                    id_unidad_academica: idUnidadAcademicaSeleccionada,
+                    id_nivel: idNivelSeleccionado
+                } : {})
+            }),
             htmlNoTurno: '<span style="font-size: 24px;">⏳</span> <strong>Esperando ser validado por: {{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>',
             htmlYaValido: '<span style="font-size: 24px;">✅</span> <strong>Ya has validado esta matrícula previamente.</strong>',
             htmlYaRechazo: '<span style="font-size: 24px;">❌</span> <strong>Ya has rechazado esta matrícula previamente.</strong>',

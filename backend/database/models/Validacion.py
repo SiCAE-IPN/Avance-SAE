@@ -7,6 +7,8 @@ class Validacion(Base):
     __tablename__ = 'Validacion'
 
     Id_Periodo: Mapped[int] = mapped_column(Integer, primary_key=True)
+    Id_Unidad_Academica: Mapped[int] = mapped_column(Integer, primary_key=True)
+    Id_Nivel: Mapped[int] = mapped_column(Integer, primary_key=True)
     Id_Usuario: Mapped[int] = mapped_column(Integer, primary_key=True)
     Id_Formato: Mapped[int] = mapped_column(Integer, primary_key=True)
     #Tipo de dato de Validado es igual a 'bit' en la base de datos

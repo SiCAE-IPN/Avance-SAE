@@ -1,0 +1,638 @@
+/* ===============================================
+   ESTILOS PARA matricula_acuse_nuevo.html (migrados desde inline <style>)
+   =============================================== */
+/* ESTILOS GENERALES - TAMAÑO CARTA (8.5" x 11") */
+body {
+    background-color: #f0f0f0;
+    margin: 0;
+    padding: 10px;
+}
+
+.contenedor-acuse {
+    max-width: 8.5in;
+    margin: 0 auto;
+    background-color: white;
+    padding: 0.5in;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 11px;
+    line-height: 1.2;
+    color: #333;
+}
+
+/* HEADER - INFORMACIÓN DEL ACUSE */
+.acuse-header {
+    border-bottom: 3px solid #2c3e50;
+    margin-bottom: 0.25in;
+    padding-bottom: 0.15in;
+    text-align: center;
+}
+
+.acuse-header h1 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.header-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+    font-size: 10px;
+    margin-bottom: 10px;
+}
+
+.header-item {
+    text-align: left;
+}
+
+.header-item-label {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.header-item-value {
+    color: #555;
+}
+
+.total-resumen {
+    background-color: #ecf0f1;
+    border-left: 4px solid #3498db;
+    padding: 8px 10px;
+    border-radius: 3px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 12px;
+    margin-top: 10px;
+}
+
+.total-resumen-numero {
+    font-size: 24px;
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+/* Variables y estilos compartidos con Resumen Dinámico */
+:root {
+    --rosa-principal: #6e0343;
+    --rosa-secundario: #8b1257;
+    --rosa-claro: #c2185b;
+    --rosa-muy-claro: #ffffff;
+    --azul-claro: #b3d9ff;
+    --verde-claro: #c8e6c9;
+}
+
+/* Contenedor scrollable similar a resumen-dinamico */
+.contenedor-tabla {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    margin-bottom: 12px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    background: white;
+    padding: 6px;
+}
+
+.tabla-resumen {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 10px;
+    background: white;
+}
+
+.tabla-resumen th,
+.tabla-resumen td {
+    border-right: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
+    padding: 8px 6px;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 10px;
+}
+
+.tabla-resumen thead tr:first-child th { border-top: 1px solid #ddd; }
+
+.tabla-resumen th {
+    background: linear-gradient(135deg, var(--rosa-principal), var(--rosa-secundario));
+    color: white;
+    font-weight: 600;
+}
+
+.tabla-resumen .celda-programa { background-color: var(--azul-claro) !important; font-weight: bold; padding-left: 10px; }
+
+/* Botones estilo resumen-dinamico */
+.btn-validar {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    border-radius: 25px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+}
+
+.btn-validar:hover {
+    background: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+}
+
+.btn-rechazar {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    border-radius: 25px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+}
+
+.btn-rechazar:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+}
+
+/* TABLAS COMPACTAS - LAS 6 TABLAS PRINCIPALES */
+.tabla-seccion {
+    margin-bottom: 0.2in;
+    page-break-inside: avoid;
+}
+
+.tabla-titulo {
+    background-color: #34495e;
+    color: white;
+    padding: 6px 8px;
+    font-weight: bold;
+    font-size: 11px;
+    margin-bottom: 4px;
+    border-radius: 3px;
+    border-left: 4px solid #3498db;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    margin-bottom: 12px;
+}
+
+table thead {
+    background-color: #ecf0f1;
+    border-bottom: 2px solid #2c3e50;
+}
+
+table th {
+    padding: 5px 6px;
+    text-align: center;
+    font-weight: bold;
+    color: #2c3e50;
+    border-right: 1px solid #bdc3c7;
+    font-size: 10px;
+}
+
+table th:last-child {
+    border-right: none;
+}
+
+table td {
+    padding: 4px 6px;
+    border-right: 1px solid #d0d0d0;
+    border-bottom: 1px solid #d0d0d0;
+    text-align: center;
+}
+
+table td:first-child {
+    text-align: left;
+    font-weight: 500;
+}
+
+table td:last-child {
+    border-right: none;
+}
+
+table tbody tr:nth-child(odd) {
+    background-color: #fafafa;
+}
+
+table tbody tr:nth-child(even) {
+    background-color: #ffffff;
+}
+
+table tbody tr:hover {
+    background-color: #f0f7ff;
+}
+
+/* Fila de Totales */
+table tfoot {
+    background-color: #e8f4f8;
+    border-top: 2px solid #2c3e50;
+    font-weight: bold;
+}
+
+table tfoot tr {
+    background-color: #e8f4f8 !important;
+}
+
+table tfoot td {
+    padding: 6px;
+    border-bottom: none;
+}
+
+table tfoot td:first-child {
+    text-align: left;
+}
+
+table tfoot td:last-child {
+    color: #2c3e50;
+    font-size: 11px;
+}
+
+/* FOOTER - INFORMACIÓN DE VALIDACIÓN Y BOTONES */
+.acuse-footer {
+    margin-top: 0.25in;
+    padding-top: 0.15in;
+    border-top: 3px solid #2c3e50;
+    text-align: center;
+}
+
+.estado-validacion {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 11px;
+    margin-bottom: 10px;
+}
+
+.estado-validado {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.estado-rechazado {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.estado-pendiente {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.estado-esperando {
+    background-color: #e2e3e5;
+    color: #383d41;
+    border: 1px solid #d3d6d8;
+}
+
+/* Contenedor de los botones de acción */
+.acciones-validacion {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 30px;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Estilos base para botones */
+.acciones-validacion .btn {
+    min-width: 200px;
+    padding: 14px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* Botón de validar (verde) */
+.acciones-validacion .btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.acciones-validacion .btn-success:hover:not(:disabled) {
+    background: linear-gradient(135deg, #218838 0%, #1aa179 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+.acciones-validacion .btn-success:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+/* Botón de rechazar (rojo) */
+.acciones-validacion .btn-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+}
+
+.acciones-validacion .btn-danger:hover:not(:disabled) {
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+}
+
+.acciones-validacion .btn-danger:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+/* Botón de exportar (azul) */
+.acciones-validacion .btn-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    color: white;
+}
+
+.acciones-validacion .btn-info:hover:not(:disabled) {
+    background: linear-gradient(135deg, #138496 0%, #0c5460 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(23, 162, 184, 0.4);
+}
+
+.acciones-validacion .btn-info:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3);
+}
+
+/* Estado deshabilitado */
+.acciones-validacion .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1) !important;
+}
+
+/* Animación de pulso para botón de validar */
+@keyframes pulse-validar {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(40, 167, 69, 0.6);
+    }
+}
+
+.acciones-validacion .btn-success:not(:disabled) {
+    animation: pulse-validar 2s infinite;
+}
+
+@media (max-width: 768px) {
+    .acciones-validacion {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .acciones-validacion .btn {
+        width: 100%;
+        min-width: auto;
+    }
+}
+
+/* ESTILOS PARA IMPRESIÓN / PDF (CARTA) */
+@media print {
+    body {
+        background-color: white;
+        margin: 0;
+        padding: 0;
+    }
+
+    .contenedor-acuse {
+        max-width: 100%;
+        margin: 0;
+        padding: 0.5in;
+        box-shadow: none;
+        page-break-after: avoid;
+    }
+
+    .tabla-seccion {
+        page-break-inside: avoid;
+    }
+
+    .acuse-header {
+        page-break-inside: avoid;
+    }
+
+    .acuse-footer {
+        page-break-inside: avoid;
+    }
+
+    .botones-accion {
+        display: none !important;
+    }
+
+    table {
+        page-break-inside: avoid;
+    }
+
+    table thead {
+        display: table-header-group;
+    }
+
+    .tabla-titulo {
+        page-break-after: avoid;
+    }
+}
+
+/* RESPONSIVE - MOBILE */
+@media (max-width: 768px) {
+    .contenedor-acuse {
+        max-width: 100%;
+        padding: 10px;
+        margin: 0;
+    }
+
+    .header-info {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    table {
+        font-size: 9px;
+    }
+
+    table th,
+    table td {
+        padding: 3px 4px;
+    }
+
+    .botones-accion {
+        gap: 8px;
+    }
+
+    .btn-accion {
+        padding: 6px 12px;
+        font-size: 10px;
+    }
+}
+
+
+/* ===============================================
+   MARCA DE AGUA (MEJORADA PARA WEASYPRINT)
+   =============================================== */
+.marca-agua {
+    position: fixed; 
+    top: 40%;
+    left: 40%;
+    transform: rotate(-45deg); /* Solo rotación, sin translate que rompe WeasyPrint */
+    font-size: 70px; /* Un poco más pequeño para asegurar que quepa en la hoja */
+    font-weight: bold;
+    color: rgba(128, 128, 128, 0.3); /* Gris muy transparente */
+    text-transform: uppercase;
+    /*z-index: 9999; /* ¡Garantiza que salga POR ENCIMA de las tablas y fondos blancos! */
+    pointer-events: none; 
+}
+
+/* ===============================================
+   VALIDACION / RECHAZO (NUEVA VISTA ACUSE)
+   =============================================== */
+.mensaje-validacion {
+    padding: 14px;
+    border-radius: 8px;
+    text-align: center;
+    margin: 14px auto 0;
+    max-width: 680px;
+    font-size: 12px;
+}
+
+.mensaje-validacion.validada {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.mensaje-validacion.rechazada {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.mensaje-validacion.esperando {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+.panel-rechazo {
+    display: none;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    padding: 14px;
+    margin-top: 12px;
+}
+
+.panel-rechazo h4 {
+    color: #856404;
+    margin: 0 0 8px;
+    font-size: 12px;
+}
+
+.panel-rechazo textarea {
+    width: 100%;
+    min-height: 110px;
+    padding: 10px;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    font-size: 11px;
+    resize: vertical;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.panel-rechazo textarea:focus {
+    outline: none;
+    border-color: #ff9800;
+    box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.2);
+}
+
+.panel-rechazo-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.panel-rechazo-botones {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-cancelar-rechazo,
+.btn-confirmar-rechazo {
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.btn-cancelar-rechazo {
+    background: #6c757d;
+}
+
+.btn-cancelar-rechazo:hover {
+    background: #5a6268;
+}
+
+.btn-confirmar-rechazo {
+    background: #dc3545;
+}
+
+.btn-confirmar-rechazo:hover {
+    background: #c82333;
+}
+
+.btn-confirmar-rechazo:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    .panel-rechazo-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .panel-rechazo-botones {
+        width: 100%;
+    }
+
+    .btn-cancelar-rechazo,
+    .btn-confirmar-rechazo {
+        flex: 1;
+    }
+}

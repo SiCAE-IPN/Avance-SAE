@@ -71,21 +71,25 @@ function initValidacionRechazo(config) {
 
     // Caso 1: ya existe un resultado (validado o rechazado) por este usuario
     if (usuarioYaValido || usuarioYaRechazo) {
-      ui.contenedor.style.display = 'none';
+      ui.contenedor.style.display = '';
       ui.mensaje.style.display = 'block';
       try { ui.mensaje.classList.add(usuarioYaValido ? 'validada' : 'rechazada'); } catch (_) {}
       ui.mensaje.innerHTML = usuarioYaValido
         ? (cfg.htmlYaValido || '<i class="fas fa-lock"></i> Ya registraste tu validación para este resumen.')
         : (cfg.htmlYaRechazo || '<i class="fas fa-lock"></i> Ya registraste un rechazo para este resumen.');
+      ui.btnValidar.disabled = true;
+      ui.btnRechazar.disabled = true;
       return;
     }
 
     // Caso 2: no es el turno de validación para este rol (flujo/semaforo no compatible)
     if (!puedeValidar) {
-      ui.contenedor.style.display = 'none';
+      ui.contenedor.style.display = '';
       ui.mensaje.style.display = 'block';
       try { ui.mensaje.classList.add('esperando'); } catch (_) {}
       ui.mensaje.innerHTML = cfg.htmlNoTurno || '<i class="fas fa-info-circle"></i> Aún no es tu turno de validación.';
+      ui.btnValidar.disabled = true;
+      ui.btnRechazar.disabled = true;
       return;
     }
 

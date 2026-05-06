@@ -12,12 +12,11 @@ from reportlab.pdfgen.canvas import Canvas
 
 
 TEXTO_ACUSE_DEFAULT = (
-    'Con esta fecha, se recibio notificacion via Internet a traves del '
-    '"Sistema de Administracion para los Programas de Mejora Institucional" (S@PMI), '
-    'de la conclusion en la captura de la informacion requerida para el Proceso '
-    'de Estadistica Basica Institucional, de la que se acusa recibo con el numero '
-    'de folio asignado en este documento. A partir de este momento, la Direccion '
-    'de Informacion dara inicio a la revision de su informacion.'
+    'Con esta fecha, se notifica de la conclusión de la captura de la información requerida'
+    'a traves del "Sistema de Captura y Análisis de la Estadística (SICAE)",'
+    'para el Proceso de Estadística Básica Institucional, de la que se acusa de recibido con el número'
+    'de folio asignado en este documento. A partir de este momento, la Dirección de Información,'
+    'dará inicio a la revisión de su información.'
 )
 
 FONT_REGULAR = "NotoSans-Regular"

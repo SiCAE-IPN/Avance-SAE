@@ -13,6 +13,21 @@
     <link rel="stylesheet" href="/static/css/panel-rechazo.css">
     <link rel="stylesheet" href="/static/css/components/botones_validacion.css">
     <script src="/static/js/matricula_inputs.js"></script>
+    <style>
+        {% if rechazo_info %}
+        #banner-rechazo {
+            position: relative;
+            top: auto;
+            left: auto;
+            right: auto;
+            margin: 0 0 20px 0;
+        }
+
+        .filtros-container.matricula-con-rechazo {
+            margin-top: 0;
+        }
+        {% endif %}
+    </style>
 {% endblock %}
 
 {% block content %}
@@ -108,25 +123,30 @@
         <div class="banner-rechazo-icon">
             <span class="icono-advertencia-grande">⚠️</span>
         </div>
-        <div class="banner-rechazo-contenido">
-            <div class="leyenda-items">
-                <div class="leyenda-item">
-                    <div class="leyenda-color" style="background-color: #ff4444;"></div>
-                    <span class="leyenda-texto">Sin Datos</span>
+        <div class="banner-rechazo-content">
+            <div class="banner-rechazo-header">
+                <h3>Matrícula Rechazada</h3>
+                <button class="btn-cerrar-banner" onclick="cerrarBannerRechazo()" title="Cerrar">✕</button>
+            </div>
+            <div class="banner-rechazo-body">
+                <div class="rechazo-motivo">
+                    <strong>Motivo del Rechazo:</strong>
+                    <p>{{ rechazo_info.motivo }}</p>
                 </div>
-                <div class="leyenda-item">
-                    <div class="leyenda-color" style="background-color: #ffbb33;"></div>
-                    <span class="leyenda-texto">Datos Parciales</span>
+                <div class="rechazo-meta">
+                    <span><strong>Rechazado por:</strong> {{ rechazo_info.rechazado_por }}</span>
+                    <span class="separador">•</span>
+                    <span><strong>Fecha:</strong> {{ rechazo_info.fecha }}</span>
                 </div>
-                <div class="leyenda-item">
-                    <div class="leyenda-color" style="background-color: #00C851;"></div>
-                    <span class="leyenda-texto">Datos Completos</span>
+                <div class="rechazo-instrucciones">
+                    <p>Corrige la matrícula y vuelve a guardar antes de finalizar el semestre.</p>
                 </div>
             </div>
         </div>
-        
-        <!-- Filtros básicos -->
-        <div class="filtros-container" style="margin-top: 20px;">
+    </div>
+
+    <!-- Filtros básicos -->
+    <div class="filtros-container matricula-con-rechazo">
             <div class="filtros-row">
                 <input type="hidden" id="periodo" name="periodo" value="{{ periodo_default_id }}">
                 <div class="filtro-item">
@@ -142,9 +162,9 @@
                 <input type="hidden" id="unidad_academica" name="unidad_academica" value="0">
             </div>
         </div>
-        
-        <!-- Sección de Captura con tabla completa (vista validadores) -->
-        <div class="captura-container">
+
+        <!-- Sección de Captura con tabla completa (vista con rechazo - oculta hasta seleccionar programa) -->
+        <div class="captura-container" id="captura-matricula-container" style="display: none;">
             <!-- Pestañas de Semestres -->
             <div class="semestres-tabs" id="semestres-tabs">
                 <!-- Las pestañas se generarán dinámicamente con JavaScript -->
@@ -173,7 +193,7 @@
                                 <div style="flex:1;min-width:120px;">
                                     <div style="background:#e3f2fd;padding:8px;border-radius:8px;border:2px solid #2196f3;">
                                         <div style="font-size:15px;color:#1976d2;font-weight:700;margin-bottom:4px;text-align:center;">HOMBRE</div>
-                                        <div id="total_masculino" style="font-size:24px;color:#1976d2;font-weight:700;">0</div>
+                                        <div id="total_masculino" style="font-size:24px;color:#1976d2;font-weight:700;text-align: center;">0</div>
                                     </div>
                                 </div>
                                 <div style="flex:1;min-width:120px;">
@@ -194,7 +214,34 @@
                 </div>
             </div>
             
-            <!-- Botones de acción para validadores -->
+            <!-- Botones de acción según rol -->
+            {% if es_capturista %}
+            <!-- Botones para Capturista (rol ID 3) con rechazo -->
+            <div class="actions-section actions-after-table">
+                <button id="btn-guardar-matricula" type="button" class="btn-primary" onclick="guardarYActualizarMatricula()"
+                        {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
+                    💾 Guardar Avance
+                </button>
+                <button id="btn-limpiar-formulario" type="button" class="btn-secondary" onclick="limpiarFormulario()"
+                        {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
+                    🧹 Limpiar Formulario
+                </button>
+                <button id="btn-validar-semestre" type="button" class="btn-success" onclick="validarSemestre()"
+                        {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
+                    ✅ Validar Semestre
+                </button>
+                <!-- Botón de validación masiva (solo cuando hay rechazo) -->
+                {% if matricula_rechazada %}
+                <button id="btn-validar-todos-semestres" type="button" class="btn-success btn-validacion-masiva" 
+                        onclick="validarTodosLosSemestres()" 
+                        {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}
+                        style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); margin-left: 10px;">
+                    ✅✅ Validar Todos los Semestres
+                </button>
+                {% endif %}
+            </div>
+            {% else %}
+            <!-- Botones para validadores (roles 4+) -->
             <div class="acciones-validacion">
                 <button type="button" class="btn btn-success" onclick="validarSemestre()" 
                         {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
@@ -205,6 +252,7 @@
                     ❌ Rechazar Semestre
                 </button>
             </div>
+            {% endif %}
         </div>
     </div>
     
@@ -328,55 +376,6 @@
             </div>
         </div>
         
-        <!-- Botones justo después de la tabla -->
-        <div class="actions-section actions-after-table">
-            {% if es_capturista %}
-            <!-- Botones para Capturista (rol ID 3) -->
-            <button id="btn-guardar-matricula" type="button" class="btn-primary" onclick="guardarYActualizarMatricula()">
-                💾 Guardar Avance
-            </button>
-            <button id="btn-limpiar-formulario" type="button" class="btn-secondary" onclick="limpiarFormulario()">
-                🧹 Limpiar Formulario
-            </button>
-            {% if matricula_rechazada %}
-            <!-- Botón de validación masiva (solo cuando hay rechazo) -->
-            <button id="btn-validar-todos-semestres" type="button" class="btn-success btn-validacion-masiva" 
-                    onclick="validarTodosLosSemestres()" 
-                    style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); margin-left: 10px;">
-                ✅✅ Validar Todos los Semestres
-            </button>
-            {% endif %}
-            <!-- Botón Finalizar Semestre -->
-            <button id="btn-finalizar-captura" type="button" class="btn-finalizar" onclick="validarCapturaSemestre()">
-                🎯 Finalizar Semestre
-            </button>
-            {% else %}
-            <!-- Botones para roles de validación (ID 4, 5, 6, 7, 8) -->
-            <button id="btn-validar-semestre" type="button" class="btn-success" onclick="validarSemestre()"
-                {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
-                ✅ Validar
-            </button>
-            <button id="btn-rechazar-semestre" type="button" class="btn-danger" onclick="rechazarSemestre()"
-                {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
-                ❌ Rechazar
-            </button>
-            
-            <!-- Mensaje informativo cuando ya se validó/rechazó -->
-            {% if usuario_ya_valido or usuario_ya_rechazo %}
-            <div class="mensaje-validacion-previa {% if usuario_ya_valido %}validada{% else %}rechazada{% endif %}">
-                <span class="icono-info">{% if usuario_ya_valido %}✅{% else %}❌{% endif %}</span>
-                <span class="texto-info">
-                    {% if usuario_ya_valido %}
-                    Ya has <strong>validado</strong> esta matrícula.
-                    {% else %}
-                    Ya has <strong>rechazado</strong> esta matrícula.
-                    {% endif %}
-                </span>
-            </div>
-            {% endif %}
-            {% endif %}
-        </div>
-        
         <!-- Panel de Rechazo (se despliega debajo de los botones) -->
         <div id="panel-rechazo" class="panel-rechazo" style="display: none;">
             <div class="panel-rechazo-header">
@@ -471,6 +470,7 @@
     semestresMapJson: {{ semestres_map_json | safe }},
     periodoLiteral: "{{ periodo_default_literal }}",
     rowsInicialesSp: {{ rows_sp_iniciales | tojson | default('[]', true) }},
+        programas: {{ programas | tojson }},
     programaAModalidades: {{ programa_a_modalidades_json | safe }},
     todasLasModalidades: {{ modalidades | tojson }},
     esCapturista: {{ 'true' if es_capturista else 'false' }},
