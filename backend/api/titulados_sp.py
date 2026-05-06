@@ -12,7 +12,7 @@ from backend.crud.ConsultaTitulados import insertar_temp_titulados
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
 from backend.core.auth import get_current_session
 from backend.database.models.Temp_Titulados import Temp_Titulados as TituladosModel
-
+from backend.database.models.CatUnidadAcademica import CatUnidadAcademica as Unidad_Academica
 
 def valor_orden_edad(edad: str):
     edad = edad.strip()
@@ -58,9 +58,22 @@ async def consulta_titulados(
     
     nombre_usuario = " ".join(filter(None, [nombre, apellidoP_usuario, apellidoM_usuario]))
     sigla_unidad_academica = sess.sigla_unidad_academica
+    id_unidad_academica = int(sess.id_unidad_academica)
     nombre_nivel = sess.nombre_nivel
 
     host = "Test"
+
+   
+
+    if id_unidad_academica > 0:
+            ua_usuario = db.query(Unidad_Academica).filter(
+                Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
+            ).first()
+
+    unidad_academica_usuario = ua_usuario.Nombre
+    nivel = sess.id_nivel
+
+    print(unidad_academica_usuario)
     """
     unidad_academica = sess.unidad_academica
    
@@ -173,9 +186,9 @@ async def consulta_titulados(
             {"request": request,
              "nombre_usuario": nombre_usuario,
              "periodo_default_literal": periodo_default_literal,
-             "unidad_academica" : unidad_academica,
+             "unidad_academica" : unidad_academica_usuario,
              "nombre_rol": nombre_rol,
-            # "nivel_acceso" : nivel_acceso,
+             "nivel_acceso" : nivel,
              "contexto": contexto,
              "boletas": boletas,
              "filas": filas,

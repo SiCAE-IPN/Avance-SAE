@@ -91,6 +91,9 @@ function agregarFilasEgresados() {
         const fila = {
             id: Date.now() + Math.random(), // ID único
             //programa: programa.value,
+            
+            periodo: periodoDefault,
+
             programaNombre: programa.options[programa.selectedIndex].text,
             //modalidad: modalidad.value,
             modalidadNombre: modalidad.options[modalidad.selectedIndex].text,
