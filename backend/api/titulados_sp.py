@@ -2,6 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, Request, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
+from backend.core.auth import get_current_session
 
 from backend.api import unidad_academica
 from backend.database.connection import get_db
@@ -40,7 +41,8 @@ router = APIRouter()
 
 async def consulta_titulados(
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    sess=Depends(get_current_session)
 ):
     
     contexto = {}

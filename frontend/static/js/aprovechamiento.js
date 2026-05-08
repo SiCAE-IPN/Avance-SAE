@@ -516,8 +516,134 @@ function obtenerTotalesAprovechamiento() {
     return { totalH, totalM, porConcepto };
 }
 
-// Construye el HTML del panel semáforo con TODOS los programas/modalidades de la escuela
+// ──────────────────────────────────────────────────────────────
+// Evalúa si TODA la unidad está en semáforo 2 (listo para validar masivo)
+// Regla: todos los semestres de todos los programas deben ser >= 2
+//        y al menos uno debe ser exactamente 2 (no todos verdes aún)
+// ──────────────────────────────────────────────────────────────
+function obtenerEstadoGlobalUnidad() {
+    if (!window.aprovechamientos || window.aprovechamientos.length === 0)
+        return { listoParaValidar: false, conteos: { 1:0, 2:0, 3:0 }, total: 0 };
 
+    const mapaGlobal = {};   // "PROG||MOD||SEM" -> idSemaforo máximo
+    window.aprovechamientos.forEach(r => {
+        const prog  = String(r.Nombre_Programa || '').trim().toUpperCase();
+        const mod   = String(r.Modalidad || '').trim().toUpperCase();
+        const sem   = normalizarSemestre(r.Semestre || r.semestre);
+        const idSem = r.Id_Semaforo ?? r.id_semaforo ?? 1;
+        if (!prog || !mod || isNaN(sem) || sem <= 0) return;
+        const key = `${prog}||${mod}||${sem}`;
+        const actual = mapaGlobal[key] ?? 0;
+        if (idSem > actual) mapaGlobal[key] = idSem;
+    });
+
+    const valores = Object.values(mapaGlobal);
+    if (valores.length === 0) return { listoParaValidar: false, conteos: {1:0,2:0,3:0}, total: 0 };
+
+    const conteos = { 1: 0, 2: 0, 3: 0 };
+    valores.forEach(v => conteos[v] = (conteos[v] || 0) + 1);
+
+    // Listo para validar masivo si: no hay ninguno en 1 (sin datos)
+    // y hay al menos uno en 2 (parcial/completo sin validar)
+    const listoParaValidar = conteos[1] === 0 && conteos[2] > 0;
+
+    return { listoParaValidar, conteos, total: valores.length };
+}
+
+// ──────────────────────────────────────────────────────────────
+// Validar TODA la unidad de golpe
+// ──────────────────────────────────────────────────────────────
+window.validarTodaLaUnidad = async function () {
+    const periodoVal = document.getElementById('periodo-texto')?.textContent.trim() || '';
+    const unidadVal  = document.getElementById('unidad-texto')?.textContent.trim()
+                    || document.getElementById('unidad_academica')?.value?.trim() || '';
+
+    // Obtener nivel desde los datos
+    let nivelVal = 'Superior';
+    const fuentesNivel = [window.aprovechamientos, window.inscritos, window.reincorporados];
+    for (const fuente of fuentesNivel) {
+        if (fuente?.length) {
+            const r = fuente.find(rec => rec.Nivel || rec.nivel);
+            if (r) { nivelVal = r.Nivel || r.nivel || 'Superior'; break; }
+        }
+    }
+
+    const { conteos, total } = obtenerEstadoGlobalUnidad();
+
+    const confirmResult = await Swal.fire({
+        title: '✅ ¿Validar toda la Unidad?',
+        html: `
+            <p style="margin-bottom:12px;">Estás a punto de <b>validar todos los programas y semestres</b> de la unidad académica:</p>
+            <div style="background:#f8f9fa; border-radius:8px; padding:14px; margin-bottom:14px; text-align:left;">
+                <div style="margin-bottom:6px;"><b>Unidad:</b> ${unidadVal}</div>
+                <div style="margin-bottom:6px;"><b>Periodo:</b> ${periodoVal}</div>
+                <div style="margin-bottom:6px;"><b>Nivel:</b> ${nivelVal}</div>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:10px;">
+                <span style="padding:4px 12px; border-radius:100px; background:rgba(239,159,39,.15); color:#854f0b; font-weight:600; font-size:13px;">
+                    Pendientes: ${conteos[2]}
+                </span>
+                <span style="padding:4px 12px; border-radius:100px; background:rgba(99,153,34,.15); color:#3b6d11; font-weight:600; font-size:13px;">
+                    Ya completos: ${conteos[3]}
+                </span>
+                <span style="padding:4px 12px; border-radius:100px; background:#e3f2fd; color:#1565c0; font-weight:600; font-size:13px;">
+                    Total: ${total}
+                </span>
+            </div>
+            <p style="color:#dc3545; font-size:13px; margin:0;">Esta acción <b>no se puede deshacer</b>. Todos los semestres quedarán bloqueados.</p>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#198754',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '✅ Sí, Validar Todo',
+        cancelButtonText: 'Cancelar',
+        width: 520,
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Validando toda la unidad...',
+        html: 'Procesando todos los programas y semestres...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+        const res = await fetch('/aprovechamiento/validar_unidad_completa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                periodo:          periodoVal,
+                unidad_academica: unidadVal,
+                nivel:            nivelVal,
+            }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            Swal.fire('Error', data.detail || 'No se pudo validar la unidad.', 'error');
+            return;
+        }
+
+        await Swal.fire({
+            title: '¡Unidad Validada!',
+            text: 'Todos los programas y semestres han sido validados correctamente.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false,
+        });
+
+        guardarEstadoYRecargar();
+
+    } catch (e) {
+        Swal.fire('Error', 'Error de conexión al validar la unidad.', 'error');
+    }
+};
+
+// Construye el HTML del panel semáforo con TODOS los programas/modalidades de la escuela
 function buildResumenSemaforo() {
     if (!window.aprovechamientos || window.aprovechamientos.length === 0) return '';
 
@@ -608,17 +734,53 @@ function buildResumenSemaforo() {
         </div>`;
     }).join('');
 
+    // Evaluar si aplica el botón de validación masiva
+    const estadoGlobal = obtenerEstadoGlobalUnidad();
+    const btnValidarMasivo = estadoGlobal.listoParaValidar ? `
+        <button
+            onclick="validarTodaLaUnidad()"
+            title="Todos los programas tienen datos. Validar toda la unidad de una sola vez."
+            style="
+                display:inline-flex; align-items:center; gap:7px;
+                background:linear-gradient(135deg,#1b8a3e,#25a84f);
+                color:white; border:none; padding:8px 18px;
+                border-radius:8px; font-size:13px; font-weight:700;
+                cursor:pointer; white-space:nowrap;
+                box-shadow:0 3px 10px rgba(0,0,0,.25);
+                animation: pulseGreen 2s infinite;
+                transition:transform .15s, box-shadow .15s;
+            "
+            onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 18px rgba(0,0,0,.3)'"
+            onmouseout="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(0,0,0,.25)'"
+        >
+            <span style="font-size:16px;">✅</span>
+            Validar toda la Unidad
+        </button>` : '';
+
+    // CSS animación pulso verde (se inyecta una sola vez)
+    if (estadoGlobal.listoParaValidar && !document.getElementById('style-pulse-green')) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'style-pulse-green';
+        styleEl.textContent = `
+            @keyframes pulseGreen {
+                0%,100% { box-shadow:0 3px 10px rgba(27,138,62,.4); }
+                50%      { box-shadow:0 3px 22px rgba(27,138,62,.75); }
+            }`;
+        document.head.appendChild(styleEl);
+    }
+
     return `
     <div style="margin-top:28px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,.08);overflow:hidden;">
 
         <!-- Encabezado -->
         <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A);padding:14px 20px;
-                    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
             <span style="color:white;font-size:16px;font-weight:700;">📋 Estado de captura — todos los programas</span>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <span style="font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(226,75,74,.3);color:#ffcfcf;font-weight:600;">Sin datos: ${totales[1]}</span>
                 <span style="font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(239,159,39,.3);color:#ffe8b0;font-weight:600;">Parcial: ${totales[2]}</span>
                 <span style="font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(99,153,34,.3);color:#d0edaa;font-weight:600;">Completo: ${totales[3]}</span>
+                ${btnValidarMasivo}
             </div>
         </div>
 
@@ -711,7 +873,7 @@ function renderizarSeccionTotales() {
             const bg       = i % 2 === 0 ? '#ffffff' : '#fafafa';
             return `
             <tr style="background:${bg};">
-                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#333; font-weight:500;">${concepto}</td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; font-size:14px; color:#333; font-weight:500;">${concepto}</td>
                 <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#1565c0; font-weight:700;">${H.toLocaleString()}</td>
                 <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#ad1457; font-weight:700;">${M.toLocaleString()}</td>
                 <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#6e0343; font-weight:800;">${total.toLocaleString()}</td>
@@ -722,25 +884,49 @@ function renderizarSeccionTotales() {
     contenedor.innerHTML = `
 
         <!-- ── Barra de Totales Generales ── -->
-        
+        <div style="
+            display:flex; align-items:stretch;
+            border-radius:14px; overflow:hidden;
+            box-shadow:0 6px 24px rgba(110,3,67,.18);
+            margin-bottom:28px;
+        ">
+            <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
+                font-size:17px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase;
+                padding:22px 28px; display:flex; align-items:center; justify-content:center; min-width:130px;">
+                TOTALES
+            </div>
+            <div style="flex:1; background:#e3f2fd; border:2px solid #90caf9; border-left:none; padding:18px 24px; text-align:center;">
+                <div style="font-size:12px; font-weight:700; color:#1976d2; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;">HOMBRE</div>
+                <div style="font-size:44px; font-weight:900; color:#1565c0; line-height:1;">${totalH.toLocaleString()}</div>
+            </div>
+            <div style="flex:1; background:#fce4ec; border:2px solid #f48fb1; border-left:none; padding:18px 24px; text-align:center;">
+                <div style="font-size:12px; font-weight:700; color:#c2185b; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;">MUJER</div>
+                <div style="font-size:44px; font-weight:900; color:#ad1457; line-height:1;">${totalM.toLocaleString()}</div>
+            </div>
+            <div style="flex:1; background:#e8f5e9; border:2px solid #a5d6a7; border-left:none; padding:18px 24px; text-align:center;">
+                <div style="font-size:12px; font-weight:700; color:#2e7d32; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;">TOTAL GENERAL</div>
+                <div style="font-size:44px; font-weight:900; color:#1b5e20; line-height:1;">${totalGeneral.toLocaleString()}</div>
+            </div>
+        </div>
+
         <!-- ── Tabla Resumen ── -->
         <div style="background:white; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,.08); overflow:hidden;">
-            <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white; 
-                padding:16px 24px; font-size:20px; text-align:center; font-weight:700; letter-spacing:.3px;">
+            <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
+                padding:16px 24px; font-size:17px; font-weight:700; letter-spacing:.3px;">
                 📊 Resumen de Aprovechamiento — Semestre ${semestreActual}
             </div>
             <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse;">
                     <thead>
                         <tr>
-                            <th style="padding:14px 20px; text-align:center; font-size:20px; font-weight:700;
+                            <th style="padding:14px 20px; text-align:left; font-size:14px; font-weight:700;
                                 background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
                                 border:1px solid rgba(255,255,255,.2);">Situación Académica</th>
-                            <th style="padding:14px 20px; text-align:center; font-size:20px; font-weight:700;
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
                                 background:#1565c0; color:white; border:1px solid rgba(255,255,255,.2);">Hombres</th>
-                            <th style="padding:14px 20px; text-align:center; font-size:20px; font-weight:700;
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
                                 background:#ad1457; color:white; border:1px solid rgba(255,255,255,.2);">Mujeres</th>
-                            <th style="padding:14px 20px; text-align:center; font-size:20px; font-weight:700;
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
                                 background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
                                 border:1px solid rgba(255,255,255,.2);">Total</th>
                         </tr>
@@ -748,7 +934,7 @@ function renderizarSeccionTotales() {
                     <tbody>${filasHTML}</tbody>
                     <tfoot>
                         <tr>
-                            <td style="padding:14px 20px; text-align:center; font-weight:800; font-size:15px;
+                            <td style="padding:14px 20px; font-weight:800; font-size:15px;
                                 background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
                                 border:1px solid rgba(255,255,255,.2);">TOTAL</td>
                             <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px;
@@ -767,8 +953,7 @@ function renderizarSeccionTotales() {
         </div>
 
         <!-- ── Panel Semáforo de Semestres ── -->
-        
-        <!--Aqui colocar pesos {buildResumenSemaforo()} -->
+        ${buildResumenSemaforo()}
     `;
 }
 
@@ -1010,8 +1195,22 @@ window.validarSemestre = async function () {
     const modalidadVal  = document.getElementById('modalidad')?.value.trim();
     const semestreTexto = semestreNumeroATexto(semestreActual);
     const periodoVal    = document.getElementById('periodo-texto')?.textContent.trim() || '';
+    const unidadVal     = document.getElementById('unidad-texto')?.textContent.trim()
+                       || document.getElementById('unidad_academica')?.value?.trim() || '';
 
     if (!programaVal || !modalidadVal) { Swal.fire('Error', 'Selecciona Programa y Modalidad', 'error'); return; }
+
+    // Obtener nivel desde los datos cargados
+    let nivelVal = 'Superior';
+    const fuentesNivel = [window.aprovechamientos, window.inscritos, window.reincorporados];
+    for (const fuente of fuentesNivel) {
+        if (fuente?.length) {
+            const r = fuente.find(rec =>
+                String(rec.Nombre_Programa || rec.nombre_programa || '').trim().toUpperCase() === programaVal.toUpperCase()
+            );
+            if (r) { nivelVal = r.Nivel || r.nivel || 'Superior'; break; }
+        }
+    }
 
     const confirmResult = await Swal.fire({
         title: '✅ ¿Validar Aprovechamiento?',
@@ -1026,9 +1225,16 @@ window.validarSemestre = async function () {
     Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
-        const res = await fetch('/aprovechamiento/validar_semestre', {
+        const res = await fetch('/aprovechamiento/validar', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ programa: programaVal, modalidad: modalidadVal, semestre: semestreTexto, periodo: periodoVal, accion: 'validar' })
+            body: JSON.stringify({
+                programa:         programaVal,
+                modalidad:        modalidadVal,
+                semestre:         semestreTexto,
+                periodo:          periodoVal,
+                unidad_academica: unidadVal,
+                nivel:            nivelVal,
+            })
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Error al validar'); }
         await Swal.fire({ title: '¡Aprovechamiento Validado!', text: 'El semestre ha sido validado correctamente.', icon: 'success', timer: 1800, showConfirmButton: false });
@@ -1046,8 +1252,22 @@ window.confirmarRechazoPanel = async function () {
     const modalidadVal  = document.getElementById('modalidad')?.value.trim();
     const semestreTexto = semestreNumeroATexto(semestreActual);
     const periodoVal    = document.getElementById('periodo-texto')?.textContent.trim() || '';
+    const unidadVal     = document.getElementById('unidad-texto')?.textContent.trim()
+                       || document.getElementById('unidad_academica')?.value?.trim() || '';
 
     if (!programaVal || !modalidadVal) { Swal.fire('Error', 'Selecciona Programa y Modalidad', 'error'); return; }
+
+    // Obtener nivel desde los datos cargados
+    let nivelVal = 'Superior';
+    const fuentesNivel = [window.aprovechamientos, window.inscritos, window.reincorporados];
+    for (const fuente of fuentesNivel) {
+        if (fuente?.length) {
+            const r = fuente.find(rec =>
+                String(rec.Nombre_Programa || rec.nombre_programa || '').trim().toUpperCase() === programaVal.toUpperCase()
+            );
+            if (r) { nivelVal = r.Nivel || r.nivel || 'Superior'; break; }
+        }
+    }
 
     const confirmResult = await Swal.fire({
         title: '❌ ¿Confirmar Rechazo?',
@@ -1063,9 +1283,18 @@ window.confirmarRechazoPanel = async function () {
     Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
-        const res = await fetch('/aprovechamiento/rechazar_semestre', {
+        const res = await fetch('/aprovechamiento/rechazar', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ programa: programaVal, modalidad: modalidadVal, semestre: semestreTexto, periodo: periodoVal, motivo, accion: 'rechazar' })
+            body: JSON.stringify({
+                programa:         programaVal,
+                modalidad:        modalidadVal,
+                semestre:         semestreTexto,
+                periodo:          periodoVal,
+                unidad_academica: unidadVal,
+                nivel:            nivelVal,
+                motivo,
+                accion:           'rechazar'
+            })
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Error al rechazar'); }
         await Swal.fire({ title: '❌ Aprovechamiento Rechazado', text: 'El capturista ha sido notificado para realizar las correcciones.', icon: 'error', timer: 2000, showConfirmButton: false });
