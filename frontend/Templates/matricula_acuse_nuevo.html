@@ -1,0 +1,556 @@
+{% extends "base_pdf.html" if exportando_pdf else "base.html" %}
+
+{% block title %}Acuse Validación - Matrícula{% endblock %}
+
+{% block styles %}
+    {# En el PDF, el CSS se inyecta desde Python. En la web, se carga normal. #}
+    {% if not exportando_pdf %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+    {% if estado_semaforo_actual is defined and estado_semaforo_actual >= 3 and estado_semaforo_actual <= 8 %}
+        <div class="marca-agua">No Oficial</div>
+    {% endif %}
+
+
+<div class="contenedor-acuse">
+
+    <div class="acuse-header">
+        <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - MATRÍCULA</h1>  
+              
+        <div class="header-info">
+            <div class="header-item">
+                <span class="header-item-label">Período:</span>
+                <span class="header-item-value">{{ periodo }}</span>
+            </div>
+            <div class="header-item">
+                <span class="header-item-label">Nivel:</span>
+                <span class="header-item-value">{{ nivel }}</span>
+            </div>
+            <div class="header-item">
+                <span class="header-item-label">Unidad:</span>
+                <span class="header-item-value">{{ unidad }}</span>
+            </div>
+        </div>
+
+        <div class="header-info">
+            <div class="header-item">
+                <span class="header-item-label">Usuario:</span>
+                <span class="header-item-value">{{ nombre_usuario }}</span>
+            </div>
+            <div class="header-item">
+                <span class="header-item-label">Rol:</span>
+                <span class="header-item-value">{{ nombre_rol }}</span>
+            </div>
+            <div class="header-item">
+                <span class="header-item-label">Fecha:</span>
+                <span class="header-item-value" id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
+            </div>
+        </div>
+
+        <div class="total-resumen">
+            <div class="total-resumen-numero">{{ total_t }}</div>
+            <div>Estudiantes en Matrícula</div>
+        </div>
+    </div>
+
+    {% if tabla_semestres %}
+    <div class="tabla-seccion">
+        <div class="tabla-titulo">{{ '1.' if exportando_pdf else '1️⃣ ' }}Resumen por Semestre</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Semestre</th>
+                    <th style="width: 15%;">H</th>
+                    <th style="width: 15%;">M</th>
+                    <th style="width: 15%;">T</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_sem_h = 0 %}
+                {% set total_sem_m = 0 %}
+                {% set total_sem_t = 0 %}
+                {% for fila in tabla_semestres %}
+                    {% set total_sem_h = total_sem_h + fila.hombres %}
+                    {% set total_sem_m = total_sem_m + fila.mujeres %}
+                    {% set total_sem_t = total_sem_t + fila.total %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>TOTALES</td>
+                    <td><strong>{{ totales_semestres.hombres if totales_semestres is defined else total_sem_h }}</strong></td>
+                    <td><strong>{{ totales_semestres.mujeres if totales_semestres is defined else total_sem_m }}</strong></td>
+                    <td><strong>{{ totales_semestres.total if totales_semestres is defined else total_sem_t }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if tabla_modalidades %}
+    <div class="tabla-seccion">
+        <div class="tabla-titulo">2️⃣ Resumen por Modalidad</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Modalidad</th>
+                    <th style="width: 15%;">H</th>
+                    <th style="width: 15%;">M</th>
+                    <th style="width: 15%;">T</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_mod_h = 0 %}
+                {% set total_mod_m = 0 %}
+                {% set total_mod_t = 0 %}
+                {% for fila in tabla_modalidades %}
+                    {% set total_mod_h = total_mod_h + fila.hombres %}
+                    {% set total_mod_m = total_mod_m + fila.mujeres %}
+                    {% set total_mod_t = total_mod_t + fila.total %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>TOTALES</td>
+                    <td><strong>{{ totales_modalidades.hombres if totales_modalidades is defined else total_mod_h }}</strong></td>
+                    <td><strong>{{ totales_modalidades.mujeres if totales_modalidades is defined else total_mod_m }}</strong></td>
+                    <td><strong>{{ totales_modalidades.total if totales_modalidades is defined else total_mod_t }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if tabla_edades %}
+    <div class="tabla-seccion">
+        <div class="tabla-titulo">3️⃣ Resumen por Edad</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Edad</th>
+                    <th style="width: 15%;">H</th>
+                    <th style="width: 15%;">M</th>
+                    <th style="width: 15%;">T</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_edad_h = 0 %}
+                {% set total_edad_m = 0 %}
+                {% set total_edad_t = 0 %}
+                {% for fila in tabla_edades %}
+                    {% set total_edad_h = total_edad_h + fila.hombres %}
+                    {% set total_edad_m = total_edad_m + fila.mujeres %}
+                    {% set total_edad_t = total_edad_t + fila.total %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>TOTALES</td>
+                    <td><strong>{{ totales_edades.hombres if totales_edades is defined else total_edad_h }}</strong></td>
+                    <td><strong>{{ totales_edades.mujeres if totales_edades is defined else total_edad_m }}</strong></td>
+                    <td><strong>{{ totales_edades.total if totales_edades is defined else total_edad_t }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if tabla_turnos %}
+    <div class="tabla-seccion">
+        <div class="tabla-titulo">4️⃣ Resumen por Turno</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Turno</th>
+                    <th style="width: 15%;">H</th>
+                    <th style="width: 15%;">M</th>
+                    <th style="width: 15%;">T</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_turno_h = 0 %}
+                {% set total_turno_m = 0 %}
+                {% set total_turno_t = 0 %}
+                {% for fila in tabla_turnos %}
+                    {% set total_turno_h = total_turno_h + fila.hombres %}
+                    {% set total_turno_m = total_turno_m + fila.mujeres %}
+                    {% set total_turno_t = total_turno_t + fila.total %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>TOTALES</td>
+                    <td><strong>{{ totales_turnos.hombres if totales_turnos is defined else total_turno_h }}</strong></td>
+                    <td><strong>{{ totales_turnos.mujeres if totales_turnos is defined else total_turno_m }}</strong></td>
+                    <td><strong>{{ totales_turnos.total if totales_turnos is defined else total_turno_t }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if tabla_conceptos %}
+    <div class="tabla-seccion">
+        <div class="tabla-titulo">5️⃣ Resumen por Concepto (Tipo de Ingreso)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Concepto</th>
+                    <th style="width: 15%;">H</th>
+                    <th style="width: 15%;">M</th>
+                    <th style="width: 15%;">T</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_concepto_h = 0 %}
+                {% set total_concepto_m = 0 %}
+                {% set total_concepto_t = 0 %}
+                {% for fila in tabla_conceptos %}
+                    {% set total_concepto_h = total_concepto_h + fila.hombres %}
+                    {% set total_concepto_m = total_concepto_m + fila.mujeres %}
+                    {% set total_concepto_t = total_concepto_t + fila.total %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>TOTALES</td>
+                    <td><strong>{{ totales_conceptos.hombres if totales_conceptos is defined else total_concepto_h }}</strong></td>
+                    <td><strong>{{ totales_conceptos.mujeres if totales_conceptos is defined else total_concepto_m }}</strong></td>
+                    <td><strong>{{ totales_conceptos.total if totales_conceptos is defined else total_concepto_t }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if tabla_programas %}
+    <div class="tabla-seccion">
+        <div class="tabla-titulo">6️⃣ Resumen por Programa</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Programa</th>
+                    <th style="width: 15%;">H</th>
+                    <th style="width: 15%;">M</th>
+                    <th style="width: 15%;">T</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_prog_h = 0 %}
+                {% set total_prog_m = 0 %}
+                {% set total_prog_t = 0 %}
+                {% for fila in tabla_programas %}
+                    {% set total_prog_h = total_prog_h + fila.hombres %}
+                    {% set total_prog_m = total_prog_m + fila.mujeres %}
+                    {% set total_prog_t = total_prog_t + fila.total %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>TOTALES</td>
+                    <td><strong>{{ totales_programas.hombres if totales_programas is defined else total_prog_h }}</strong></td>
+                    <td><strong>{{ totales_programas.mujeres if totales_programas is defined else total_prog_m }}</strong></td>
+                    <td><strong>{{ totales_programas.total if totales_programas is defined else total_prog_t }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="acuse-footer">
+        
+        {% if usuario_ya_valido %}
+            <div class="estado-validacion estado-validado">
+                ✅ MATRÍCULA VALIDADA
+            </div>
+        {% elif usuario_ya_rechazo %}
+            <div class="estado-validacion estado-rechazado">
+                ❌ MATRÍCULA RECHAZADA
+            </div>
+        {% elif puede_validar %}
+            <div class="estado-validacion estado-pendiente">
+                ⏳ PENDIENTE DE VALIDAR
+            </div>
+        {% else %}
+            <div class="estado-validacion estado-esperando">
+                ⏸️ EN ESPERA DE VALIDACIÓN
+            </div>
+        {% endif %}
+
+        {% if not exportando_pdf %}
+        <div class="acciones-validacion" id="acciones-validacion">
+            {% if id_rol in [4, 5, 6, 7, 8, 9] %}
+                <button class="btn btn-success" id="btn-validar" onclick="validarMatricula()"
+                        {% if usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
+                    ✅ Validar Semestre
+                </button>
+                <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarMatricula()"
+                        {% if usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
+                    ❌ Rechazar Semestre
+                </button>
+            {% endif %}
+            <button class="btn btn-info" onclick="exportarPdf()">
+                📄 Exportar a PDF
+            </button>
+        </div>
+
+        {% if id_rol in [4, 5, 6, 7, 8, 9] %}
+        <div class="panel-rechazo" id="panel-rechazo">
+            <h4>
+                <i class="fas fa-exclamation-triangle"></i>
+                Motivo del Rechazo
+            </h4>
+            <textarea
+                id="motivo-rechazo"
+                placeholder="Por favor, describa el motivo del rechazo de esta matrícula (mínimo 10, máximo 250 caracteres)..."
+                maxlength="250"
+                oninput="actualizarContador()"
+            ></textarea>
+            <div class="panel-rechazo-footer">
+                <span class="contador-caracteres">
+                    <span id="contador-caracteres">0</span>/250 caracteres
+                </span>
+                <div class="panel-rechazo-botones">
+                    <button class="btn-cancelar-rechazo" onclick="cerrarPanelRechazo()">
+                        <i class="fas fa-times"></i>
+                        Cancelar
+                    </button>
+                    <button class="btn-confirmar-rechazo" onclick="confirmarRechazo()">
+                        <i class="fas fa-paper-plane"></i>
+                        Enviar Rechazo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mensaje-validacion" id="mensaje-validacion" style="display: none;"></div>
+        {% endif %}
+        {% endif %}
+    </div>
+
+</div>
+
+{% if not exportando_pdf %}
+<script src="/static/js/validacion_rechazo.js"></script>
+<script>
+    // Establecer fecha actual
+    document.getElementById('fecha-actual').textContent = new Date().toLocaleDateString('es-ES');
+
+    const idRol = Number("{{ id_rol }}") || 0;
+    const periodo = "{{ periodo }}";
+    const nivel = "{{ nivel }}";
+    const unidad = "{{ unidad }}";
+    const idUnidadAcademicaSeleccionada = Number("{{ id_unidad_academica }}") || 0;
+    const idNivelSeleccionado = Number("{{ id_nivel }}") || 0;
+    const puedeValidar = "{{ puede_validar }}".toLowerCase() === 'true';
+    const usuarioYaValido = "{{ usuario_ya_valido }}".toLowerCase() === 'true';
+    const usuarioYaRechazo = "{{ usuario_ya_rechazo }}".toLowerCase() === 'true';
+
+    initValidacionRechazo({
+        rolesPermitidos: [4, 5, 6, 7, 8, 9],
+        idRol,
+        puedeValidar,
+        usuarioYaValido,
+        usuarioYaRechazo,
+        noReloadOnSuccess: true,
+        endpoints: {
+            validar: '/matricula/validar_semestre_rol',
+            rechazar: '/matricula/rechazar_semestre_rol'
+        },
+        buildValidarPayload: () => ({
+            periodo,
+            unidad,
+            nivel,
+            ...(idRol >= 6 && idRol <= 9 ? {
+                id_unidad_academica: idUnidadAcademicaSeleccionada,
+                id_nivel: idNivelSeleccionado
+            } : {})
+        }),
+        buildRechazarPayload: (motivo) => ({
+            periodo,
+            motivo,
+            unidad,
+            nivel,
+            ...(idRol >= 6 && idRol <= 9 ? {
+                id_unidad_academica: idUnidadAcademicaSeleccionada,
+                id_nivel: idNivelSeleccionado
+            } : {})
+        }),
+        htmlNoTurno: '<span style="font-size: 20px;">⏳</span> <strong>Esperando ser validado por: {{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>',
+        htmlYaValido: '<span style="font-size: 20px;">✅</span> <strong>Ya has validado esta matrícula previamente.</strong>',
+        htmlYaRechazo: '<span style="font-size: 20px;">❌</span> <strong>Ya has rechazado esta matrícula previamente.</strong>',
+        msgValidarBloqueado: '⏳ Aún no es tu turno de validación.',
+        beforeValidar: async () => {
+            if (typeof Swal === 'undefined') return true;
+            const result = await Swal.fire({
+                icon: 'question',
+                title: '¿Validar matrícula?',
+                html: `Periodo: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br>Esta acción marcará la matrícula como aprobada y bloqueará cualquier modificación futura.`,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, validar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                allowOutsideClick: false,
+            });
+            if (!result.isConfirmed) return false;
+            Swal.fire({
+                title: 'Validando matrícula...',
+                text: 'Procesando la validación',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+            return true;
+        },
+        onValidado: async (data) => {
+            const mensaje = document.getElementById('mensaje-validacion');
+            const btnValidar = document.getElementById('btn-validar');
+            const btnRechazar = document.getElementById('btn-rechazar');
+            const panel = document.getElementById('panel-rechazo');
+
+            if (panel) panel.style.display = 'none';
+            if (btnValidar) btnValidar.disabled = true;
+            if (btnRechazar) btnRechazar.disabled = true;
+
+            if (mensaje) {
+                mensaje.style.display = 'block';
+                mensaje.className = 'mensaje-validacion validada';
+                mensaje.innerHTML = '<span style="font-size: 20px;">✅</span> <strong>Matrícula validada correctamente.</strong>';
+            }
+
+            if (typeof Swal !== 'undefined') {
+                await Swal.fire({
+                    icon: 'success',
+                    title: '¡Matrícula validada!',
+                    html: `${data?.mensaje || 'La matrícula fue validada correctamente.'}<br><br><strong>Ya no se permite editar ni volver a validar.</strong>`,
+                    timer: 2600,
+                    showConfirmButton: false,
+                });
+            }
+        },
+        beforeRechazar: async (motivo) => {
+            if (!motivo || motivo.length < 10) {
+                if (typeof Swal !== 'undefined') {
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Motivo insuficiente',
+                        text: 'Por favor, ingrese un motivo de rechazo de al menos 10 caracteres.',
+                        confirmButtonColor: '#6c757d'
+                    });
+                } else {
+                    _notify('warning', '⚠️ Por favor, ingrese un motivo de rechazo (mínimo 10 caracteres).');
+                }
+                return false;
+            }
+
+            if (typeof Swal === 'undefined') return true;
+            const result = await Swal.fire({
+                icon: 'warning',
+                title: '¿Rechazar matrícula?',
+                html: `Periodo: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br><b>Motivo:</b> ${motivo.substring(0, 100)}${motivo.length > 100 ? '...' : ''}<br><br>Esta acción devolverá la matrícula para correcciones.`,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, rechazar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                allowOutsideClick: false,
+            });
+            if (!result.isConfirmed) return false;
+            Swal.fire({
+                title: 'Enviando rechazo...',
+                text: 'Procesando la devolución de la matrícula',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+            return true;
+        },
+        onRechazado: async (data) => {
+            const mensaje = document.getElementById('mensaje-validacion');
+            const btnValidar = document.getElementById('btn-validar');
+            const btnRechazar = document.getElementById('btn-rechazar');
+            const panel = document.getElementById('panel-rechazo');
+
+            if (panel) panel.style.display = 'none';
+            if (btnValidar) btnValidar.disabled = true;
+            if (btnRechazar) btnRechazar.disabled = true;
+
+            if (mensaje) {
+                mensaje.style.display = 'block';
+                mensaje.className = 'mensaje-validacion rechazada';
+                mensaje.innerHTML = '<span style="font-size: 20px;">❌</span> <strong>Matrícula rechazada correctamente.</strong>';
+            }
+
+            if (typeof Swal !== 'undefined') {
+                await Swal.fire({
+                    icon: 'error',
+                    title: '¡Matrícula rechazada!',
+                    html: `${data?.mensaje || 'La matrícula fue rechazada correctamente.'}<br><br><strong>Se notificó al capturista para corregirla.</strong>`,
+                    timer: 2600,
+                    showConfirmButton: false,
+                });
+            }
+        }
+    });
+
+    function validarMatricula() { window.__validacionRechazo?.ejecutarValidacion(); }
+    function rechazarMatricula() { window.__validacionRechazo?.abrirPanelRechazo(); }
+    function cerrarPanelRechazo() { window.__validacionRechazo?.cerrarPanelRechazo(); }
+    function actualizarContador() { window.__validacionRechazo?.actualizarContador(); }
+    function confirmarRechazo() { window.__validacionRechazo?.ejecutarRechazo(); }
+
+    function exportarPdf() {
+        const periodo = encodeURIComponent("{{ periodo }}");
+        const nivel = encodeURIComponent("{{ nivel }}");
+        const unidad = encodeURIComponent("{{ unidad }}");
+        const url = `/matricula/acuse-validacion/pdf?periodo=${periodo}&nivel=${nivel}&unidad=${unidad}`;
+        window.location.href = url;
+    }
+</script>
+{% endif %}
+{% endblock %}

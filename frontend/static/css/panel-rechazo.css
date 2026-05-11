@@ -93,6 +93,7 @@
     right: 30px;
     width: 400px;
     max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 140px);
     background: white;
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
@@ -178,6 +179,7 @@
 
 .notificacion-contenido {
     flex: 1;
+    min-width: 0;
 }
 
 .notificacion-contenido h5 {
@@ -204,6 +206,7 @@
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
 }
 
 .notificacion-autor {

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Depends
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, FileResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import json
@@ -7,6 +7,7 @@ from typing import List, Dict, Any
 from fastapi import HTTPException
 from datetime import datetime
 from pathlib import Path
+import re
 
 from backend.core.templates import templates
 from backend.core.auth import get_current_session
@@ -427,17 +428,17 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
         print(f"  - ID {estado['id']}: {estado['descripcion']} ({estado['color']})")
 
     # Construir mapeo Programa -> Modalidades para filtros dependientes
-    programa_a_modalidades: Dict[int, List[int]] = {}
+    programa_a_modalidades_superior: Dict[int, List[int]] = {}
     try:
         relaciones_pm = db.query(ProgramaModalidad).filter(ProgramaModalidad.Id_Estatus == 1).all()
         for rel in relaciones_pm:
-            if rel.Id_Programa not in programa_a_modalidades:
-                programa_a_modalidades[rel.Id_Programa] = []
-            if rel.Id_Modalidad not in programa_a_modalidades[rel.Id_Programa]:
-                programa_a_modalidades[rel.Id_Programa].append(rel.Id_Modalidad)
+            if rel.Id_Programa not in programa_a_modalidades_superior:
+                programa_a_modalidades_superior[rel.Id_Programa] = []
+            if rel.Id_Modalidad not in programa_a_modalidades_superior[rel.Id_Programa]:
+                programa_a_modalidades_superior[rel.Id_Programa].append(rel.Id_Modalidad)
     except Exception as e:
         print(f"⚠️ Error construyendo mapeo Programa->Modalidad: {e}")
-    programa_a_modalidades_json = json.dumps(programa_a_modalidades)
+    programa_a_modalidades_json = json.dumps(programa_a_modalidades_superior)
 
     # VERIFICAR SI ES ROL SUPERIOR (6-9): mostrar panel de filtros sin ejecutar SP aún
     if es_rol_superior:
@@ -484,7 +485,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
     print(f"\n▶ EJECUTANDO SP para roles 3-5 con contexto fijo del usuario")
     
     # Obtener usuario y host para el SP
-    usuario_sp = nombre_completo or 'sistema'
+    usuario_sp = sess.usuario or 'sistema'
     host_sp = get_request_host(request)
 
     # Obtener TODOS los metadatos desde el SP (con usuario y host)
@@ -589,19 +590,49 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
     semestres_map_json_dict = {s['Id_Semestre']: s['Semestre'] for s in semestres_formatted}
     semestres_map_json = json.dumps(semestres_map_json_dict, ensure_ascii=False)
 
-    # Construir mapeo Programa -> Modalidades para filtros dependientes
-    # (también disponible para roles 3-5, reutilizando la misma estructura que roles superiores)
-    programa_a_modalidades: Dict[int, List[int]] = {}
+    # Construir mapeo Programa -> Modalidades usando EXCLUSIVAMENTE las filas del SP
+    # para conservar los mismos nombres y combinaciones que devuelve la consulta.
+    programa_a_modalidades_sp: Dict[int, List[Dict[str, Any]]] = {}
     try:
-        relaciones_pm = db.query(ProgramaModalidad).filter(ProgramaModalidad.Id_Estatus == 1).all()
-        for rel in relaciones_pm:
-            if rel.Id_Programa not in programa_a_modalidades:
-                programa_a_modalidades[rel.Id_Programa] = []
-            if rel.Id_Modalidad not in programa_a_modalidades[rel.Id_Programa]:
-                programa_a_modalidades[rel.Id_Programa].append(rel.Id_Modalidad)
+        programa_nombre_a_id = {
+            str(p['Nombre_Programa']): p['Id_Programa']
+            for p in programas_formatted
+            if p.get('Nombre_Programa') is not None and p.get('Id_Programa') is not None
+        }
+        modalidad_nombre_a_data = {
+            str(m['Modalidad']): m
+            for m in modalidades_formatted
+            if m.get('Modalidad') is not None and m.get('Id_Modalidad') is not None
+        }
+        pares_vistos = set()
+
+        for row in rows_sp:
+            nombre_programa = row.get('Nombre_Programa')
+            nombre_modalidad = row.get('Modalidad')
+            if not nombre_programa or not nombre_modalidad:
+                continue
+
+            clave_par = (str(nombre_programa), str(nombre_modalidad))
+            if clave_par in pares_vistos:
+                continue
+            pares_vistos.add(clave_par)
+
+            programa_id = programa_nombre_a_id.get(str(nombre_programa))
+            modalidad_data = modalidad_nombre_a_data.get(str(nombre_modalidad))
+            if programa_id is None or modalidad_data is None:
+                continue
+
+            if programa_id not in programa_a_modalidades_sp:
+                programa_a_modalidades_sp[programa_id] = []
+
+            if not any(m.get('Id_Modalidad') == modalidad_data['Id_Modalidad'] for m in programa_a_modalidades_sp[programa_id]):
+                programa_a_modalidades_sp[programa_id].append({
+                    'Id_Modalidad': modalidad_data['Id_Modalidad'],
+                    'Modalidad': modalidad_data['Modalidad']
+                })
     except Exception as e:
-        print(f"⚠️ Error construyendo mapeo Programa->Modalidad (roles 3-5): {e}")
-    programa_a_modalidades_json = json.dumps(programa_a_modalidades)
+        print(f"⚠️ Error construyendo mapeo Programa->Modalidad desde SP (roles 3-5): {e}")
+    programa_a_modalidades_json = json.dumps(programa_a_modalidades_sp, ensure_ascii=False)
 
     print(f"\n=== METADATOS ENVIADOS AL FRONTEND ===")
     print(f"Grupos de Edad: {len(grupos_edad_formatted)} -> {[g['Grupo_Edad'] for g in grupos_edad_formatted]}")
@@ -891,7 +922,7 @@ async def obtener_datos_existentes_sp(
         print(f"Usuario: {nombre_completo}")
 
         # Obtener usuario y host para el SP
-        usuario_sp = nombre_completo or 'sistema'
+        usuario_sp = sess.usuario or 'sistema'
         host_sp = get_request_host(request)
         print(f"Host: {host_sp}")
 
@@ -974,7 +1005,7 @@ async def consultar_matricula_dinamica(
         apellidoP_usuario = sess.apellidoP_usuario
         apellidoM_usuario = sess.apellidoM_usuario
         nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
-        usuario_sp = nombre_completo or 'sistema'
+        usuario_sp = sess.usuario or 'sistema'
         host_sp = get_request_host(request)
         
         print(f"Usuario: {nombre_completo} (Rol ID: {id_rol})")
@@ -1271,7 +1302,7 @@ async def resumen_matricula_roles_superiores(request: Request, sess=Depends(get_
         print(f"{'='*60}")
         
         # Obtener datos del SP
-        usuario_sp = nombre_completo or 'sistema'
+        usuario_sp = sess.usuario or 'sistema'
         host_sp = get_request_host(request)
         
         rows_sp, metadata_sp, debug_msg_sp, nota_rechazo_sp = execute_matricula_sp_with_context(
@@ -1491,7 +1522,7 @@ async def debug_sp(request: Request, sess=Depends(get_current_session), db: Sess
         apellidoP_usuario = sess.apellidoP_usuario
         apellidoM_usuario = sess.apellidoM_usuario
         nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
-        usuario_sp = nombre_completo or 'sistema'
+        usuario_sp = sess.usuario or 'sistema'
         host_sp = get_request_host(request)
 
         # Obtener periodo dinámicamente (priorizar activo)
@@ -2758,7 +2789,36 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
         # Obtener datos del request
         body = await request.json()
         periodo_id = body.get("periodo")
-        
+        unidad_literal = (body.get("unidad") or "").strip()
+        nivel_literal = (body.get("nivel") or "").strip()
+
+        # Roles 6-9 validan sobre UA/Nivel seleccionados en frontend.
+        # Roles 4-5 usan su UA/Nivel de sesión.
+        id_unidad_objetivo = id_unidad_academica
+        id_nivel_objetivo = id_nivel
+        if id_rol in [6, 7, 8, 9]:
+            try:
+                id_unidad_objetivo = int(body.get("id_unidad_academica") or id_unidad_academica or 0)
+                id_nivel_objetivo = int(body.get("id_nivel") or id_nivel or 0)
+            except Exception:
+                return {
+                    "success": False,
+                    "error": "Los parámetros id_unidad_academica e id_nivel deben ser numéricos."
+                }
+            if not id_unidad_objetivo and unidad_literal:
+                ua_obj = db.query(Unidad_Academica).filter(
+                    (Unidad_Academica.Nombre == unidad_literal) | (Unidad_Academica.Sigla == unidad_literal)
+                ).first()
+                id_unidad_objetivo = ua_obj.Id_Unidad_Academica if ua_obj else 0
+            if not id_nivel_objetivo and nivel_literal:
+                nivel_obj = db.query(Nivel).filter(Nivel.Nivel == nivel_literal).first()
+                id_nivel_objetivo = nivel_obj.Id_Nivel if nivel_obj else 0
+            if not id_unidad_objetivo or not id_nivel_objetivo:
+                return {
+                    "success": False,
+                    "error": "No se pudo resolver la unidad académica o el nivel para la validación."
+                }
+
         # Obtener host
         host_sp = get_request_host(request)
         
@@ -2767,7 +2827,8 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
         print(f"{'='*60}")
         print(f"Usuario: {usuario_sp}")
         print(f"Periodo ID: {periodo_id}")
-        print(f"Unidad Académica ID: {id_unidad_academica}")
+        print(f"Unidad Académica (sesión): {id_unidad_academica} | objetivo: {id_unidad_objetivo}")
+        print(f"Nivel (sesión): {id_nivel} | objetivo: {id_nivel_objetivo}")
         print(f"Host: {host_sp}")
         
         # Convertir período a literal si viene como ID
@@ -2785,9 +2846,9 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
             periodo_literal = str(periodo_id)
             print(f"✅ Período en literal: '{periodo_literal}'")
         
-        # Obtener sigla de la unidad académica
+        # Obtener sigla de la unidad académica objetivo
         unidad = db.query(Unidad_Academica).filter(
-            Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
+            Unidad_Academica.Id_Unidad_Academica == id_unidad_objetivo
         ).first()
         unidad_sigla = unidad.Sigla if unidad else ''
         
@@ -2806,7 +2867,7 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
         print(f"   @UUsuario = '{usuario_sp}' (LOGIN del usuario)")
         print(f"   @HHost = '{host_sp}'")
         #print(f"   @semaforo = 3")
-        print(f"   @NNivel (Id) = {id_nivel}")
+        print(f"   @NNivel (Id) = {id_nivel_objetivo}")
         # Estado previo del semáforo
         semaforo_prev = None
         periodo_id_validar = None
@@ -2820,10 +2881,10 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
                 periodo_id_validar = 1  # Fallback
             
             semaforo_prev = db.query(SemaforoUnidadAcademica).filter(
-                SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+                SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_objetivo,
                 SemaforoUnidadAcademica.Id_Periodo == periodo_id_validar,
                 SemaforoUnidadAcademica.Id_Formato == 1,
-                SemaforoUnidadAcademica.Id_Nivel == id_nivel
+                SemaforoUnidadAcademica.Id_Nivel == id_nivel_objetivo
             ).first()
             print(f"🔎 Semáforo antes de validar: {semaforo_prev.Id_Semaforo if semaforo_prev else 'N/A'}")
         except Exception as _e_prev:
@@ -2876,13 +2937,13 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
             usuario=usuario_sp,
             host=host_sp,
            # semaforo=3,  # Estado validado
-            nivel=id_nivel,
+            nivel=id_nivel_objetivo,
             nota=f"Validado por {nombre_completo}"
         )
         print(
             "🧾 validar_semestre_rol -> respuesta de SP_Valida_Matricula: "
             f"rows={len(sp_rows)}, periodo={periodo_literal}, unidad={unidad_sigla}, "
-            f"nivel={id_nivel}, usuario={usuario_sp}"
+            f"nivel={id_nivel_objetivo}, usuario={usuario_sp}"
         )
 
         acuse_info = None
@@ -2968,7 +3029,7 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
         else:
             print(
                 "⚠️ No se genero acuse porque SP_Valida_Matricula devolvio 0 filas -> "
-                f"periodo={periodo_literal}, unidad={unidad_sigla}, nivel={id_nivel}, "
+                f"periodo={periodo_literal}, unidad={unidad_sigla}, nivel={id_nivel_objetivo}, "
                 f"usuario={usuario_sp}"
             )
         # Diagnóstico: Mostrar filas de Semaforo_UA para esta UA+Periodo con y sin Id_Nivel
@@ -2982,7 +3043,7 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
                 FROM [SAE].[dbo].[Semaforo_Unidad_Academica] sua
                 WHERE sua.Id_Unidad_Academica = :ua AND sua.Id_Periodo = (SELECT Id_Periodo FROM [SAE].[dbo].[Cat_Periodo] WHERE Periodo = :p) AND sua.Id_Formato = 1
                 """
-            ), {'ua': id_unidad_academica, 'p': periodo_literal}).fetchall()
+            ), {'ua': id_unidad_objetivo, 'p': periodo_literal}).fetchall()
             print("📊 Semaforo_UA registros para UA+Periodo (formato=1):")
             for r in diag_rows:
                 print(f"   • Id_Nivel={r[3]}  Id_Semaforo={r[4]}  Fecha={r[5]}")
@@ -2998,10 +3059,10 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
                 periodo_id_post = 1  # Fallback
             
             semaforo_post = db.query(SemaforoUnidadAcademica).filter(
-                SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+                SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_objetivo,
                 SemaforoUnidadAcademica.Id_Periodo == periodo_id_post,
                 SemaforoUnidadAcademica.Id_Formato == 1,
-                SemaforoUnidadAcademica.Id_Nivel == id_nivel
+                SemaforoUnidadAcademica.Id_Nivel == id_nivel_objetivo
             ).first()
             print(f"🔎 Semáforo después de validar: {semaforo_post.Id_Semaforo if semaforo_post else 'N/A'}")
         except Exception as _e_post:
@@ -3020,6 +3081,8 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
                 "fecha_validacion": datetime.now().isoformat(),
                 "periodo": periodo_literal,
                 "unidad_academica": unidad_sigla,
+                "id_unidad_academica": id_unidad_objetivo,
+                "id_nivel": id_nivel_objetivo,
                 "acuse": acuse_info,
                 "acuse_error": acuse_error,
                 "correo_acuse_enviado": correo_acuse_enviado,
@@ -3250,6 +3313,40 @@ async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_sessi
         body = await request.json()
         periodo_id = body.get("periodo")
         motivo = body.get("motivo", "").strip()
+        unidad_literal = (body.get("unidad") or "").strip()
+        nivel_literal = (body.get("nivel") or "").strip()
+
+        # Roles 6-9 rechazan sobre UA/Nivel seleccionados en frontend.
+        # Roles 4-5 usan su UA/Nivel de sesión.
+        id_unidad_objetivo = id_unidad_academica
+        try:
+            id_nivel_sesion = int(sess.id_nivel)
+        except Exception:
+            id_nivel_sesion = 0
+        id_nivel_objetivo = id_nivel_sesion
+
+        if id_rol in [6, 7, 8, 9]:
+            try:
+                id_unidad_objetivo = int(body.get("id_unidad_academica") or id_unidad_academica or 0)
+                id_nivel_objetivo = int(body.get("id_nivel") or id_nivel_sesion or 0)
+            except Exception:
+                return {
+                    "success": False,
+                    "error": "Los parámetros id_unidad_academica e id_nivel deben ser numéricos."
+                }
+            if not id_unidad_objetivo and unidad_literal:
+                ua_obj = db.query(Unidad_Academica).filter(
+                    (Unidad_Academica.Nombre == unidad_literal) | (Unidad_Academica.Sigla == unidad_literal)
+                ).first()
+                id_unidad_objetivo = ua_obj.Id_Unidad_Academica if ua_obj else 0
+            if not id_nivel_objetivo and nivel_literal:
+                nivel_obj = db.query(Nivel).filter(Nivel.Nivel == nivel_literal).first()
+                id_nivel_objetivo = nivel_obj.Id_Nivel if nivel_obj else 0
+            if not id_unidad_objetivo or not id_nivel_objetivo:
+                return {
+                    "success": False,
+                    "error": "No se pudo resolver la unidad académica o el nivel para el rechazo."
+                }
         
         if not motivo:
             return {
@@ -3265,7 +3362,8 @@ async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_sessi
         print(f"{'='*60}")
         print(f"Usuario: {usuario_sp}")
         print(f"Periodo ID: {periodo_id}")
-        print(f"Unidad Académica ID: {id_unidad_academica}")
+        print(f"Unidad Académica (sesión): {id_unidad_academica} | objetivo: {id_unidad_objetivo}")
+        print(f"Nivel (sesión): {id_nivel_sesion} | objetivo: {id_nivel_objetivo}")
         print(f"Host: {host_sp}")
         print(f"Motivo: {motivo}")
         
@@ -3284,9 +3382,9 @@ async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_sessi
             periodo_literal = str(periodo_id)
             print(f"✅ Período en literal: '{periodo_literal}'")
         
-        # Obtener sigla de la unidad académica
+        # Obtener sigla de la unidad académica objetivo
         unidad = db.query(Unidad_Academica).filter(
-            Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
+            Unidad_Academica.Id_Unidad_Academica == id_unidad_objetivo
         ).first()
         unidad_sigla = unidad.Sigla if unidad else ''
         
@@ -3317,7 +3415,7 @@ async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_sessi
             unidad_sigla=unidad_sigla,
             usuario=usuario_sp,
             host=host_sp,
-            nivel=request.cookies.get('id_nivel', 'No disponible'),
+            nivel=id_nivel_objetivo,
             nota=nota_completa
         )
         
@@ -3334,7 +3432,9 @@ async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_sessi
                 "motivo": motivo,
                 "fecha_rechazo": datetime.now().isoformat(),
                 "periodo": periodo_literal,
-                "unidad_academica": unidad_sigla
+                "unidad_academica": unidad_sigla,
+                "id_unidad_academica": id_unidad_objetivo,
+                "id_nivel": id_nivel_objetivo
             }
         }
         
@@ -3479,6 +3579,9 @@ async def resumen_matricula_dinamico_view(
     Muestra por Programa → Modalidad → Semestres → Tipo de Ingreso (H/M/T).
     - Semestre 1: Nuevo Ingreso + Repetidores
     - Semestres 2+: Reingreso + Repetidores
+    
+    ⚠️ NOTA: Los roles 4-9 (validadores) son redirigidos automáticamente al nuevo ACUSE DE VALIDACIÓN
+    para una vista compacta optimizada para Carta y PDF export.
     """
     # Obtener datos del usuario logueado
     id_rol = int(sess.id_rol)
@@ -3488,7 +3591,15 @@ async def resumen_matricula_dinamico_view(
     apellidoM_usuario = sess.apellidoM_usuario
     nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
 
-    # Validar que el usuario tenga rol superior
+    # REDIRECCIÓN AUTOMÁTICA: Roles 4-9 → Nuevo Acuse de Validación
+    if id_rol in [4, 5, 6, 7, 8, 9]:
+        print(f"🔄 Rol {id_rol} ({nombre_rol}) redirigido a acuse-validacion")
+        return RedirectResponse(
+            url=f"/matricula/acuse-validacion?periodo={periodo}&nivel={nivel}&unidad={unidad}",
+            status_code=302
+        )
+
+    # Validar que el usuario tenga rol superior (solo rol 1 después de la redirección)
     roles_permitidos = [1, 4, 5, 6, 7, 8, 9]
     if id_rol not in roles_permitidos:
         return templates.TemplateResponse("error.html", {
@@ -3503,6 +3614,22 @@ async def resumen_matricula_dinamico_view(
     print(f"{'='*60}")
 
     try:
+        # Resolver IDs seleccionados (necesarios para validación/rechazo de roles 6-9)
+        ua_obj = db.query(Unidad_Academica).filter(Unidad_Academica.Nombre == unidad).first()
+        if not ua_obj:
+            ua_obj = db.query(Unidad_Academica).filter(Unidad_Academica.Sigla == unidad).first()
+
+        nivel_obj = db.query(Nivel).filter(Nivel.Nivel == nivel).first()
+
+        try:
+            id_unidad_academica = ua_obj.Id_Unidad_Academica if ua_obj else int(getattr(sess, 'id_unidad_academica', 0) or 0)
+        except Exception:
+            id_unidad_academica = 0
+        try:
+            id_nivel = nivel_obj.Id_Nivel if nivel_obj else int(getattr(sess, 'id_nivel', 0) or 0)
+        except Exception:
+            id_nivel = 0
+
         # Obtener datos del SP
         host = get_request_host(request)
         usuario_login = sess.usuario
@@ -3526,6 +3653,8 @@ async def resumen_matricula_dinamico_view(
                 "turnos_ordenados": [],
                 "subtotales_modalidad": [],
                 "subtotales_turno": [],
+                "id_unidad_academica": id_unidad_academica,
+                "id_nivel": id_nivel,
                 "error_message": "No hay datos disponibles para los filtros seleccionados"
             })
 
@@ -3875,7 +4004,6 @@ async def resumen_matricula_dinamico_view(
                 total_m = 0
                 total_t = 0
                 
-                # Sumar todos los valores de este turno a través de todos los programas y edades
                 for programa in programas_ordenados:
                     for edad in edades_ordenadas:
                         datos_turno = estructura_programa_edad[programa][edad].get(turno, {'H': 0, 'M': 0, 'T': 0})
@@ -3893,83 +4021,73 @@ async def resumen_matricula_dinamico_view(
         print(f"✅ Subtotales calculados para {len(subtotales_turno)} turnos")
 
         # ========================================
-        # VERIFICAR ESTADO DE VALIDACIÓN DEL USUARIO (solo para roles 4-5)
+        # DETERMINAR ESTADO DE VALIDACIÓN
         # ========================================
+        print(f"\n{'='*60}")
+        print(f"VERIFICANDO ESTADO DE VALIDACIÓN")
+        print(f"{'='*60}")
+        
+        puede_validar = False
         usuario_ya_valido = False
         usuario_ya_rechazo = False
-        puede_validar = False
-        esperando_por_rol = None
+        esperando_por_rol = False
+        semaforo_unidad = None
+        estado_semaforo = None
         
         if id_rol in [4, 5, 6, 7, 8, 9]:
-            # Obtener ID del periodo
+            # Buscar el ID del usuario en la tabla Usuario
+            usuario_obj = db.query(Usuario).filter(Usuario.Usuario == usuario_login).first()
+            id_usuario_actual = usuario_obj.Id_Usuario if usuario_obj else None
+            
+            # Buscar el ID del período en CatPeriodo
             periodo_obj = db.query(Periodo).filter(Periodo.Periodo == periodo).first()
-            if periodo_obj:
-                periodo_id = periodo_obj.Id_Periodo
-            else:
-                periodo_id, _ = get_ultimo_periodo(db)
-                if not periodo_id:
-                    periodo_id = 1
+            id_periodo = periodo_obj.Id_Periodo if periodo_obj else None
             
-            # Obtener ID de la unidad académica
-            ua_obj = db.query(Unidad_Academica).filter(Unidad_Academica.Nombre == unidad).first()
-            if not ua_obj:
-                # Intentar por sigla
-                ua_obj = db.query(Unidad_Academica).filter(Unidad_Academica.Sigla == unidad).first()
+            print(f"   usuario_login={usuario_login}, id_usuario_actual={id_usuario_actual}")
+            print(f"   periodo={periodo}, id_periodo={id_periodo}")
+            print(f"   id_unidad_academica={id_unidad_academica}")
             
-            id_unidad_academica = ua_obj.Id_Unidad_Academica if ua_obj else 0
-            
-            # Obtener ID del nivel
-            nivel_obj = db.query(Nivel).filter(Nivel.Nivel == nivel).first()
-            id_nivel = nivel_obj.Id_Nivel if nivel_obj else 0
-            
-            id_usuario_actual = int(sess.id_usuario)
-            
-            print(f"\n🔍 Verificando estado de validación para usuario {id_usuario_actual}...")
-            print(f"   Periodo ID: {periodo_id}, UA ID: {id_unidad_academica}, Nivel ID: {id_nivel}")
-            
-            # Verificar estado del semáforo de la UA
-            semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
-                SemaforoUnidadAcademica.Id_Periodo == periodo_id,
-                SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
-                SemaforoUnidadAcademica.Id_Nivel == id_nivel,
-                SemaforoUnidadAcademica.Id_Formato == 1  # Formato de matrícula
-            ).first()
-            
-            if semaforo_unidad:
-                estado_semaforo = semaforo_unidad.Id_Semaforo
-                print(f"   📊 Estado del semáforo: {estado_semaforo}")
+            if id_usuario_actual and id_periodo:
+                # Verificar si el usuario ya validó
+                validacion_activa = db.query(Validacion).filter(
+                    Validacion.Id_Periodo == id_periodo,
+                    Validacion.Id_Usuario == id_usuario_actual,
+                    Validacion.Id_Formato == 1,
+                    Validacion.Validado == 1  # Validado
+                ).first()
                 
-                # Lógica: El usuario puede validar si el semáforo está en (id_rol - 1)
-                semaforo_esperado = id_rol - 1
-                print(f"   ⚖️ Semáforo esperado para rol {id_rol}: {semaforo_esperado}")
-                
-                if estado_semaforo == semaforo_esperado:
-                    puede_validar = True
-                    print(f"   ✅ Usuario PUEDE validar (semáforo en nivel correcto)")
-                elif estado_semaforo >= id_rol:
+                if validacion_activa:
                     usuario_ya_valido = True
                     puede_validar = False
-                    print(f"   🔒 Usuario YA validó (semáforo >= {id_rol})")
+                    print(f"   ✅ Usuario YA validó esta matrícula")
                 else:
-                    puede_validar = False
-                    try:
-                        # Semáforo 1-2 siempre esperan por Capturista
-                        if estado_semaforo in [1, 2]:
-                            esperando_por_rol = "Capturista"
-                        else:
-                            rol_esperado_id = int(estado_semaforo) + 1
-                            rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == rol_esperado_id).first()
-                            esperando_por_rol = rol_obj.Rol if rol_obj else "Capturista"
-                    except Exception:
-                        esperando_por_rol = "Capturista"
-                    print(f"   ⏳ Usuario debe esperar (semáforo en nivel {estado_semaforo})")
-            else:
-                esperando_por_rol = "Capturista"
-                print(f"   ⚠️ No se encontró semáforo para esta UA/Nivel/Periodo")
+                    # Buscar el semáforo de la unidad
+                    semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
+                        SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+                        SemaforoUnidadAcademica.Id_Periodo == id_periodo,
+                        SemaforoUnidadAcademica.Id_Nivel == id_nivel
+                    ).first()
+                    
+                    if semaforo_unidad:
+                        estado_semaforo = semaforo_unidad.Estatus
+                        print(f"   Semáforo encontrado: Estatus={estado_semaforo}")
+                        
+                        # Roles 4-5: pueden validar si estado_semaforo == id_rol - 1
+                        if id_rol in [4, 5]:
+                            if estado_semaforo == (id_rol - 1):
+                                puede_validar = True
+                                print(f"   ✅ Rol {id_rol} puede validar (estado_semaforo={estado_semaforo})")
+                            else:
+                                esperando_por_rol = True
+                                print(f"   ⏳ Esperando validación de otro rol (estado_semaforo={estado_semaforo}, id_rol-1={id_rol-1})")
+                        # Roles 6-9: siempre pueden validar
+                        elif id_rol in [6, 7, 8, 9]:
+                            puede_validar = True
+                            print(f"   ✅ Rol superior {id_rol} puede validar")
             
-            # Verificar si el usuario rechazó esta matrícula
+            # Verificar si el usuario ya rechazó
             validacion_rechazo = db.query(Validacion).filter(
-                Validacion.Id_Periodo == periodo_id,
+                Validacion.Id_Periodo == id_periodo,
                 Validacion.Id_Usuario == id_usuario_actual,
                 Validacion.Id_Formato == 1,
                 Validacion.Validado == 0  # Rechazo
@@ -4002,6 +4120,8 @@ async def resumen_matricula_dinamico_view(
             "subtotales_modalidad": subtotales_modalidad_lista,
             "subtotales_turno": subtotales_turno,
             "error_message": None,
+            "id_unidad_academica": id_unidad_academica,
+            "id_nivel": id_nivel,
             "puede_validar": puede_validar,
             "usuario_ya_valido": usuario_ya_valido,
             "usuario_ya_rechazo": usuario_ya_rechazo,
@@ -4027,6 +4147,289 @@ async def resumen_matricula_dinamico_view(
             "totales_edad_turno": {},
             "subtotales_modalidad": [],
             "subtotales_edad": [],
+            "id_unidad_academica": 0,
+            "id_nivel": 0,
             "error_message": f"Error al procesar el resumen: {str(e)}"
         })
 
+# ============================================================================
+# NUEVO ENDPOINT: ACUSE VALIDACIÓN (Template Compacto para Carta)
+# ============================================================================
+
+from datetime import datetime # Asegúrate de que esto esté importado al inicio de tu archivo
+
+@router.get('/acuse-validacion')
+async def acuse_validacion_view(
+    request: Request, 
+    periodo: str,
+    nivel: str,
+    unidad: str,
+    sess=Depends(get_current_session),
+    db: Session = Depends(get_db),
+    exportando_pdf: bool = False  # NUEVO PARÁMETRO AÑADIDO
+):
+    """
+    Vista de Acuse de Validación - Matrícula (NUEVO).
+    Layout compacto optimizado para Carta (8.5"×11") para PDF/Email export.
+    Accesible para roles 4-9 (validadores + directivos).
+    """
+    id_rol = int(sess.id_rol)
+    nombre_rol = sess.nombre_rol
+    nombre_usuario = sess.nombre_usuario
+    apellidoP_usuario = sess.apellidoP_usuario
+    apellidoM_usuario = sess.apellidoM_usuario
+    nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
+
+    roles_permitidos = [4, 5, 6, 7, 8, 9]
+    if id_rol not in roles_permitidos:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": f"Acceso denegado: Su rol ({nombre_rol}) no tiene permisos para generar acuses.",
+            "redirect_url": "/mod_principal/"
+        })
+
+    print(f"\n{'='*70}")
+    print(f"ACUSE DE VALIDACIÓN - MATRÍCULA (NUEVO TEMPLATE)")
+    print(f"{'='*70}")
+    print(f"Periodo: {periodo}, Nivel: {nivel}, Unidad: {unidad}")
+    print(f"Usuario: {nombre_completo} (Rol {id_rol}: {nombre_rol})")
+    print(f"Exportando PDF: {exportando_pdf}")
+    print(f"{'='*70}")
+
+    try:
+        ua_obj = db.query(Unidad_Academica).filter(Unidad_Academica.Nombre == unidad).first()
+        if not ua_obj:
+            ua_obj = db.query(Unidad_Academica).filter(Unidad_Academica.Sigla == unidad).first()
+
+        nivel_obj = db.query(Nivel).filter(Nivel.Nivel == nivel).first()
+
+        id_unidad_academica = ua_obj.Id_Unidad_Academica if ua_obj else 0
+        id_nivel = nivel_obj.Id_Nivel if nivel_obj else 0
+
+        host = get_request_host(request)
+        usuario_login = sess.usuario
+        
+        from backend.crud.Matricula import execute_sp_consulta_matricula
+        rows, columns, nota_rechazo = execute_sp_consulta_matricula(
+            db, unidad, periodo, nivel, usuario_login, host
+        )
+
+        if not rows:
+            return templates.TemplateResponse("matricula_acuse_nuevo.html", {
+                "request": request, "nombre_usuario": nombre_completo, "nombre_rol": nombre_rol, "id_rol": id_rol,
+                "periodo": periodo, "nivel": nivel, "unidad": unidad,
+                "total_grupos_ua": 0, "total_h": 0, "total_m": 0, "total_t": 0,
+                "tabla_semestres": [], "tabla_modalidades": [], "tabla_edades": [], 
+                "tabla_turnos": [], "tabla_conceptos": [], "tabla_programas": [],
+                "id_unidad_academica": id_unidad_academica, "id_nivel": id_nivel,
+                "puede_validar": True, "usuario_ya_valido": False, "usuario_ya_rechazo": False,
+                "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
+                "fecha_hoy": datetime.now().strftime("%d/%m/%Y"),
+                "error_message": "No hay datos disponibles para este acuse"
+            })
+
+        from collections import defaultdict
+        
+        semestre_totals = defaultdict(lambda: {'H': 0, 'M': 0, 'T': 0})
+        modalidad_totals = defaultdict(lambda: {'H': 0, 'M': 0, 'T': 0})
+        edad_totals = defaultdict(lambda: {'H': 0, 'M': 0, 'T': 0})
+        turno_totals = defaultdict(lambda: {'H': 0, 'M': 0, 'T': 0})
+        tipo_ingreso_totals = defaultdict(lambda: {'H': 0, 'M': 0, 'T': 0})
+        programa_totals = defaultdict(lambda: {'H': 0, 'M': 0, 'T': 0})
+        
+        grupos_set = set()
+        total_h = total_m = total_t = 0
+        
+        for row in rows:
+            semestre = (row.get('Semestre') or row.get('Semestre') or 'Sin Semestre').strip()
+            if not semestre or semestre == '': semestre = 'Sin Semestre'
+            
+            modalidad = (row.get('Modalidad') or 'Sin Modalidad').strip()
+            if not modalidad or modalidad == '': modalidad = 'Sin Modalidad'
+            
+            edad = (row.get('Grupo_Edad') or 'N/A')
+            turno = (row.get('Turno') or 'N/A')
+            
+            tipo_ingreso = (row.get('Tipo_de_Ingreso') or 'Otro').strip()
+            if not tipo_ingreso or tipo_ingreso == '': tipo_ingreso = 'Otro'
+            
+            programa = (row.get('Programa') or row.get('Nombre_Programa') or 'Sin Programa').strip()
+            if not programa or programa == '': programa = 'Sin Programa'
+            
+            sexo = row.get('Sexo', '')
+            matricula = int(row.get('Matricula', 0) or 0)
+            total_grupos_value = int(row.get('Total_Grupos', 0) or 0)
+            
+            for total_dict in [semestre_totals[semestre], modalidad_totals[modalidad], 
+                              edad_totals[edad], turno_totals[turno], 
+                              tipo_ingreso_totals[tipo_ingreso], programa_totals[programa]]:
+                total_dict['T'] += matricula
+                if sexo == 'Hombre': total_dict['H'] += matricula
+                elif sexo == 'Mujer': total_dict['M'] += matricula
+            
+            if sexo == 'Hombre': total_h += matricula
+            elif sexo == 'Mujer': total_m += matricula
+            total_t += matricula
+            
+            if total_grupos_value > 0:
+                grupos_set.add(f"{programa}|{modalidad}|{turno}")
+        
+        semestre_orden = {
+            'primero': 1, 'segundo': 2, 'tercero': 3, 'cuarto': 4,
+            'quinto': 5, 'sexto': 6, 'septimo': 7, 'séptimo': 7,
+            'octavo': 8, 'noveno': 9, 'decimo': 10, 'décimo': 10,
+            'sin semestre': 999,
+        }
+
+        def _semestre_key(s):
+            s_str = str(s or '').strip().lower()
+            s_norm = s_str.replace('í', 'i').replace('é', 'e').replace('á', 'a').replace('ó', 'o').replace('ú', 'u')
+            m = re.search(r"(\d+)", s_norm)
+            if m: return (0, int(m.group(1)))
+            if s_norm in semestre_orden: return (0, semestre_orden[s_norm])
+            if 'sin' in s_norm: return (2, s_norm)
+            return (1, s_norm)
+
+        tabla_semestres = [{'nombre': s, 'hombres': semestre_totals[s]['H'], 'mujeres': semestre_totals[s]['M'], 'total': semestre_totals[s]['T']} for s in sorted(semestre_totals.keys(), key=_semestre_key)]
+        tabla_modalidades = [{'nombre': k, 'hombres': v['H'], 'mujeres': v['M'], 'total': v['T']} for k, v in sorted(modalidad_totals.items(), key=lambda x: str(x[0]).lower())]
+        
+        def _edad_key(e):
+            s = str(e or '')
+            m = re.search(r"(\d+)", s)
+            if m: return (0, int(m.group(1)))
+            return (1, s.lower())
+
+        tabla_edades = [{'nombre': k, 'hombres': v['H'], 'mujeres': v['M'], 'total': v['T']} for k, v in sorted(edad_totals.items(), key=_edad_key)]
+        tabla_turnos = [{'nombre': k, 'hombres': v['H'], 'mujeres': v['M'], 'total': v['T']} for k, v in sorted(turno_totals.items(), key=lambda x: str(x[0]).lower())]
+        tabla_conceptos = [{'nombre': k, 'hombres': v['H'], 'mujeres': v['M'], 'total': v['T']} for k, v in sorted(tipo_ingreso_totals.items(), key=lambda x: str(x[0]).lower())]
+        tabla_programas = [{'nombre': k, 'hombres': v['H'], 'mujeres': v['M'], 'total': v['T']} for k, v in sorted(programa_totals.items(), key=lambda x: str(x[0]).lower())]
+
+        totales_semestres = {'hombres': sum(v['H'] for v in semestre_totals.values()), 'mujeres': sum(v['M'] for v in semestre_totals.values()), 'total': sum(v['T'] for v in semestre_totals.values())}
+        totales_modalidades = {'hombres': sum(v['H'] for v in modalidad_totals.values()), 'mujeres': sum(v['M'] for v in modalidad_totals.values()), 'total': sum(v['T'] for v in modalidad_totals.values())}
+        totales_edades = {'hombres': sum(v['H'] for v in edad_totals.values()), 'mujeres': sum(v['M'] for v in edad_totals.values()), 'total': sum(v['T'] for v in edad_totals.values())}
+        totales_turnos = {'hombres': sum(v['H'] for v in turno_totals.values()), 'mujeres': sum(v['M'] for v in turno_totals.values()), 'total': sum(v['T'] for v in turno_totals.values())}
+        totales_conceptos = {'hombres': sum(v['H'] for v in tipo_ingreso_totals.values()), 'mujeres': sum(v['M'] for v in tipo_ingreso_totals.values()), 'total': sum(v['T'] for v in tipo_ingreso_totals.values())}
+        totales_programas = {'hombres': sum(v['H'] for v in programa_totals.values()), 'mujeres': sum(v['M'] for v in programa_totals.values()), 'total': sum(v['T'] for v in programa_totals.values())}
+        
+        total_grupos_ua = len(grupos_set)
+        
+        puede_validar = False
+        usuario_ya_valido = False
+        usuario_ya_rechazo = False
+        estado_semaforo_actual = 0
+
+        if id_rol in [4, 5, 6, 7, 8, 9]:
+            id_usuario_actual = int(getattr(sess, 'id_usuario', 0) or 0)
+            periodo_obj = db.query(Periodo).filter(Periodo.Periodo == periodo).first()
+            id_periodo = periodo_obj.Id_Periodo if periodo_obj else None
+
+            semaforo = None
+            if id_unidad_academica and id_periodo and id_nivel:
+                semaforo = db.query(SemaforoUnidadAcademica).filter(
+                    SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+                    SemaforoUnidadAcademica.Id_Periodo == id_periodo,
+                    SemaforoUnidadAcademica.Id_Formato == 1,
+                    SemaforoUnidadAcademica.Id_Nivel == id_nivel
+                ).first()
+
+            if semaforo:
+                estado_semaforo = semaforo.Id_Semaforo
+                estado_semaforo_actual = estado_semaforo
+                if estado_semaforo == (id_rol - 1): puede_validar = True
+                elif estado_semaforo >= id_rol: usuario_ya_valido = True
+            
+            if id_usuario_actual and id_periodo:
+                validacion_rechazo = db.query(Validacion).filter(
+                    Validacion.Id_Periodo == id_periodo,
+                    Validacion.Id_Usuario == id_usuario_actual,
+                    Validacion.Id_Formato == 1, Validacion.Validado == 0
+                ).first()
+
+                if validacion_rechazo and not (semaforo and estado_semaforo == (id_rol - 1)):
+                    usuario_ya_rechazo = True
+                    puede_validar = False
+        
+        return templates.TemplateResponse("matricula_acuse_nuevo.html", {
+            "request": request, "nombre_usuario": nombre_completo, "nombre_rol": nombre_rol, "id_rol": id_rol,
+            "periodo": periodo, "nivel": nivel, "unidad": unidad,
+            "total_grupos_ua": total_grupos_ua, "total_h": total_h, "total_m": total_m, "total_t": total_t,
+            "tabla_semestres": tabla_semestres, "tabla_modalidades": tabla_modalidades, "tabla_edades": tabla_edades,
+            "tabla_turnos": tabla_turnos, "tabla_conceptos": tabla_conceptos, "tabla_programas": tabla_programas,
+            "totales_semestres": totales_semestres, "totales_modalidades": totales_modalidades,
+            "totales_edades": totales_edades, "totales_turnos": totales_turnos,
+            "totales_conceptos": totales_conceptos, "totales_programas": totales_programas,
+            "id_unidad_academica": id_unidad_academica, "id_nivel": id_nivel,
+            "puede_validar": puede_validar, "usuario_ya_valido": usuario_ya_valido, "usuario_ya_rechazo": usuario_ya_rechazo,
+            "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
+            "estado_semaforo_actual": estado_semaforo_actual, # PASADO AL TEMPLATE
+            "fecha_hoy": datetime.now().strftime("%d/%m/%Y"), # FECHA DEL SISTEMA
+            "error_message": None
+        })
+
+    except Exception as e:
+        print(f"❌ Error al generar acuse: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return templates.TemplateResponse("matricula_acuse_nuevo.html", {
+            "request": request, "nombre_usuario": nombre_completo, "nombre_rol": nombre_rol, "id_rol": id_rol,
+            "periodo": periodo, "nivel": nivel, "unidad": unidad, "total_grupos_ua": 0, "total_h": 0, "total_m": 0, "total_t": 0,
+            "tabla_semestres": [], "tabla_modalidades": [], "tabla_edades": [], "tabla_turnos": [], "tabla_conceptos": [], "tabla_programas": [],
+            "totales_semestres": {"hombres":0,"mujeres":0,"total":0}, "totales_modalidades": {"hombres":0,"mujeres":0,"total":0},
+            "totales_edades": {"hombres":0,"mujeres":0,"total":0}, "totales_turnos": {"hombres":0,"mujeres":0,"total":0},
+            "totales_conceptos": {"hombres":0,"mujeres":0,"total":0}, "totales_programas": {"hombres":0,"mujeres":0,"total":0},
+            "id_unidad_academica": 0, "id_nivel": 0, "puede_validar": False, "usuario_ya_valido": False, "usuario_ya_rechazo": False,
+            "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
+            "fecha_hoy": datetime.now().strftime("%d/%m/%Y"),
+            "error_message": f"Error al procesar acuse: {str(e)}"
+        })
+
+@router.get('/acuse-validacion/pdf')
+async def acuse_validacion_pdf(
+    request: Request,
+    periodo: str,
+    nivel: str,
+    unidad: str,
+    sess=Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    try:
+        import importlib
+        weasyprint = importlib.import_module("weasyprint")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"WeasyPrint no está instalado: {exc}")
+
+    resp = await acuse_validacion_view(request, periodo, nivel, unidad, sess, db, exportando_pdf=True)
+    
+    if isinstance(resp, RedirectResponse):
+        return resp
+
+    if isinstance(resp.body, memoryview):
+        html_text = resp.body.tobytes().decode('utf-8')
+    else:
+        html_text = bytes(resp.body).decode('utf-8')
+
+    # CORRECCIÓN DE RUTA: parents[2] sube de 'api' a 'backend' y luego a la RAÍZ del proyecto
+    base_path = Path(__file__).resolve().parents[2] / 'frontend' / 'static'
+    ruta_css = base_path / 'css' / 'components' / 'matricula_acuse.css'
+
+    # Validación preventiva para asegurar que la ruta es correcta ahora
+    if not ruta_css.exists():
+        raise HTTPException(
+            status_code=500, 
+            detail=f"No se encontró el archivo CSS en: {ruta_css}. Verifica si la carpeta 'frontend' está al mismo nivel que 'backend'."
+        )
+
+    try:
+        pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
+            stylesheets=[
+                weasyprint.CSS(filename=str(ruta_css)),
+                weasyprint.CSS(string='@page { size: Letter; margin: 1cm }')
+            ]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
+
+    filename = f"acuse_{unidad}_{periodo}.pdf".replace(' ', '_')
+    return Response(content=pdf_bytes, media_type='application/pdf', headers={
+        'Content-Disposition': f'attachment; filename="{filename}"'
+    })
