@@ -24,6 +24,7 @@ function agregarFilasEgresados() {
     const turnoSelect = document.getElementById('filtro-turno');
     const boleta = document.getElementById('filtro-boleta');
     const generacion = document.getElementById('filtro-generacion');
+    const nombreRama = datosFilas[0].Nombre_Rama || 'Rama Desconocida';
     
     // Validar que todos los campos estén llenos
     if (!programa || !programa.value) {
@@ -65,6 +66,7 @@ function agregarFilasEgresados() {
     
     let filasAgregadas = 0;
     let filasDuplicadas = 0;
+
     
     // Crear una fila por cada edad seleccionada
     checkboxesSeleccionados.forEach(checkbox => {
@@ -91,8 +93,8 @@ function agregarFilasEgresados() {
         const fila = {
             id: Date.now() + Math.random(), // ID único
             //programa: programa.value,
-            
-            periodo: periodoDefault,
+
+            ramaNombre: nombreRama,
 
             programaNombre: programa.options[programa.selectedIndex].text,
             //modalidad: modalidad.value,

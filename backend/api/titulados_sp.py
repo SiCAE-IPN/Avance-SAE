@@ -8,11 +8,13 @@ from backend.database.connection import get_db
 from backend.core.templates import templates
 from backend.schemas import Nivel
 from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados
-from backend.crud.ConsultaTitulados import insertar_temp_titulados
-from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
+from backend.crud.ConsultaTitulados import insertar_temp_titulados, insertar_titulados_sp
+from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo, get_ultimo_periodo
 from backend.core.auth import get_current_session
 from backend.database.models.Temp_Titulados import Temp_Titulados as TituladosModel
 from backend.database.models.CatUnidadAcademica import CatUnidadAcademica as Unidad_Academica
+
+host = "Test"
 
 def valor_orden_edad(edad: str):
     edad = edad.strip()
@@ -61,9 +63,6 @@ async def consulta_titulados(
     id_unidad_academica = int(sess.id_unidad_academica)
     nombre_nivel = sess.nombre_nivel
 
-    host = "Test"
-
-   
 
     if id_unidad_academica > 0:
             ua_usuario = db.query(Unidad_Academica).filter(
@@ -199,45 +198,49 @@ async def consulta_titulados(
 
 @router.post("/guardar-avance-titulados", response_class=JSONResponse)
 
-def guardar_titulados(request: Request, datos: List[dict], db: Session = Depends(get_db)):
+def guardar_titulados(
+    request: Request,
+    datos: List[dict],
+    sess = Depends(get_current_session),
+    db: Session = Depends(get_db)):
     
-    sigla_unidad_academica = request.cookies.get("sigla_unidad_academica", "UAP")
-    nombre_nivel = request.cookies.get("nombre_nivel", "Nivel de Prueba")
+    sigla_unidad_academica = sess.sigla_unidad_academica
+    nivel = sess.nombre_nivel
 
-    
+
     try:
-        periodo_id, periodo_literal = get_periodo_activo(db)
-        if not periodo_id or not periodo_literal:
-            return templates.TemplateResponse("error.html", {
-                "request": request,
-                "error_message": "No hay un periodo activo configurado en el sistema.",
-                "redirect_url": "/mod_principal/"
-            })
-        
-        periodo_default_literal = periodo_literal
-        print(f" Periodo por defecto: {periodo_default_literal}")
+        id_p, periodo = get_periodo_anterior_al_ultimo(db)
+        id_p_actual, periodo_actual = get_periodo_activo(db)
+
+        if periodo is None:
+            return JSONResponse(
+                content={"status": "error", "message": "No se encontró un periodo activo."}, 
+                status_code=404
+            )
+    
     except Exception as e:
-        print(f" Error al obtener periodo: {str(e)}")
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error_message": f"Error al cargar el periodo: {str(e)}",
-            "redirect_url": "/mod_principal/"
-        }) 
-    #print(f"Datos recibidos para guardar: {datos}")
+        print(f"Error al obtener periodo activo: {str(e)}")
+        return JSONResponse(content={"status": "error", "message": f"Error al obtener periodo activo: {str(e)}"}, status_code=500)
+
+
+    print(f"Datos recibidos para guardar: {datos}")
 
     try:
         registros = preparar_datos_temp_titulados(
             datos=datos,
-            periodo=datos[0].get("periodo", "Periodo Desconocido"),
-            sigla=datos[0].get("sigla_unidad_academica", "SIGLA_DESCONOCIDA"),
-            rama=datos[0].get("rama", "Rama Desconocida"),
-            nivel=datos[0].get("nivel", "Nivel Desconocido")
+            periodo = periodo,
+            sigla= sigla_unidad_academica,
+            nivel= nivel
         )
 
        # print(f"Registros preparados para guardar: {registros}")
 
         total = insertar_temp_titulados(db, registros)
 
+        #insertar en titulados
+
+        insertar_titulados_sp(db, sigla_unidad_academica, sess.usuario, host, periodo_actual, nivel)
+ 
     except Exception as e:
         print(f"Error preparando datos para guardar: {e}")
         return JSONResponse(content={"status": "error", "message": f"Error preparando datos: {str(e)}"}, status_code=500)

@@ -67,7 +67,6 @@ def preparar_datos_temp_titulados(
     datos: List[Dict[str, Any]],
     periodo: str,
     sigla: str,
-    rama: str,
     nivel: str,
 ) -> List[Temp_Titulados]:
     
@@ -78,7 +77,7 @@ def preparar_datos_temp_titulados(
             "Periodo": periodo,
             "Sigla": sigla,
             "Nombre_Programa": fila.get("programaNombre", ""),
-            "Nombre_Rama": rama,
+            "Nombre_Rama": fila.get("ramaNombre", ""),
             "Nivel": nivel,
             "Modalidad": fila.get("modalidadNombre", ""),
             "Grupo_Edad": fila.get("edadNombre", ""),
