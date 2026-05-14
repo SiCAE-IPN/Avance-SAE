@@ -889,11 +889,23 @@
 
         Swal.fire({ title: 'Validando...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
         try {
-            const res = await fetch('/aprovechamiento/validar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ periodo, nivel, unidad }) });
-            const data = await res.json();
-            if (data.success) { await Swal.fire({ icon: 'success', title: '¡Validado!', text: data.mensaje, timer: 2000, showConfirmButton: false }); location.reload(); }
-            else Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo completar la validación', confirmButtonColor: '#6e0343' });
-        } catch (e) { Swal.fire({ icon: 'error', title: 'Error de conexión', text: e.message, confirmButtonColor: '#6e0343' }); }
+            const res = await fetch('/aprovechamiento/validar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ periodo, nivel, unidad_academica: unidad })
+            });
+            const txt = await res.text();
+            let data = {};
+            try { data = JSON.parse(txt); } catch { data = { detail: txt.slice(0, 200) }; }
+            if (res.ok) {
+                await Swal.fire({ icon: 'success', title: '¡Validado!', text: data.detail || 'Aprovechamiento validado correctamente.', timer: 2000, showConfirmButton: false });
+                location.reload();
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'No se pudo completar la validación', confirmButtonColor: '#6e0343' });
+            }
+        } catch (e) {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: e.message, confirmButtonColor: '#6e0343' });
+        }
     }
 
     // ── Rechazar ───────────────────────────────────────────────────────────
@@ -906,18 +918,26 @@
         setTimeout(() => document.getElementById('motivo-rechazo').focus(), 100);
         setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 150);
     }
+
     function cerrarPanelRechazo() {
         document.getElementById('panel-rechazo').style.display = 'none';
         document.getElementById('motivo-rechazo').value = '';
     }
+
     function actualizarContador() {
         const len = document.getElementById('motivo-rechazo').value.length;
         const el = document.getElementById('contador-caracteres');
-        el.textContent = len; el.style.color = len > 230 ? '#dc3545' : '#666'; el.style.fontWeight = len > 230 ? 'bold' : 'normal';
+        el.textContent = len;
+        el.style.color = len > 230 ? '#dc3545' : '#666';
+        el.style.fontWeight = len > 230 ? 'bold' : 'normal';
     }
+
     async function confirmarRechazo() {
         const motivo = document.getElementById('motivo-rechazo').value.trim();
-        if (motivo.length < 10) { Swal.fire({ icon: 'warning', title: 'Motivo insuficiente', text: 'Ingrese al menos 10 caracteres.', confirmButtonColor: '#6e0343' }); return; }
+        if (motivo.length < 10) {
+            Swal.fire({ icon: 'warning', title: 'Motivo insuficiente', text: 'Ingrese al menos 10 caracteres.', confirmButtonColor: '#6e0343' });
+            return;
+        }
         const r = await Swal.fire({
             title: '¿Rechazar Aprovechamiento?',
             html: `<b>Motivo:</b> ${motivo.substring(0, 80)}${motivo.length > 80 ? '...' : ''}`,
@@ -926,13 +946,28 @@
             confirmButtonText: '<i class="fas fa-paper-plane"></i> Sí, rechazar', cancelButtonText: 'Cancelar'
         });
         if (!r.isConfirmed) return;
+
         Swal.fire({ title: 'Enviando rechazo...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
         try {
-            const res = await fetch('/aprovechamiento/rechazar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ periodo, nivel, unidad, motivo }) });
-            const data = await res.json();
-            if (data.success) { await Swal.fire({ icon: 'success', title: '¡Rechazo enviado!', text: data.mensaje, timer: 2000, showConfirmButton: false }); location.reload(); }
-            else Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo enviar el rechazo', confirmButtonColor: '#6e0343' });
-        } catch (e) { Swal.fire({ icon: 'error', title: 'Error de conexión', text: e.message, confirmButtonColor: '#6e0343' }); }
+            const res = await fetch('/aprovechamiento/rechazar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ periodo, nivel, unidad_academica: unidad, motivo })
+            });
+            const txt = await res.text();
+            let data = {};
+            try { data = JSON.parse(txt); } catch { data = { detail: txt.slice(0, 200) }; }
+            if (res.ok) {
+                await Swal.fire({ icon: 'success', title: '¡Rechazo enviado!', text: data.detail || 'Aprovechamiento rechazado correctamente.', timer: 2000, showConfirmButton: false });
+                location.reload();
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'No se pudo enviar el rechazo', confirmButtonColor: '#6e0343' });
+            }
+        } catch (e) {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: e.message, confirmButtonColor: '#6e0343' });
+        }
     }
+
+
 </script>
 {% endblock %}

@@ -8,10 +8,13 @@ from backend.database.connection import get_db
 from backend.core.templates import templates
 from backend.schemas import Nivel
 from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados
-from backend.crud.ConsultaTitulados import insertar_temp_titulados
-from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
+from backend.crud.ConsultaTitulados import insertar_temp_titulados, insertar_titulados_sp
+from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo, get_ultimo_periodo
+from backend.core.auth import get_current_session
 from backend.database.models.Temp_Titulados import Temp_Titulados as TituladosModel
+from backend.database.models.CatUnidadAcademica import CatUnidadAcademica as Unidad_Academica
 
+host = "Test"
 
 def valor_orden_edad(edad: str):
     edad = edad.strip()
@@ -38,30 +41,46 @@ router = APIRouter()
 
 @router.get("/consulta", response_class=HTMLResponse)
 
+@router.get("/consulta", response_class=HTMLResponse)
 async def consulta_titulados(
     request: Request,
+    sess = Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
     
     contexto = {}
     filas = []
+   
+    id_rol = int(sess.id_rol)
+    nombre_rol = sess.nombre_rol
     
-    # Identificar la vista para usuarios (Quitar los default ya que conecte a la base)
-    id_rol = int(request.session.get("id_rol",0))
-    nombre_rol = request.session.get("nombre_rol", "Capturista")
-    nombre = request.session.get("nombre_usuario", "Prueba")
-    apellidoP_usuario = request.session.get("apellidoP_usuario", "123")
-    apellidoM_usuario = request.session.get("apellidoM_usuario", "456")
+    nombre = sess.nombre_usuario
+    apellidoP_usuario = sess.apellidoP_usuario
+    apellidoM_usuario = sess.apellidoM_usuario
+    
     nombre_usuario = " ".join(filter(None, [nombre, apellidoP_usuario, apellidoM_usuario]))
-    
-    unidad_academica = request.session.get("unidad_academica", "unidad_prueba")
-    sigla_unidad_academica = request.session.get("sigla_unidad_academica", "UAP")
-    nombre_nivel = request.session.get("nombre_nivel", "Nivel de Prueba")
-    nivel_acceso = request.session.get("id_nivel")
-    usuario = request.session.get("usuario", "usuario_prueba")
+    sigla_unidad_academica = sess.sigla_unidad_academica
+    id_unidad_academica = int(sess.id_unidad_academica)
+    nombre_nivel = sess.nombre_nivel
 
-    host = "Test"
 
+    if id_unidad_academica > 0:
+            ua_usuario = db.query(Unidad_Academica).filter(
+                Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
+            ).first()
+
+    unidad_academica_usuario = ua_usuario.Nombre
+    nivel = sess.id_nivel
+
+    print(unidad_academica_usuario)
+    """
+    unidad_academica = sess.unidad_academica
+   
+    nombre_nivel = getattr(sess, 'nombre_nivel', "Nivel de Prueba")
+    nivel_acceso = getattr(sess, 'id_nivel', 0)
+    usuario = getattr(sess, 'usuario', "usuario_prueba")"""
+
+    print(f"Usuario: {nombre_usuario}, Rol: {nombre_rol} (ID: {id_rol}), Unidad Académica: {unidad_academica} ({sigla_unidad_academica}), Nivel: {nombre_nivel}, Host: {host}")
     try:
         periodo_id, periodo_literal = get_periodo_activo(db)
         if not periodo_id or not periodo_literal:
@@ -108,7 +127,7 @@ async def consulta_titulados(
             f"Obteniendo titulados para UA: {sigla_unidad_academica}, "
             f"Periodo: {periodo_default_literal}, "
             f"Nivel: {nombre_nivel}, "
-            f"Usuario: {usuario}"
+            f"Usuario: {nombre_usuario}"
         )
 
         contexto, filas = obtener_titulados(
@@ -116,7 +135,7 @@ async def consulta_titulados(
             unidad_academica=sigla_unidad_academica,
             periodo=periodo_default_literal,
             nivel=nombre_nivel,
-            usuario=usuario,
+            usuario=nombre_usuario,
             host=host,
         )
 
@@ -166,9 +185,9 @@ async def consulta_titulados(
             {"request": request,
              "nombre_usuario": nombre_usuario,
              "periodo_default_literal": periodo_default_literal,
-             "unidad_academica" : unidad_academica,
+             "unidad_academica" : unidad_academica_usuario,
              "nombre_rol": nombre_rol,
-             "nivel_acceso" : nivel_acceso,
+             "nivel_acceso" : nivel,
              "contexto": contexto,
              "boletas": boletas,
              "filas": filas,
@@ -179,45 +198,49 @@ async def consulta_titulados(
 
 @router.post("/guardar-avance-titulados", response_class=JSONResponse)
 
-def guardar_titulados(request: Request, datos: List[dict], db: Session = Depends(get_db)):
+def guardar_titulados(
+    request: Request,
+    datos: List[dict],
+    sess = Depends(get_current_session),
+    db: Session = Depends(get_db)):
     
-    sigla_unidad_academica = request.cookies.get("sigla_unidad_academica", "UAP")
-    nombre_nivel = request.cookies.get("nombre_nivel", "Nivel de Prueba")
+    sigla_unidad_academica = sess.sigla_unidad_academica
+    nivel = sess.nombre_nivel
 
-    
+
     try:
-        periodo_id, periodo_literal = get_periodo_activo(db)
-        if not periodo_id or not periodo_literal:
-            return templates.TemplateResponse("error.html", {
-                "request": request,
-                "error_message": "No hay un periodo activo configurado en el sistema.",
-                "redirect_url": "/mod_principal/"
-            })
-        
-        periodo_default_literal = periodo_literal
-        print(f" Periodo por defecto: {periodo_default_literal}")
+        id_p, periodo = get_periodo_anterior_al_ultimo(db)
+        id_p_actual, periodo_actual = get_periodo_activo(db)
+
+        if periodo is None:
+            return JSONResponse(
+                content={"status": "error", "message": "No se encontró un periodo activo."}, 
+                status_code=404
+            )
+    
     except Exception as e:
-        print(f" Error al obtener periodo: {str(e)}")
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error_message": f"Error al cargar el periodo: {str(e)}",
-            "redirect_url": "/mod_principal/"
-        }) 
-    #print(f"Datos recibidos para guardar: {datos}")
+        print(f"Error al obtener periodo activo: {str(e)}")
+        return JSONResponse(content={"status": "error", "message": f"Error al obtener periodo activo: {str(e)}"}, status_code=500)
+
+
+    print(f"Datos recibidos para guardar: {datos}")
 
     try:
         registros = preparar_datos_temp_titulados(
             datos=datos,
-            periodo=datos[0].get("periodo", "Periodo Desconocido"),
-            sigla=datos[0].get("sigla_unidad_academica", "SIGLA_DESCONOCIDA"),
-            rama=datos[0].get("rama", "Rama Desconocida"),
-            nivel=datos[0].get("nivel", "Nivel Desconocido")
+            periodo = periodo,
+            sigla= sigla_unidad_academica,
+            nivel= nivel
         )
 
        # print(f"Registros preparados para guardar: {registros}")
 
         total = insertar_temp_titulados(db, registros)
 
+        #insertar en titulados
+
+        insertar_titulados_sp(db, sigla_unidad_academica, sess.usuario, host, periodo_actual, nivel)
+ 
     except Exception as e:
         print(f"Error preparando datos para guardar: {e}")
         return JSONResponse(content={"status": "error", "message": f"Error preparando datos: {str(e)}"}, status_code=500)

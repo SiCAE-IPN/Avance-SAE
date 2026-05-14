@@ -61,6 +61,26 @@ def insertar_temp_titulados(db: Session, registros: list[Temp_Titulados]) -> int
         db.rollback()
         raise e
     
+def insertar_titulados_sp(db: Session, unidad_academica, usuario, host, periodo, nivel):
+    try:
+        connection = db.connection().connection
+        cursor = connection.cursor()
+        cursor.execute("""
+            EXEC [dbo].[SP_Actualiza_Titulados_Por_Unidad_Academica]
+                @UUnidad_Academica = ?,
+                @UUsuario          = ?,
+                @HHost             = ?,       
+                @Pperiodo          = ?,
+                @NNivel            = ?
+        """, (unidad_academica, usuario, host, periodo, nivel))
+        
+        connection.commit()
+        cursor.close()
+
+    except Exception as e:
+        connection.rollback()
+        raise RuntimeError(f"Error al ejecutar SP_Insertar_Titulados: {e}")
+    
 if __name__ == "__main__":
     inicio = time.time()
     with next(get_db()) as db:

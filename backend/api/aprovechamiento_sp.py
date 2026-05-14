@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Dict, Any
+from fastapi.responses import JSONResponse
 from collections import defaultdict
 from datetime import datetime
 
@@ -89,6 +90,27 @@ def aprovechamiento_view(
                 aprovechamientos_raw = [dict(row) for row in result_aprov.mappings().all()]
             else:
                 aprovechamientos_raw = []
+            
+            # --- SP 2: Inscritos ---
+            query_inscritos = text("""
+                SET NOCOUNT ON;
+                EXEC dbo.SP_Consulta_Inscritos_Aprovechamiento
+                    @PPeriodo = :PPeriodo,
+                    @SSigla_Unidad_Academica = :UUnidad_Academica,
+                    @NNivel = :NNivel;
+            """)
+
+            result_inscritos = db.execute(query_inscritos, {
+                "PPeriodo": PPeriodo,
+                "UUnidad_Academica": UUnidad_Academica,
+                "NNivel": NNivel
+            })
+
+            
+            if result_inscritos.returns_rows:
+                inscritos_final = [dict(row) for row in result_inscritos.mappings().all()]
+            else:
+                inscritos_final = []
 
             if aprovechamientos_raw:
                 
@@ -119,8 +141,7 @@ def aprovechamiento_view(
 
                         # 3. Iteramos sobre los datos que trajo el primer SP
                         for reg in aprovechamientos_raw:
-                            # Extraemos los valores. 
-                            # ¡OJO!: Cambia "Modalidad", "Programa" y "Semestre" por los nombres EXACTOS de las columnas que devuelve tu BD.
+                            # Extraemos los valores.
                             m_modalidad = reg.get("Modalidad", "") 
                             p_programa = reg.get("Nombre_Programa", "")
                             s_semestre = reg.get("Semestre", "")
@@ -172,7 +193,6 @@ def aprovechamiento_view(
             print(f"--- ERROR DETECTADO ---")
             print(f"Mensaje: {e}")
             
-        
         return templates.TemplateResponse(
             "aprovechamiento_consulta.html",
             {   
@@ -254,14 +274,13 @@ def guardar_progreso_aprovechamiento(datos: List[Dict[str, Any]], db: Session = 
     try:
         # 1. OBTENER EL PERIODO ANTERIOR AL ÚLTIMO
         _, periodo_anterior = get_periodo_anterior_al_ultimo(db)
-        print(datos)
         if not periodo_anterior:
             print("⚠️ No se encontró un periodo anterior al último, se usará el enviado por el cliente.")
         else:
             print(f"🎯 Forzando uso de Periodo Anterior: {periodo_anterior}")
 
         print(f"📥 Recibiendo {len(datos)} registros para guardar...")
-        print(f"📥 Datos: {datos}")
+        
         if not datos:
             return {"message": "No hay datos para guardar"}
         
@@ -350,16 +369,17 @@ async def actualizar_aprovechamiento(request: Request, sess=Depends(get_current_
     Lógica de SP integrada directamente aquí.
     """
     try:
-        # 1. OBTENER EL PERIODO DINÁMICO (Anterior al último)
-        _, periodo_sp = get_periodo_anterior_al_ultimo(db)
+        # 1. OBTENER EL PERIODO ACTIVO
+        _, periodo_sp = get_periodo_activo(db)
         
 
         # 2. OBTENER RESTO DE VARIABLES (desde sesión)
-        unidad_sigla = getattr(sess, 'sigla_unidad_academica', 'ESCOM') or 'ESCOM'
-        usuario = getattr(sess, 'usuario', 'sistema') or 'sistema'
-        nivel = getattr(sess, 'nombre_nivel', 'Superior') or 'Superior'
+        unidad_sigla = getattr(sess, 'sigla_unidad_academica')
+        usuario = getattr(sess, 'usuario')
+        nivel = getattr(sess, 'nombre_nivel')
         host_sp = get_request_host(request)
 
+        
         print(f"🔄 EJECUTANDO SP DIRECTAMENTE PARA PERIODO: {periodo_sp}")
         
         # 3. EJECUCIÓN DIRECTA DEL STORED PROCEDURE
@@ -894,7 +914,8 @@ async def validar_aprovechamiento(
     try:
         body           = await request.json()
         periodo        = body.get("periodo", "")
-        unidad         = body.get("unidad", "")
+        unidad         = body.get("unidad_academica", "")
+        nivel          = body.get("nivel", "")
         nombre_usuario = getattr(sess, 'usuario', '') or ''
         id_rol         = int(getattr(sess, 'id_rol', 0) or 0)
         host           = request.client.host
@@ -902,27 +923,37 @@ async def validar_aprovechamiento(
 
         # Obtener el semáforo siguiente según el rol
         semaforo_siguiente = SEMAFORO_SIGUIENTE.get(id_rol)
+        print("body: ",body)
+        print("periodo: ", periodo)
+        print("nivel: ",nivel)
+        print("unidad: ", unidad)
+        print("nombre: ",nombre_usuario)
+        print(id_rol)
+        print(host)
+        print("SET NOCOUNT ON;vEXEC [dbo].[SP_Valida_Aprovechamiento] @PPeriodo = : ",periodo,",  @NNota = : ",nota)
         if not semaforo_siguiente:
             return {"success": False, "error": "Rol no autorizado para validar."}
 
         db.execute(
             text("""
                 SET NOCOUNT ON;
-                EXEC [dbo].[SP_Valida_Aprovechamniento]
+                EXEC [dbo].[SP_Valida_Aprovechamiento]
                     @PPeriodo          = :periodo,
                     @UUnidad_Academica = :unidad,
+                    @NNivel            = :nivel,
                     @uusuario          = :usuario,
                     @HHost             = :host,
-                    @NNota             = :nota,
-                    @semaforo          = :semaforo
+                    @NNota             = :nota
+                    
             """),
             {
                 "periodo":  periodo,
                 "unidad":   unidad,
+                "nivel":    nivel,
                 "usuario":  nombre_usuario,
                 "host":     host,
-                "nota":     nota,
-                "semaforo": semaforo_siguiente,
+                "nota":     nota
+                
             }
         )
         db.commit()
@@ -953,11 +984,24 @@ async def rechazar_aprovechamiento(
     try:
         body           = await request.json()
         periodo        = body.get("periodo", "")
-        unidad         = body.get("unidad", "")
+        nivel          = body.get("nivel", "")
+        unidad         = body.get("unidad_academica", "")
         motivo         = body.get("motivo", "")
         nombre_usuario = getattr(sess, 'usuario', '') or ''
         id_rol         = int(getattr(sess, 'id_rol', 0) or 0)
         host           = request.client.host
+        nota           = body.get("motivo", "")
+
+        print("body: ",body)
+        print("periodo: ", periodo)
+        print("nivel: ",nivel)
+        print(unidad)
+        print(motivo)
+        print(nombre_usuario)
+        print(id_rol)
+        print(host)
+        print("SET NOCOUNT ON;vEXEC [dbo].[SP_Rechaza_Aprovechamiento] @PPeriodo = : ",periodo,", @UUnidad_Academica = : "
+              ,unidad,",@NNivel = :",nivel,", @uusuario = :", nombre_usuario, ", @HHost = :",host,", @NNota = : ",nota)
 
         if not motivo or len(motivo.strip()) < 10:
             return {"success": False, "error": "El motivo del rechazo debe tener al menos 10 caracteres."}
@@ -969,21 +1013,21 @@ async def rechazar_aprovechamiento(
         db.execute(
             text("""
                 SET NOCOUNT ON;
-                EXEC [dbo].[SP_Rechaza_Aprovechamniento]
+                EXEC [dbo].[SP_Rechaza_Aprovechamiento]
                     @PPeriodo          = :periodo,
                     @UUnidad_Academica = :unidad,
+                    @NNivel            = :nivel,
                     @uusuario          = :usuario,
                     @HHost             = :host,
-                    @NNota             = :nota,
-                    @semaforo          = :semaforo
+                    @NNota             = :nota
             """),
             {
                 "periodo":  periodo,
                 "unidad":   unidad,
+                "nivel":    nivel,
                 "usuario":  nombre_usuario,
                 "host":     host,
                 "nota":     motivo,
-                "semaforo": semaforo_rechazo,
             }
         )
         db.commit()
@@ -994,3 +1038,62 @@ async def rechazar_aprovechamiento(
         import traceback
         db.rollback()
         return {"success": False, "error": f"Error al rechazar: {e}\n{traceback.format_exc()}"}
+
+
+
+@router.post("/validar_unidad_completa")
+async def validar_unidad_completa(
+    request: Request,
+    sess=Depends(get_current_session),
+    db: Session = Depends(get_db),
+):
+    payload = await request.json()
+    
+    # Datos de cabecera con strip() para eliminar espacios invisibles
+    periodo = str(payload.get("periodo", "")).strip()
+    unidad  = str(payload.get("unidad_academica", "")).strip()
+    nivel   = str(payload.get("nivel", "Superior")).strip()
+    
+    usuario = str(getattr(sess, "usuario", "sistema"))
+    host    = get_request_host(request)
+    
+    lista = payload.get("programas", [])
+
+    try:
+        for item in lista:
+            # Limpieza profunda de cada registro
+            prog = str(item.get("programa", "")).strip()
+            sem  = str(item.get("semestre", "")).strip()
+            mod  = str(item.get("modalidad", "PRESENCIAL")).strip()
+
+            if prog and sem:
+                # DEBUG: Revisa esto en tu consola de Python para ver qué se envía exactamente
+                print(f"DEBUG SP: P={periodo}, U={unidad}, Prog={prog}, S={sem}")
+                
+                db.execute(
+                    text("""
+                        SET NOCOUNT ON;
+                        EXEC [dbo].[SP_Actualiza_Aprovechamiento_Por_Semestre_AU]
+                            @PPeriodo          = :p,
+                            @UUnidad_Academica = :u,
+                            @MModalidad        = :m,
+                            @PPrograma         = :prog, 
+                            @SSemestre         = :s,
+                            @UUsuario          = :user,
+                            @HHost             = :h,
+                            @NNivel            = :n
+                    """),
+                    {
+                        "p": periodo, "u": unidad, "m": mod, 
+                        "prog": prog, "s": sem, "user": usuario, 
+                        "h": host, "n": nivel
+                    }
+                )
+        
+        db.commit()
+        return {"status": "success"}
+
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR CRÍTICO: {str(e)}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
