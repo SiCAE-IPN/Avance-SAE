@@ -233,6 +233,9 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
     apellidoM_usuario = sess.apellidoM_usuario
     nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
 
+    # ID de usuario actual (se usa para validar rechazos/validaciones)
+    id_usuario_actual = int(getattr(sess, 'id_usuario', 0) or 0)
+
     # Validar que el usuario tenga uno de los roles permitidos
     roles_permitidos = [1, 3, 4, 5, 6, 7, 8, 9]  #1=Admin, 3=Capturista, 4-9=Roles de validación/rechazo
     if id_rol not in roles_permitidos:
@@ -624,11 +627,61 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
     for estado in semaforo_data:
         print(f"  - ID {estado['id']}: {estado['descripcion']} ({estado['color']})")
 
+    # === LÓGICA DE SEMÁFORO PARA BOTONES DE VALIDACIÓN ===
+    usuario_ya_valido = False
+    usuario_ya_rechazo = False
+    puede_validar = False
+    
+    # Consultar semáforo para esta UA/Periodo/Nivel/Formato=3 (Egresados)
+    semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
+        SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+        SemaforoUnidadAcademica.Id_Periodo == periodo_default_id,
+        SemaforoUnidadAcademica.Id_Nivel == id_nivel,
+        SemaforoUnidadAcademica.Id_Formato == 3  # Formato 3 = Egresados
+    ).first()
+    
+    if semaforo_unidad:
+        estado_semaforo = semaforo_unidad.Id_Semaforo
+        print(f"   📊 Estado del semáforo egresados: {estado_semaforo}")
+        
+        # Lógica: El usuario puede validar si el semáforo está en (id_rol - 1)
+        semaforo_esperado = id_rol - 1
+        print(f"   ⚖️ Semáforo esperado para rol {id_rol}: {semaforo_esperado}")
+        
+        if estado_semaforo == semaforo_esperado:
+            puede_validar = True
+            print(f"   ✅ Usuario PUEDE validar egresados (semáforo en nivel correcto)")
+        elif estado_semaforo >= id_rol:
+            usuario_ya_valido = True
+            print(f"   🔒 Usuario YA validó egresados (semáforo >= {id_rol})")
+        else:
+            print(f"   ⏳ Usuario debe esperar (semáforo en nivel {estado_semaforo})")
+    else:
+        print(f"   ⚠️ No se encontró semáforo egresados para esta UA/Nivel/Periodo")
+    
+    # Verificar si el usuario rechazó estos egresados
+    validacion_rechazo = db.query(Validacion).filter(
+        Validacion.Id_Periodo == periodo_default_id,
+        Validacion.Id_Usuario == id_usuario_actual,
+        Validacion.Id_Formato == 3,  # Formato 3 = Egresados
+        Validacion.Validado == 0  # Rechazo
+    ).first()
+    
+    if validacion_rechazo:
+        if not (semaforo_unidad and estado_semaforo == (id_rol - 1)):
+            usuario_ya_rechazo = True
+            print(f"   ❌ Usuario YA rechazó estos egresados")
+    
+    print(f"\n📤 Estado de validación egresados:")
+    print(f"   puede_validar: {puede_validar}")
+    print(f"   usuario_ya_valido: {usuario_ya_valido}")
+    print(f"   usuario_ya_rechazo: {usuario_ya_rechazo}")
+    
     # Renderizar la plantilla - usar egresados_consulta_limpio.html para todos los roles
     template_name = "egresados_consulta_limpio.html"
     
     print(f"Renderizando template: {template_name}")
-    
+
     return templates.TemplateResponse(template_name, {
         "request": request,
         "nombre_usuario": nombre_completo,
@@ -656,7 +709,10 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
         "periodos": periodos,
         "rechazo_info": rechazo_info,
         "matricula_rechazada": matricula_rechazada,
-        "acceso_restringido": False
+        "acceso_restringido": False,
+        "puede_validar": puede_validar,
+        "usuario_ya_valido": usuario_ya_valido,
+        "usuario_ya_rechazo": usuario_ya_rechazo
     })
 
 
@@ -667,21 +723,21 @@ async def consultar_egresados(request: Request, sess=Depends(get_current_session
     """
     try:
         data = await request.json()
-        
+
         id_periodo = data.get('id_periodo')
         id_unidad_academica = data.get('id_unidad_academica') or getattr(sess, 'id_unidad_academica', None)
-        id_nivel = data.get('id_nivel') or getattr(sess, 'id_nivel', None)  # Recibir id_nivel del frontend o usar sesión
+        id_nivel = data.get('id_nivel') or getattr(sess, 'id_nivel', None)
         id_programa = data.get('id_programa')
         id_modalidad = data.get('id_modalidad')
-        
-        # Obtener información desde cookies
+
+        # Obtener información desde sesión
         nombre_usuario = sess.nombre_usuario
         apellidoP_usuario = sess.apellidoP_usuario
         apellidoM_usuario = sess.apellidoM_usuario
         nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
         host = get_request_host(request)
-        
-        # Obtener datos de periodo, unidad académica y nivel
+
+        # Obtener datos de periodo, unidad y nivel
         periodo = db.query(Periodo).filter(Periodo.Id_Periodo == id_periodo).first()
         unidad = None
         try:
@@ -692,7 +748,6 @@ async def consultar_egresados(request: Request, sess=Depends(get_current_session
         except Exception:
             unidad = None
 
-        # Usar el id_nivel enviado desde el frontend o desde la sesión
         nivel = None
         try:
             if id_nivel is not None:
@@ -702,12 +757,11 @@ async def consultar_egresados(request: Request, sess=Depends(get_current_session
 
         if not all([periodo, unidad, nivel]):
             raise HTTPException(status_code=400, detail="Faltan datos requeridos: periodo, unidad o nivel")
-        
-        # Para egresados, usar el periodo seleccionado tal cual (sin restar)
+
         periodo_literal = periodo.Periodo
         unidad_sigla = unidad.Sigla
         nivel_nombre = nivel.Nivel
-        
+
         print(f"\n{'='*60}")
         print(f"📊 EJECUTANDO SP DE CONSULTA DE EGRESADOS")
         print(f"Usuario: {nombre_completo}")
@@ -715,8 +769,7 @@ async def consultar_egresados(request: Request, sess=Depends(get_current_session
         print(f"Unidad Académica: {unidad.Nombre} (ID: {id_unidad_academica})")
         print(f"Nivel: {nivel_nombre} (ID: {id_nivel})")
         print(f"{'='*60}")
-        
-        # Ejecutar el SP
+
         sp_call = text("""
             EXEC SP_Consulta_Egresados_Unidad_Academica 
                 @UUnidad_Academica = :unidad,
@@ -725,7 +778,7 @@ async def consultar_egresados(request: Request, sess=Depends(get_current_session
                 @UUsuario = :usuario,
                 @HHost = :host
         """)
-        
+
         result = db.execute(sp_call, {
             'unidad': unidad_sigla,
             'periodo': periodo_literal,
@@ -733,439 +786,291 @@ async def consultar_egresados(request: Request, sess=Depends(get_current_session
             'usuario': nombre_completo,
             'host': host
         })
-        
-        # Obtener todos los resultados
+
         rows = result.fetchall()
         columns = result.keys()
-        
-        # Convertir a lista de diccionarios
-        egresados_data = []
-        for row in rows:
-            row_dict = dict(zip(columns, row))
-            egresados_data.append(row_dict)
-        
-        # Filtrar por programa y modalidad si se proporcionan
+
+        egresados_data = [dict(zip(columns, row)) for row in rows]
+
         if id_programa:
             programa = db.query(Programas).filter(Programas.Id_Programa == id_programa).first()
             if programa:
                 egresados_data = [e for e in egresados_data if e.get('Nombre_Programa') == programa.Nombre_Programa]
-        
+
         if id_modalidad:
             modalidad = db.query(Modalidad).filter(Modalidad.Id_Modalidad == id_modalidad).first()
             if modalidad:
                 egresados_data = [e for e in egresados_data if e.get('Modalidad') == modalidad.Modalidad]
-        
-        # Nota: El segundo resultset (nota de rechazo) no está disponible en este contexto
-        # ya que CursorResult no tiene método nextset() en SQLAlchemy
-        
+
         print(f"✅ Consulta exitosa: {len(egresados_data)} registros encontrados")
-        
-        return {
-            "success": True,
-            "data": egresados_data,
-            "count": len(egresados_data)
-        }
-        
+
+        return {"success": True, "data": egresados_data, "count": len(egresados_data)}
+
     except Exception as e:
         print(f"❌ Error al consultar egresados: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+    # Fin consultar
 
 @router.post('/guardar')
-async def guardar_egresados_temp(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
-    """
-    Guarda o actualiza datos de egresados en Temp_Egresados desde la tabla dinámica del frontend
-    Los datos se guardarán temporalmente con TODOS los campos en formato TEXTO (no IDs)
-    """
+async def guardar_egresados(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
     try:
         data = await request.json()
+        registros = data.get('registros', [])
+        periodo_id = data.get('id_periodo') or data.get('periodo')
         
-        # Obtener datos del request (aceptar tanto 'periodo' como 'id_periodo')
-        periodo_id = data.get('periodo') or data.get('id_periodo')
-        registros = data.get('registros', [])  # Array con los datos de egresados
+        if not periodo_id:
+            raise HTTPException(status_code=400, detail="Faltan parámetros requeridos: periodo")
 
-        # DEBUG: imprimir payload recibido (recortar si es muy largo)
-        try:
-            payload_json = json.dumps(data, default=str)
-            print(f"[DEBUG REQUEST] /egresados/guardar payload: {payload_json[:2000]}")
-        except Exception as e:
-            print(f"[DEBUG REQUEST] No se pudo serializar payload: {e}")
+        # 1. PRECARGA MASIVA (Evita consultas N+1)
+        programas_dict = {p.Id_Programa: p for p in db.query(Programas).all()}
+        modalidades_dict = {m.Id_Modalidad: m for m in db.query(Modalidad).all()}
+        boletas_dict = {b.Id_Boleta: b for b in db.query(Boleta).all()}
+        generaciones_dict = {g.Id_Generacion: g for g in db.query(Generacion).all()}
+        turnos_dict = {t.Id_Turno: t for t in db.query(Turno).all()}
+        ramas_dict = {r.Id_Rama: r.Nombre_Rama for r in db.query(Rama).all()}
 
-        # Soporte para frontend antiguo: payload con id_programa/id_modalidad y registros agregados
-        # Formato frontend: registros = [{id_boleta, id_generacion, id_turno, id_sexo, cantidad}, ...]
-        # Transformar a formato esperado por este endpoint: registros = [{programa, modalidad, turno, boleta, generacion, edad, hombres, mujeres}, ...]
-        if registros and isinstance(registros, list) and isinstance(registros[0], dict) and registros[0].get('id_boleta') is not None:
-            id_programa_front = data.get('id_programa') or data.get('programa')
-            id_modalidad_front = data.get('id_modalidad') or data.get('modalidad')
-            # Agrupar por boleta/generacion/turno
-            agrup = {}
-            for r in registros:
-                try:
-                    b = int(r.get('id_boleta') or 0)
-                    g = int(r.get('id_generacion') or 0)
-                    t = int(r.get('id_turno') or 0)
-                    s = int(r.get('id_sexo') or 0)
-                    c = int(r.get('cantidad') or 0)
-                except Exception:
-                    continue
+        # 2. RESOLVER CONTEXTO (UA, Período, Nivel)
+        unidad_obj = db.query(Unidad_Academica).filter(Unidad_Academica.Id_Unidad_Academica == int(sess.id_unidad_academica)).first()
+        nivel_obj = db.query(Nivel).filter(Nivel.Id_Nivel == int(sess.id_nivel)).first()
+        
+        # ⚠️ IMPORTANTE: DOS periodos diferentes
+        # 1. periodo_texto_actual: para CONSULTAR datos desde SP_Consulta_Egresados_Unidad_Academica (el periodo enviado)
+        # 2. periodo_texto_temp: para GUARDAR en Temp_Egresados (el periodo anterior)
+        
+        # Periodo actual (para consultar SP)
+        periodo_obj_actual = db.query(Periodo).filter(Periodo.Id_Periodo == int(periodo_id)).first()
+        if not periodo_obj_actual:
+            raise HTTPException(status_code=400, detail=f"No existe periodo con Id={periodo_id}")
+        periodo_texto_actual = periodo_obj_actual.Periodo
+        print(f"📅 Periodo ACTUAL (para consultar SP): {periodo_texto_actual} (Id={periodo_id})")
+        
+        # Periodo anterior (para guardar en Temp_Egresados)
+        periodo_anterior_id = int(periodo_id) - 1
+        periodo_obj_anterior = db.query(Periodo).filter(Periodo.Id_Periodo == periodo_anterior_id).first()
+        if not periodo_obj_anterior:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"No existe periodo anterior (Id={periodo_anterior_id}). Periodo recibido era {periodo_id}"
+            )
+        periodo_texto_temp = periodo_obj_anterior.Periodo
+        print(f"📅 Periodo ANTERIOR (para guardar Temp): {periodo_texto_temp} (Id={periodo_anterior_id})")
 
-                key = f"{b}_{g}_{t}"
-                if key not in agrup:
-                    agrup[key] = { 'boleta': b, 'generacion': g, 'turno': t, 'hombres': 0, 'mujeres': 0 }
-                if s and c:
-                    # Asumir sexo: 1=Hombre, 2=Mujer (si no coincide, se intentará mapear por DB después)
-                    if s == 1:
-                        agrup[key]['hombres'] += c
-                    else:
-                        agrup[key]['mujeres'] += c
+        # 3. LIMPIEZA PREVIA (Muy importante para no duplicar avance)
+        db.query(Temp_Egresados).filter(
+            Temp_Egresados.Sigla == unidad_obj.Sigla,
+            Temp_Egresados.Periodo == periodo_texto_temp
+        ).delete()
 
-            # Reconstruir registros en formato esperado
-            registros_transformados = []
-            for _, v in agrup.items():
-                registros_transformados.append({
-                    'programa': int(id_programa_front) if id_programa_front else 0,
-                    'modalidad': int(id_modalidad_front) if id_modalidad_front else 0,
-                    'turno': v['turno'],
-                    'boleta': v['boleta'],
-                    'generacion': v['generacion'],
-                    'edad': '',
-                    'hombres': v['hombres'],
-                    'mujeres': v['mujeres']
-                })
+        # 4. PROCESAMIENTO EN MEMORIA
+        objetos_a_guardar = []
 
-            registros = registros_transformados
-            print(f"[DEBUG TRANSFORM] Registros transformados a formato interno: {registros}")
-
-        # Soporte para frontend nuevo: cada fila trae un objeto "turnos" con H/M por turno.
-        # Normalizamos a registros planos (uno por turno) para reutilizar el flujo actual.
-        if registros and isinstance(registros, list):
-            registros_normalizados = []
-            formato_turnos_detectado = False
-
-            for reg in registros:
-                if not isinstance(reg, dict):
-                    continue
-
-                turnos_reg = reg.get('turnos')
-
-                if isinstance(turnos_reg, dict):
-                    formato_turnos_detectado = True
-
-                    for turno_id, valores_turno in turnos_reg.items():
-                        valores_turno = valores_turno or {}
-                        reg_plano = dict(reg)
-                        reg_plano['turno'] = turno_id
-                        reg_plano['hombres'] = valores_turno.get('hombres', '')
-                        reg_plano['mujeres'] = valores_turno.get('mujeres', '')
-                        registros_normalizados.append(reg_plano)
-                else:
-                    registros_normalizados.append(reg)
-
-            if formato_turnos_detectado:
-                print(
-                    f"[DEBUG NORMALIZE] Formato con turnos detectado: "
-                    f"{len(registros)} fila(s) -> {len(registros_normalizados)} registro(s) plano(s)"
+        # Si el front envía registros, los usamos; si no, intentamos obtenerlos desde el SP de consulta
+        registros_origen = registros
+        if not registros_origen:
+            try:
+                print("🔄 No se recibieron registros en el payload, obteniendo datos desde SP_Consulta_Egresados_Unidad_Academica...")
+                resultados_sp, _ = execute_egresados_sp(
+                    db=db,
+                    unidad_sigla=unidad_obj.Sigla if unidad_obj else '',
+                    periodo_literal=periodo_texto_actual,  # ← USAR PERIODO ACTUAL PARA CONSULTAR SP
+                    nivel_nombre=nivel_obj.Nivel if nivel_obj else '',
+                    usuario=str(sess.nombre_usuario),
+                    host=get_request_host(request)
                 )
+                registros_origen = resultados_sp or []
+                print(f"🔍 Registros obtenidos desde SP: {len(registros_origen)}")
+            except Exception as e_sp:
+                print(f"⚠️ No se pudieron obtener registros desde SP: {str(e_sp)}")
+                registros_origen = []
 
-            registros = registros_normalizados
+        print(f"📥 /guardar payload: registros recibidos={len(registros_origen)} | periodo_temp={periodo_texto_temp} | sigla={unidad_obj.Sigla if unidad_obj else 'N/A'}")
         
-        # Obtener información del usuario desde cookies
-        nombre_usuario = sess.nombre_usuario
-        id_unidad_academica = int(sess.id_unidad_academica)
-        id_nivel = int(sess.id_nivel)
-        host = get_request_host(request)
-        
-        print(f"\n{'='*60}")
-        print(f"GUARDANDO EN TEMP_EGRESADOS")
-        print(f"Usuario: {nombre_usuario}")
-        print(f"Periodo ID: {periodo_id}")
-        print(f"Unidad Académica ID: {id_unidad_academica}")
-        print(f"Nivel ID: {id_nivel}")
-        print(f"Total registros: {len(registros)}")
-        print(f"{'='*60}\n")
-        
-        if not periodo_id or not registros:
-            raise HTTPException(status_code=400, detail="Faltan parámetros requeridos (periodo o registros)")
-        
-        if id_unidad_academica == 0:
-            raise HTTPException(status_code=400, detail="No se pudo identificar la unidad académica del usuario")
-        
-        # Convertir período de ID a formato literal (ej: '2025-2026/1')
-        if str(periodo_id).isdigit():
-            periodo_obj = db.query(Periodo).filter(Periodo.Id_Periodo == int(periodo_id)).first()
-            if periodo_obj:
-                # IMPORTANTE: El SP usa el periodo ANTERIOR (Id_Periodo - 1)
-                # Por lo tanto, debemos guardar en Temp_Egresados con el periodo anterior
-                periodo_anterior_id = periodo_obj.Id_Periodo - 1
-                periodo_anterior_obj = db.query(Periodo).filter(Periodo.Id_Periodo == periodo_anterior_id).first()
-                
-                if periodo_anterior_obj:
-                    periodo = periodo_anterior_obj.Periodo
-                    print(f"🔄 Período convertido: ID actual {periodo_id} → ID anterior {periodo_anterior_id} → '{periodo}' para Temp_Egresados")
-                    print(f"   (El SP usa Id_Periodo - 1 internamente)")
-                else:
-                    raise HTTPException(status_code=400, detail=f"Periodo anterior (ID {periodo_anterior_id}) no encontrado")
-            else:
-                raise HTTPException(status_code=400, detail=f"Periodo ID {periodo_id} no encontrado")
+        # 🔍 INSPECCIÓN DETALLADA DE REGISTROS RECIBIDOS
+        if registros_origen:
+            print(f"\n🔎 INSPECCIÓN DETALLADA de primeros 3 registros:")
+            for idx, reg in enumerate(registros_origen[:3]):
+                print(f"\n   Registro[{idx}]:")
+                print(f"   - Keys: {list(reg.keys())}")
+                for key in reg.keys():
+                    print(f"   - {key}: '{reg.get(key)}'")
         else:
-            # Si el frontend envía el periodo en formato literal (ej. '2025-2026/1'),
-            # debemos convertirlo al periodo ANTERIOR para guardar en Temp_Egresados.
-            periodo_literal = str(periodo_id)
+            print("⚠️ ¡Registros vacío!")
+
+        def _safe_int(valor, default=0):
             try:
-                periodo_obj_literal = db.query(Periodo).filter(Periodo.Periodo == periodo_literal).first()
-                if periodo_obj_literal and periodo_obj_literal.Id_Periodo:
-                    periodo_anterior_id = periodo_obj_literal.Id_Periodo - 1
-                    periodo_anterior_obj = db.query(Periodo).filter(Periodo.Id_Periodo == periodo_anterior_id).first()
-                    if periodo_anterior_obj:
-                        periodo = periodo_anterior_obj.Periodo
-                        print(f"🔄 Período literal convertido: '{periodo_literal}' → periodo anterior '{periodo}' (ID {periodo_anterior_id}) para Temp_Egresados")
-                    else:
-                        periodo = periodo_literal
-                        print(f"⚠️ No se encontró periodo anterior para '{periodo_literal}', usando literal como fallback")
-                else:
-                    periodo = periodo_literal
-                    print(f"⚠️ Periodo literal '{periodo_literal}' no encontrado en Cat_Periodo, usando tal cual")
-            except Exception as e:
-                periodo = periodo_literal
-                print(f"⚠️ Error al convertir periodo literal a anterior: {e}; usando '{periodo_literal}'")
-        
-        # Obtener Sigla de la Unidad Académica
-        unidad_obj = db.query(Unidad_Academica).filter(
-            Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
-        ).first()
-        
-        if not unidad_obj or not unidad_obj.Sigla:
-            raise HTTPException(status_code=400, detail="No se pudo obtener la Sigla de la Unidad Académica")
-        
-        sigla_unidad = unidad_obj.Sigla
-        print(f"🏫 Sigla Unidad Académica: {sigla_unidad}")
-        
-        # Obtener Nivel en formato texto
-        nivel_obj = db.query(Nivel).filter(Nivel.Id_Nivel == id_nivel).first()
-        nivel_texto = nivel_obj.Nivel if nivel_obj else ""
-        
-        # Limpiar registros previos de esta UA/Periodo/Nivel
-        # Esto evita conflictos de PK y datos obsoletos
-        registros_previos = db.query(Temp_Egresados).filter(
-            Temp_Egresados.Periodo == periodo,
-            Temp_Egresados.Sigla == sigla_unidad,
-            Temp_Egresados.Nivel == nivel_texto
-        ).delete(synchronize_session=False)
-        db.commit()
-        print(f"🧹 Limpiados {registros_previos} registros previos de Temp_Egresados")
-        print(f"   (Periodo='{periodo}', Sigla='{sigla_unidad}', Nivel='{nivel_texto}')\n")
-        
-        # LOG: Mostrar todos los registros recibidos
-        print(f"📋 REGISTROS RECIBIDOS DEL FRONTEND ({len(registros)} total):")
-        for idx, reg in enumerate(registros, 1):
-            h = reg.get('hombres', '')
-            m = reg.get('mujeres', '')
-            edad = reg.get('edad', '?')
-            turno_dbg = reg.get('turno', '?')
-            print(f"   {idx}. Edad={edad}, Turno={turno_dbg}, H='{h}', M='{m}', Programa={reg.get('programa', '?')}")
-        print()
-        
-        guardados = 0
-        errores = []
-        
-        for idx, registro in enumerate(registros):
+                if valor is None:
+                    return default
+                txt = str(valor).strip()
+                if txt == '':
+                    return default
+                return int(float(txt))
+            except Exception:
+                return default
+
+        # Procesar registros: todos los registros VIENEN DEL SP en formato textual
+        # Solo hay que copiar campos textuales y reemplazar Egresados con la cantidad del usuario
+        for idx, reg in enumerate(registros_origen):
             try:
-                # Obtener valores de hombres y mujeres (pueden estar vacíos)
-                hombres_raw = registro.get('hombres', '')
-                mujeres_raw = registro.get('mujeres', '')
+                # 🔍 DETECTAR FORMATO: ¿Viene del frontend o del SP?
+                es_formato_frontend = 'programaNombre' in reg or 'modalidadNombre' in reg or 'turnos' in reg
+                es_formato_sp = 'Nombre_Programa' in reg or 'Modalidad' in reg
                 
-                # Convertir a int solo si no están vacíos
-                hombres = int(hombres_raw) if hombres_raw != '' else 0
-                mujeres = int(mujeres_raw) if mujeres_raw != '' else 0
-                
-                # Validar que al menos uno tenga valor
-                if hombres == 0 and mujeres == 0:
-                    print(f"⏭️ Saltando registro {idx+1}: sin valores")
-                    continue
-                
-                # Extraer IDs de los filtros con validación
-                try:
-                    id_programa = int(registro.get('programa') or 0)
-                    id_modalidad = int(registro.get('modalidad') or 0)
-                    id_turno = int(registro.get('turno') or 0)
-                    id_boleta = int(registro.get('boleta') or 0)
-                    id_generacion = int(registro.get('generacion') or 0)
-                    # EDAD: mantener como string (puede ser '<18', '30-34', '>=40', etc.)
-                    edad = str(registro.get('edad') or '')
-                except (ValueError, TypeError) as e:
-                    print(f"❌ Error convirtiendo IDs en registro {idx+1}: {e}")
-                    print(f"   Datos recibidos: {registro}")
-                    errores.append(f"Registro {idx+1}: Error en formato de datos")
-                    continue
-
-                # Validar que los IDs obligatorios no sean 0. Edad puede quedar vacía.
-                if not all([id_programa, id_modalidad, id_turno, id_boleta, id_generacion]):
-                    print(f"❌ Registro {idx+1}: Faltan datos obligatorios")
-                    print(f"   Programa={id_programa}, Modalidad={id_modalidad}, Turno={id_turno}")
-                    print(f"   Boleta={id_boleta}, Generacion={id_generacion}, Edad='{edad}'")
-                    errores.append(f"Registro {idx+1}: Datos incompletos")
-                    continue
-                
-                print(f"📝 Procesando registro {idx+1}: Edad={edad}, H={hombres}, M={mujeres}")
-                
-                # Obtener NOMBRES (no IDs) de todas las entidades
-                programa = db.query(Programas).filter(Programas.Id_Programa == id_programa).first()
-                if not programa:
-                    raise ValueError(f"Programa {id_programa} no encontrado")
-                
-                rama = db.query(Rama).filter(Rama.Id_Rama == programa.Id_Rama_Programa).first()
-                modalidad = db.query(Modalidad).filter(Modalidad.Id_Modalidad == id_modalidad).first()
-                boleta = db.query(Boleta).filter(Boleta.Id_Boleta == id_boleta).first()
-                generacion = db.query(Generacion).filter(Generacion.Id_Generacion == id_generacion).first()
-                turno = db.query(Turno).filter(Turno.Id_Turno == id_turno).first()
-                
-                # Obtener semáforo actual
-                semaforo = db.query(SemaforoUnidadAcademica).filter(
-                    SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
-                    SemaforoUnidadAcademica.Id_Periodo == periodo_id,
-                    SemaforoUnidadAcademica.Id_Formato == 3  # Formato 3 = Egresados
-                ).first()
-                id_semaforo = semaforo.Id_Semaforo if semaforo else 1
-                
-                # Guardar registro para HOMBRES (si > 0)
-                if hombres > 0:
-                    temp_egr = Temp_Egresados(
-                        Periodo=periodo,
-                        Sigla=sigla_unidad,
-                        Nombre_Programa=programa.Nombre_Programa,
-                        Nombre_Rama=rama.Nombre_Rama if rama else "",
-                        Nivel=nivel_texto,
-                        Modalidad=modalidad.Modalidad if modalidad else "",
-                        Grupo_Edad=str(edad),
-                        Boleta=boleta.Boleta if boleta else id_boleta,
-                        Generacion=generacion.Generacion if generacion else "",
-                        Turno=turno.Turno if turno else "",
-                        Sexo='Hombre',
-                        Id_Semaforo=id_semaforo,
-                        Egresados=hombres
-                    )
-                    # DEBUG: mostrar payload antes de insertar y opcional pausa
-                    try:
-                        debug_pause = request.cookies.get("debug_pause", "0") == "1"
-                    except Exception:
-                        debug_pause = False
-
-                    temp_payload = {
-                        'Periodo': periodo,
-                        'Sigla': sigla_unidad,
-                        'Nombre_Programa': programa.Nombre_Programa,
-                        'Nombre_Rama': rama.Nombre_Rama if rama else "",
-                        'Nivel': nivel_texto,
-                        'Modalidad': modalidad.Modalidad if modalidad else "",
-                        'Grupo_Edad': str(edad),
-                        'Boleta': boleta.Boleta if boleta else id_boleta,
-                        'Generacion': generacion.Generacion if generacion else "",
-                        'Turno': turno.Turno if turno else "",
-                        'Sexo': 'Hombre',
-                        'Id_Semaforo': id_semaforo,
-                        'Egresados': hombres
-                    }
-                    print(f"[DEBUG] A punto de guardar (Hombre) en Temp_Egresados: {temp_payload}")
-                    if debug_pause:
-                        print("[DEBUG] Pausa activada: esperando 2 segundos antes de guardar...")
-                        time.sleep(2)
-                    db.merge(temp_egr)
-                    guardados += 1
-                    print(f"   ➕ HOMBRE: {programa.Nombre_Programa}, Edad={edad}, Valor={hombres}")
-                
-                # Guardar registro para MUJERES (si > 0)
-                if mujeres > 0:
-                    temp_egr = Temp_Egresados(
-                        Periodo=periodo,
-                        Sigla=sigla_unidad,
-                        Nombre_Programa=programa.Nombre_Programa,
-                        Nombre_Rama=rama.Nombre_Rama if rama else "",
-                        Nivel=nivel_texto,
-                        Modalidad=modalidad.Modalidad if modalidad else "",
-                        Grupo_Edad=str(edad),
-                        Boleta=boleta.Boleta if boleta else id_boleta,
-                        Generacion=generacion.Generacion if generacion else "",
-                        Turno=turno.Turno if turno else "",
-                        Sexo='Mujer',
-                        Id_Semaforo=id_semaforo,
-                        Egresados=mujeres
-                    )
-                    # DEBUG: mostrar payload antes de insertar y opcional pausa
-                    try:
-                        debug_pause = request.cookies.get("debug_pause", "0") == "1"
-                    except Exception:
-                        debug_pause = False
-
-                    temp_payload = {
-                        'Periodo': periodo,
-                        'Sigla': sigla_unidad,
-                        'Nombre_Programa': programa.Nombre_Programa,
-                        'Nombre_Rama': rama.Nombre_Rama if rama else "",
-                        'Nivel': nivel_texto,
-                        'Modalidad': modalidad.Modalidad if modalidad else "",
-                        'Grupo_Edad': str(edad),
-                        'Boleta': boleta.Boleta if boleta else id_boleta,
-                        'Generacion': generacion.Generacion if generacion else "",
-                        'Turno': turno.Turno if turno else "",
-                        'Sexo': 'Mujer',
-                        'Id_Semaforo': id_semaforo,
-                        'Egresados': mujeres
-                    }
-                    print(f"[DEBUG] A punto de guardar (Mujer) en Temp_Egresados: {temp_payload}")
-                    if debug_pause:
-                        print("[DEBUG] Pausa activada: esperando 2 segundos antes de guardar...")
-                        time.sleep(2)
-                    db.merge(temp_egr)
-                    guardados += 1
-                    print(f"   ➕ MUJER: {programa.Nombre_Programa}, Edad={edad}, Valor={mujeres}")
+                if es_formato_frontend:
+                    # ========================
+                    # FORMATO FRONTEND
+                    # ========================
+                    print(f"\n🎨 FRONTEND FORMAT detectado en registro[{idx}]")
+                    
+                    # Mapear campos frontend → SP
+                    nombre_programa = str(reg.get('programaNombre') or '')
+                    nombre_rama = ''  # Frontend no lo envía, lo resolvemos por programa
+                    nivel_sp = nivel_obj.Nivel if nivel_obj else ''
+                    modalidad = str(reg.get('modalidadNombre') or '')
+                    grupo_edad = str(reg.get('edadNombre') or reg.get('edad') or '')
+                    boleta = str(reg.get('boletaNombre') or '')
+                    generacion = str(reg.get('generacionNombre') or '')
+                    
+                    # ⚠️ IMPORTANTE: El frontend envía turnos como JSON
+                    # Estructura: {"1": {"hombres": 200, "mujeres": 0}, "2": {"hombres": 0, "mujeres": 0}}
+                    # Debo crear UNA FILA por cada turno+sexo+cantidad > 0
+                    turnos_data = reg.get('turnos', '{}')
+                    if isinstance(turnos_data, str):
+                        try:
+                            import json
+                            turnos_data = json.loads(turnos_data)
+                        except Exception as e_json:
+                            print(f"⚠️ Error parseando JSON de turnos: {str(e_json)}")
+                            turnos_data = {}
+                    
+                    print(f"   Parseado turnos_data: {turnos_data}")
+                    
+                    # Para cada turno disponible
+                    for turno_id, sexos_dict in turnos_data.items():
+                        # Resolver turno ID → nombre
+                        turno_obj = db.query(Turno).filter(Turno.Id_Turno == int(turno_id)).first()
+                        turno_nombre = turno_obj.Turno if turno_obj else f"Turno_{turno_id}"
                         
-            except Exception as e:
-                error_msg = f"Error en registro {idx+1}: {str(e)}"
-                print(f"❌ {error_msg}")
-                errores.append(error_msg)
-                continue
-        
-        # Confirmar transacción
-        db.commit()
-        
-        # Verificar inmediatamente que se guardaron
-        verificacion = db.query(Temp_Egresados).filter(
-            Temp_Egresados.Periodo == periodo
+                        # Para cada sexo en ese turno
+                        for sexo_label, cantidad_raw in sexos_dict.items():
+                            cantidad = _safe_int(cantidad_raw, 0)
+                            
+                            if cantidad > 0:  # Solo crear fila si hay cantidad
+                                # Resolver Rama desde Programa
+                                nombre_rama_final = ''
+                                try:
+                                    prog_id = reg.get('programa')
+                                    if prog_id:
+                                        prog_obj = programas_dict.get(int(prog_id))
+                                        if prog_obj:
+                                            nombre_rama_final = ramas_dict.get(prog_obj.Id_Rama_Programa, '')
+                                except Exception:
+                                    pass
+                                
+                                # Convertir sexo_label a mayúsculas primeras letras
+                                sexo_final = 'Hombre' if sexo_label.lower() in ['hombre', 'hombres', 'h'] else 'Mujer'
+                                
+                                if idx < 3:
+                                    print(
+                                        f"   ✅ Creando fila: Turno={turno_nombre}({turno_id}) "
+                                        f"Sexo={sexo_final} Cantidad={cantidad}"
+                                    )
+                                
+                                objetos_a_guardar.append(Temp_Egresados(
+                                    Periodo=periodo_texto_temp,
+                                    Sigla=unidad_obj.Sigla,
+                                    Nombre_Programa=nombre_programa,
+                                    Nombre_Rama=nombre_rama_final,
+                                    Nivel=nivel_sp,
+                                    Modalidad=modalidad,
+                                    Grupo_Edad=grupo_edad,
+                                    Boleta=boleta,
+                                    Generacion=generacion,
+                                    Turno=turno_nombre,
+                                    Sexo=sexo_final,
+                                    Id_Semaforo=0,  # Frontend siempre comienza con semáforo = 0 (o Pendiente)
+                                    Egresados=cantidad
+                                ))
+                
+                else:
+                    # ========================
+                    # FORMATO SP (Directo)
+                    # ========================
+                    print(f"\n📊 SP FORMAT detectado en registro[{idx}]")
+                    
+                    # COPIAR DIRECTAMENTE CAMPOS TEXTUALES DEL SP
+                    nombre_programa = str(reg.get('Nombre_Programa') or '')
+                    nombre_rama = str(reg.get('Nombre_Rama') or '')
+                    nivel_sp = str(reg.get('Nivel') or '')
+                    modalidad = str(reg.get('Modalidad') or '')
+                    grupo_edad = str(reg.get('Grupo_Edad') or reg.get('Edad') or '')
+                    boleta = str(reg.get('Boleta') or '')
+                    generacion = str(reg.get('Generacion') or '')
+                    turno = str(reg.get('Turno') or '')
+                    
+                    # Sexo y cantidad
+                    sexo_raw = str(reg.get('Sexo') or '').strip().lower()
+                    sexo = 'Hombre' if 'h' in sexo_raw or 'hom' in sexo_raw else 'Mujer'
+                    
+                    # Cantidad: puede venir como Egresados
+                    cantidad = reg.get('Egresados')
+                    try:
+                        cantidad = int(float(cantidad)) if cantidad not in (None, '') else 0
+                    except Exception:
+                        cantidad = 0
+                    
+                    # Id_Semaforo (número)
+                    id_semaforo = _safe_int(reg.get('Id_Semaforo'), 0)
+                    
+                    if idx < 3:
+                        print(f"   ✅ Mapeando como SP puro (todos campos de texto)")
+                    
+                    objetos_a_guardar.append(Temp_Egresados(
+                        Periodo=periodo_texto_temp,
+                        Sigla=unidad_obj.Sigla,
+                        Nombre_Programa=nombre_programa,
+                        Nombre_Rama=nombre_rama,
+                        Nivel=nivel_sp,
+                        Modalidad=modalidad,
+                        Grupo_Edad=grupo_edad,
+                        Boleta=boleta,
+                        Generacion=generacion,
+                        Turno=turno,
+                        Sexo=sexo,
+                        Id_Semaforo=id_semaforo,
+                        Egresados=cantidad
+                    ))
+                
+            except Exception as e_map:
+                print(f"⚠️ Error procesando fila[{idx}]: {str(e_map)}")
+                import traceback
+                traceback.print_exc()
+
+        print(f"📦 Objetos normalizados para Temp_Egresados: {len(objetos_a_guardar)}")
+        for i, obj in enumerate(objetos_a_guardar[:10]):
+            print(
+                f"📝 TempPreview[{i}] Periodo='{obj.Periodo}' Sigla='{obj.Sigla}' Programa='{obj.Nombre_Programa}' "
+                f"Rama='{obj.Nombre_Rama}' Nivel='{obj.Nivel}' Modalidad='{obj.Modalidad}' Boleta='{obj.Boleta}' "
+                f"Generacion='{obj.Generacion}' Turno='{obj.Turno}' Sexo='{obj.Sexo}' Semaforo='{obj.Id_Semaforo}' Egresados='{obj.Egresados}'"
+            )
+
+        # 5. GUARDADO MASIVO (Instantáneo)
+        if objetos_a_guardar:
+            db.add_all(objetos_a_guardar)
+            db.commit()
+
+        count_temp_post = db.query(Temp_Egresados).filter(
+            Temp_Egresados.Sigla == unidad_obj.Sigla,
+            Temp_Egresados.Periodo == periodo_texto_temp
         ).count()
-        print(f"✅ VERIFICACIÓN: {verificacion} registros en Temp_Egresados con Periodo='{periodo}'")
-        
-        # Mostrar algunos registros guardados
-        if verificacion > 0:
-            sample = db.query(Temp_Egresados).filter(
-                Temp_Egresados.Periodo == periodo
-            ).limit(3).all()
-            print(f"📋 Muestra de registros guardados:")
-            for s in sample:
-                print(f"   - Periodo='{s.Periodo}', Sigla='{s.Sigla}', Programa='{s.Nombre_Programa}', Egresados={s.Egresados}")
-        
-        mensaje = f"✅ Guardados en Temp_Egresados: {guardados} registros"
-        if errores:
-            mensaje += f" | Errores: {len(errores)}"
-        
-        print(f"\n{'='*60}")
-        print(mensaje)
-        print(f"{'='*60}\n")
-        
-        return {
-            "success": True,
-            "message": mensaje,
-            "guardados": guardados,
-            "actualizados": 0,
-            "errores": errores if errores else []
-        }
-        
+        print(f"✅ Filas en Temp_Egresados después de guardar: {count_temp_post}")
+
+        return {"success": True, "guardados": len(objetos_a_guardar), "verificacion_temp": count_temp_post}
+
     except Exception as e:
         db.rollback()
-        print(f"❌ Error al guardar en Temp_Egresados: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error optimizado: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post('/validar')
 async def validar_egresados(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
@@ -1396,12 +1301,13 @@ async def guardar_avance_egresados(request: Request, sess=Depends(get_current_se
         
         # Convertir a formato literal para buscar en Temp_Egresados
         # IMPORTANTE: Buscamos con el periodo ANTERIOR porque /guardar guardó con Id_Periodo - 1
+        
         if periodo_input:
             if str(periodo_input).isdigit():
                 periodo_obj = db.query(Periodo).filter(Periodo.Id_Periodo == int(periodo_input)).first()
                 if periodo_obj:
                     # Para buscar en Temp_Egresados: usar periodo anterior
-                    periodo_anterior_id = periodo_obj.Id_Periodo - 1
+                    periodo_anterior_id = periodo_obj.Id_Periodo
                     periodo_anterior_obj = db.query(Periodo).filter(Periodo.Id_Periodo == periodo_anterior_id).first()
                     periodo_busqueda = periodo_anterior_obj.Periodo if periodo_anterior_obj else None
                     
@@ -1455,40 +1361,13 @@ async def guardar_avance_egresados(request: Request, sess=Depends(get_current_se
         print(f"Host: {host_sp}")
         print(f"{'='*60}")
         
-        # Verificar que hay datos en Temp_Egresados antes de actualizar
-        print(f"🔍 Buscando registros con Periodo='{periodo_busqueda}', Sigla='{unidad_sigla}', Nivel='{nivel}'")
-        temp_count = db.query(Temp_Egresados).filter(
-            Temp_Egresados.Periodo == periodo_busqueda,
+        # Añadir este debug antes del EXEC en guardar_avance_egresados
+        count_check = db.query(Temp_Egresados).filter(
             Temp_Egresados.Sigla == unidad_sigla,
-            Temp_Egresados.Nivel == nivel
+            Temp_Egresados.Periodo == periodo_sp
         ).count()
-        
-        print(f"📊 Registros encontrados: {temp_count}")
-        
-        # Si no hay datos, mostrar diagnóstico
-        if temp_count == 0:
-            total_registros = db.query(Temp_Egresados).count()
-            print(f"⚠️ No se encontraron registros con Periodo='{periodo_busqueda}' para UA='{unidad_sigla}' y Nivel='{nivel}'")
-            print(f"⚠️ Total registros en Temp_Egresados: {total_registros}")
+        print(f"DEBUG: Filas encontradas en Temp_Egresados antes del SP: {count_check}")
 
-            # Mostrar los periodos que SÍ existen
-            periodos_existentes = db.query(Temp_Egresados.Periodo).distinct().all()
-            print(f"⚠️ Periodos existentes en la tabla:")
-            for p in periodos_existentes:
-                print(f"   - '{p[0]}'")
-
-            return {
-                "warning": "No hay datos en Temp_Egresados para actualizar",
-                "registros_temp": 0,
-                "periodo_buscado": periodo_busqueda,
-                "unidad": unidad_sigla,
-                "nivel": nivel,
-                "total_registros": total_registros,
-                "periodos_existentes": [p[0] for p in periodos_existentes]
-            }
-        
-        print(f"✅ Registros encontrados (Periodo={periodo_busqueda}): {temp_count}")
-        
         # Ejecutar el stored procedure con el periodo ACTUAL (el SP hará la conversión)
         sql = text("""
             EXEC [dbo].[SP_Actualiza_Egresados_Por_Unidad_Academica]
@@ -1498,7 +1377,7 @@ async def guardar_avance_egresados(request: Request, sess=Depends(get_current_se
                 @HHost = :host,
                 @NNivel = :nivel
         """)
-        
+
         result = db.execute(sql, {
             'unidad': unidad_sigla,
             'usuario': usuario_sp,
@@ -1514,7 +1393,6 @@ async def guardar_avance_egresados(request: Request, sess=Depends(get_current_se
         return {
             "success": True,
             "mensaje": "Avance guardado exitosamente. Los datos han sido actualizados en la tabla Egresados.",
-            "registros_procesados": temp_count,
             "semaforo_actualizado": "En Proceso (ID=2)"
         }
         
@@ -1623,30 +1501,128 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
         except Exception:
             periodo_busqueda = periodo
 
-        # Verificar que hay datos en Temp_Egresados para la UA/nivel y periodo esperados
-        temp_count = db.query(Temp_Egresados).filter(
-            Temp_Egresados.Periodo == periodo_busqueda,
-            Temp_Egresados.Sigla == unidad_sigla,
-            Temp_Egresados.Nivel == nivel
-        ).count()
-        print(f"📊 Registros en Temp_Egresados (Periodo='{periodo_busqueda}', UA='{unidad_sigla}', Nivel='{nivel}'): {temp_count}")
+        def _texto(valor):
+            return str(valor or '').strip()
 
-        # Fallback: si el nivel literal no coincide exactamente, validar por periodo+UA
-        # para no bloquear la ejecución del SP cuando sí existen datos capturados.
-        if temp_count == 0:
-            temp_count_ua_periodo = db.query(Temp_Egresados).filter(
-                Temp_Egresados.Periodo == periodo_busqueda,
+        def _entero(valor, default=0):
+            try:
+                if valor is None:
+                    return default
+                texto = str(valor).strip()
+                if texto == '':
+                    return default
+                return int(float(texto))
+            except Exception:
+                return default
+
+        def _leer_valor(registro, campo, default=None):
+            if isinstance(registro, dict):
+                return registro.get(campo, default)
+            return getattr(registro, campo, default)
+
+        def _clave_temp(registro):
+            return (
+                _texto(_leer_valor(registro, 'Nombre_Programa')),
+                _texto(_leer_valor(registro, 'Nombre_Rama')),
+                _texto(_leer_valor(registro, 'Nivel')),
+                _texto(_leer_valor(registro, 'Modalidad')),
+                _texto(_leer_valor(registro, 'Grupo_Edad') or _leer_valor(registro, 'Edad')),
+                _texto(_leer_valor(registro, 'Boleta')),
+                _texto(_leer_valor(registro, 'Generacion')),
+                _texto(_leer_valor(registro, 'Turno')),
+                _texto(_leer_valor(registro, 'Sexo')),
+            )
+
+        # Sembrar Temp_Egresados si no existe avance previo o si faltan filas para esta captura
+        try:
+            temp_existente = db.query(Temp_Egresados).filter(
                 Temp_Egresados.Sigla == unidad_sigla,
-            ).count()
-            if temp_count_ua_periodo > 0:
-                print(
-                    f"⚠️ No hubo match exacto por nivel ('{nivel}'), "
-                    f"pero hay {temp_count_ua_periodo} registro(s) por UA+Periodo. "
-                    "Se continuará con la ejecución del SP."
-                )
-                temp_count = temp_count_ua_periodo
-        
-        # Ejecutar el stored procedure
+                Temp_Egresados.Periodo == periodo_busqueda,
+                Temp_Egresados.Nivel == nivel,
+            ).all()
+
+            temp_por_clave = {
+                _clave_temp(row): (_entero(row.Egresados, 0) if row.Egresados is not None else 0)
+                for row in temp_existente
+            }
+
+            if temp_existente:
+                print(f"📦 Temp_Egresados existente antes de finalizar: {len(temp_existente)} filas")
+
+            # Obtener todas las filas actuales de consulta para esta UA / período / nivel.
+            # El SP final consume Temp_Egresados completa para la unidad, así que no debemos
+            # limitar la semilla solo al programa/modalidad seleccionados.
+            filas_consulta, _ = execute_egresados_sp(
+                db=db,
+                unidad_sigla=unidad_sigla,
+                periodo_literal=periodo,
+                nivel_nombre=nivel,
+                usuario=usuario_sp,
+                host=host_sp,
+            )
+
+            print(f"📊 Filas de consulta totales para semilla Temp_Egresados: {len(filas_consulta)}")
+
+            filas_temp_a_guardar = []
+            filas_base = filas_consulta if filas_consulta else temp_existente
+
+            for fila in filas_base:
+                clave = _clave_temp(fila)
+                egresados_valor = _entero(_leer_valor(fila, 'Egresados'), 0)
+
+                if clave in temp_por_clave:
+                    egresados_valor = temp_por_clave[clave]
+                elif egresados_valor is None:
+                    egresados_valor = 0
+
+                filas_temp_a_guardar.append(Temp_Egresados(
+                    Periodo=periodo_busqueda,
+                    Sigla=unidad_sigla,
+                    Nombre_Programa=_texto(_leer_valor(fila, 'Nombre_Programa')),
+                    Nombre_Rama=_texto(_leer_valor(fila, 'Nombre_Rama')),
+                    Nivel=_texto(_leer_valor(fila, 'Nivel')),
+                    Modalidad=_texto(_leer_valor(fila, 'Modalidad')),
+                    Grupo_Edad=_texto(_leer_valor(fila, 'Grupo_Edad') or _leer_valor(fila, 'Edad')),
+                    Boleta=_texto(_leer_valor(fila, 'Boleta')),
+                    Generacion=_texto(_leer_valor(fila, 'Generacion')),
+                    Turno=_texto(_leer_valor(fila, 'Turno')),
+                    Sexo=_texto(_leer_valor(fila, 'Sexo')),
+                    Id_Semaforo=_entero(_leer_valor(fila, 'Id_Semaforo'), 0),
+                    Egresados=egresados_valor,
+                ))
+
+            # Si ya existían filas en Temp_Egresados y la consulta no las devolvió por alguna
+            # razón, conservarlas para no perder información previa.
+            if temp_existente:
+                claves_guardadas = {_clave_temp(fila) for fila in filas_base}
+                for fila in temp_existente:
+                    if _clave_temp(fila) not in claves_guardadas:
+                        filas_temp_a_guardar.append(fila)
+
+            if filas_temp_a_guardar:
+                db.query(Temp_Egresados).filter(
+                    Temp_Egresados.Sigla == unidad_sigla,
+                    Temp_Egresados.Periodo == periodo_busqueda,
+                    Temp_Egresados.Nivel == nivel,
+                ).delete(synchronize_session=False)
+                db.add_all(filas_temp_a_guardar)
+                db.commit()
+                print(f"✅ Temp_Egresados preparado para finalización: {len(filas_temp_a_guardar)} filas")
+            else:
+                print("⚠️ No se encontraron filas para sembrar Temp_Egresados antes de finalizar")
+        except Exception as e_temp:
+            db.rollback()
+            print(f"⚠️ No se pudo preparar Temp_Egresados para finalización: {str(e_temp)}")
+            import traceback
+            traceback.print_exc()
+
+        # Ejecutar el stored procedure y obtener resultados (el SP devuelve la consulta actualizada)
+        # Log payload para depuración
+        try:
+            raw_payload = await request.json()
+        except Exception:
+            raw_payload = None
+        print(f"🔔 Payload recibido en finalizar_captura: {raw_payload}")
         sql = text("""
             EXEC [dbo].[SP_Actualiza_Egresados_Por_Semestre_AU]
                 @UUnidad_Academica = :unidad,
@@ -1657,49 +1633,72 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
                 @HHost = :host,
                 @NNivel = :nivel
         """)
-        
-        if temp_count == 0:
-            total_registros = db.query(Temp_Egresados).count()
-            periodos_existentes = db.query(Temp_Egresados.Periodo).distinct().all()
-            print(f"⚠️ No hay registros en Temp_Egresados para Periodo='{periodo_busqueda}', UA='{unidad_sigla}', Nivel='{nivel}'")
+
+        rows_list = []
+        sp_error = False
+        sp_error_msg = ''
+        try:
+            result = db.execute(sql, {
+                'unidad': unidad_sigla,
+                'programa': programa_nombre,
+                'modalidad': modalidad_nombre,
+                'usuario': usuario_sp,
+                'periodo': periodo,
+                'host': host_sp,
+                'nivel': nivel
+            })
+
+            # SQLAlchemy Result may not return rows for non-SELECT SPs
+            if getattr(result, 'returns_rows', False):
+                try:
+                    rows = result.fetchall()
+                    cols = result.keys()
+                    for r in rows:
+                        try:
+                            # row may be RowMapping or tuple
+                            if hasattr(r, '_mapping'):
+                                rows_list.append(dict(r._mapping))
+                            else:
+                                rows_list.append(dict(zip(cols, r)))
+                        except Exception:
+                            try:
+                                rows_list.append(dict(r))
+                            except Exception:
+                                pass
+                except Exception as e_fetch:
+                    print(f"⚠️ Error al leer filas del resultado SP: {str(e_fetch)}")
+            else:
+                # No devuelve filas (ej. SP que realiza UPDATE/INSERT)
+                print("ℹ️ El SP no devolvió filas; asumido como operación de actualización.")
+
+            try:
+                result.close()
+            except Exception:
+                pass
+
+            db.commit()
+        except Exception as e_exec:
+            db.rollback()
+            sp_error = True
+            sp_error_msg = str(e_exec)
+            print(f"⚠️ Error ejecutando SP de finalización: {sp_error_msg}")
+            import traceback
+            traceback.print_exc()
+
+        if sp_error:
             return {
-                "warning": "No hay datos en Temp_Egresados para finalizar la captura",
-                "periodo_buscado": periodo_busqueda,
-                "unidad": unidad_sigla,
-                "nivel": nivel,
-                "total_registros": total_registros,
-                "periodos_existentes": [p[0] for p in periodos_existentes]
+                "success": False,
+                "error": "Error ejecutando SP de finalización",
+                "details": sp_error_msg
             }
 
-        result = db.execute(sql, {
-            'unidad': unidad_sigla,
-            'programa': programa_nombre,
-            'modalidad': modalidad_nombre,
-            'usuario': usuario_sp,
-            'periodo': periodo,
-            'host': host_sp,
-            'nivel': nivel
-        })
-        
-        # Obtener todos los resultados (el SP devuelve la consulta actualizada)
-        rows_list = []
-        try:
-            for row in result:
-                rows_list.append(dict(row._mapping))
-            result.close()
-        except Exception as e:
-            print(f"⚠️ No se pudieron obtener resultados del SP: {str(e)}")
-        
-        db.commit()
-        
         print(f"✅ SP ejecutado exitosamente - Captura finalizada")
         print(f"📋 Registros devueltos: {len(rows_list)}")
-        
+
         return {
             "success": True,
             "mensaje": f"Captura de {programa_nombre} ({modalidad_nombre}) finalizada exitosamente.",
             "semaforo_actualizado": "Completado (ID=3)",
-            "registros_procesados": temp_count,
             "datos_actualizados": rows_list
         }
         
@@ -1773,7 +1772,7 @@ async def obtener_informe_egresados(request: Request, sess=Depends(get_current_s
             egresados = registro.get('Egresados')
             
             # Incluir solo si Egresados no es NULL
-            if egresados is not None:
+            if egresados is not None and egresados >= 0:
                 egresados_filtrados.append(registro)
         
         print(f"✅ Datos filtrados: {len(egresados_filtrados)} registros (con egresados != NULL)")

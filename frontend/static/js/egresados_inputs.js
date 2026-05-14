@@ -24,7 +24,8 @@ let catalogoBoletas = [];
 let catalogoGeneraciones = [];
 let catalogoSexos = [];
 let catalogoProgramas = [];
-let catalogoModalidades = [];
+            const response = await fetch('/egresados/consultar', {
+                credentials: 'same-origin',
 let catalogoTurnos = [];
 
 let turnoActual = 1;
@@ -124,7 +125,8 @@ async function inicializarVistaRolSuperior() {
     
     if (btnConsultar) {
         btnConsultar.addEventListener('click', consultarEgresadosRolSuperior);
-    }
+                    const response = await fetch('/egresados/guardar', {
+                        credentials: 'same-origin',
     
     // Habilitar validación de selección
     validarSeleccionRolSuperior();
@@ -724,7 +726,8 @@ async function validarCapturaEgresados() {
         const periodo = document.getElementById('periodo')?.value;
         const unidad = document.getElementById('unidad_academica')?.value;
         
-        const response = await fetch('/egresados/validar', {
+            const response = await fetch('/egresados/validar', {
+                credentials: 'same-origin',
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -758,7 +761,8 @@ async function validarEgresados() {
         const periodo = document.getElementById('periodo')?.value;
         const unidad = document.getElementById('unidad_academica')?.value;
         
-        const response = await fetch('/egresados/validar', {
+            const response = await fetch('/egresados/validar', {
+                credentials: 'same-origin',
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -804,7 +808,8 @@ async function confirmarRechazoEgresados() {
         const periodo = document.getElementById('periodo')?.value;
         const unidad = document.getElementById('unidad_academica')?.value;
         
-        const response = await fetch('/egresados/rechazar', {
+            const response = await fetch('/egresados/rechazar', {
+                credentials: 'same-origin',
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

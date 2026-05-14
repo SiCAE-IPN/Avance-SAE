@@ -14,7 +14,7 @@
 {% block content %}
 
     {% if estado_semaforo_actual is defined and estado_semaforo_actual >= 3 and estado_semaforo_actual <= 8 %}
-        <div class="marca-agua">No Oficial</div>
+        <div class="marca-agua"> Sin Validez Oficial </div>
     {% endif %}
 
 
@@ -61,7 +61,7 @@
 
     {% if tabla_semestres %}
     <div class="tabla-seccion">
-        <div class="tabla-titulo">{{ '1.' if exportando_pdf else '1️⃣ ' }}Resumen por Semestre</div>
+        <div class="tabla-titulo">{{ '1. ' if exportando_pdf else '1️⃣ ' }}Resumen por Semestre</div>
         <table>
             <thead>
                 <tr>

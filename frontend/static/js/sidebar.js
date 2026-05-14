@@ -5,7 +5,6 @@ const menuConfig = {
         nombre: 'Matricula',
         items: [
             { label: 'Consulta', icon: '🔍', url: '/matricula/consulta' },
-            { label: 'Resumen', icon: '📊', url: '/matricula/resumen' },
             { label: 'Acuses', icon: '📄', url: '/matricula/acuses' }
         ]
     },
@@ -13,14 +12,12 @@ const menuConfig = {
         nombre: 'Egresados',
         items: [
             { label: 'Consulta', icon: '🔍', url: '/egresados/consulta' },
-            { label: 'Resumen', icon: '📊', url: '/egresados/resumen' }
         ]
     },
     aprovechamiento: {
         nombre: 'Aprovechamiento',
         items: [
             { label: 'Consulta', icon: '🔍', url: '/aprovechamiento/consulta' },
-            { label: 'Resumen', icon: '📊', url: '/aprovechamiento/resumen' }
         ]
     },
     usuarios: {
@@ -80,9 +77,6 @@ function isActivePath(pathname, itemUrl) {
         return true;
     }
     if (itemUrl === '/matricula/acuses' && pathname.startsWith('/matricula/acuses')) {
-        return true;
-    }
-    if (itemUrl.includes('/resumen') && pathname.includes('/resumen')) {
         return true;
     }
     return false;

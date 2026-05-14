@@ -768,7 +768,7 @@ function renderizarSeccionTotales() {
 
         <!-- ── Panel Semáforo de Semestres ── -->
         
-        <!--Aqui colocar pesos {buildResumenSemaforo()} -->
+        ${buildResumenSemaforo()}
     `;
 }
 
