@@ -5,7 +5,7 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--sae-font-primary);
 }
 
 /* Header con información del usuario */
@@ -699,11 +699,19 @@ td .matricula-pair { flex-wrap:nowrap; }
 }
 
 .total-general {
-    background: linear-gradient(135deg, #6e0343, #a73447);
+    background: linear-gradient(135deg, #6e0343, #6e0343);
     color: white;
     padding: 15px 30px;
     border-radius: 8px;
     display: inline-block;
+    font-size: 18px;
+    box-shadow: 0 4px 15px rgba(139, 38, 53, 0.3);
+}
+.total-general-egresados {
+    background: linear-gradient(135deg, #6e0343, #6e0343);
+    color: white;
+    padding: 15px 30px;
+    border-radius: 8px;
     font-size: 18px;
     box-shadow: 0 4px 15px rgba(139, 38, 53, 0.3);
 }

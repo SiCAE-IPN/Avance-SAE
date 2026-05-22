@@ -13,7 +13,7 @@
 
 {% block content %}
 
-    {% if estado_semaforo_actual is defined and estado_semaforo_actual >= 3 and estado_semaforo_actual <= 8 %}
+    {% if no_validado %}
         <div class="marca-agua"> Sin Validez Oficial </div>
     {% endif %}
 
@@ -59,245 +59,253 @@
         </div>
     </div>
 
-    {% if tabla_semestres %}
-    <div class="tabla-seccion">
-        <div class="tabla-titulo">{{ '1. ' if exportando_pdf else '1️⃣ ' }}Resumen por Semestre</div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Semestre</th>
-                    <th style="width: 15%;">H</th>
-                    <th style="width: 15%;">M</th>
-                    <th style="width: 15%;">T</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% set total_sem_h = 0 %}
-                {% set total_sem_m = 0 %}
-                {% set total_sem_t = 0 %}
-                {% for fila in tabla_semestres %}
-                    {% set total_sem_h = total_sem_h + fila.hombres %}
-                    {% set total_sem_m = total_sem_m + fila.mujeres %}
-                    {% set total_sem_t = total_sem_t + fila.total %}
-                    <tr>
-                        <td>{{ fila.nombre }}</td>
-                        <td>{{ fila.hombres }}</td>
-                        <td>{{ fila.mujeres }}</td>
-                        <td><strong>{{ fila.total }}</strong></td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td>TOTALES</td>
-                    <td><strong>{{ totales_semestres.hombres if totales_semestres is defined else total_sem_h }}</strong></td>
-                    <td><strong>{{ totales_semestres.mujeres if totales_semestres is defined else total_sem_m }}</strong></td>
-                    <td><strong>{{ totales_semestres.total if totales_semestres is defined else total_sem_t }}</strong></td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-    {% endif %}
+    <div class="contenedor-columnas">
+        
+        <div class="columna-izq">
+            {% if tabla_semestres %}
+            <div class="tabla-seccion">
+                <div class="tabla-titulo">{{ '1. ' if exportando_pdf else '1️⃣ ' }}Resumen por Semestre</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Semestre</th>
+                            <th style="width: 15%;">H</th>
+                            <th style="width: 15%;">M</th>
+                            <th style="width: 15%;">T</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set total_sem_h = 0 %}
+                        {% set total_sem_m = 0 %}
+                        {% set total_sem_t = 0 %}
+                        {% for fila in tabla_semestres %}
+                            {% set total_sem_h = total_sem_h + fila.hombres %}
+                            {% set total_sem_m = total_sem_m + fila.mujeres %}
+                            {% set total_sem_t = total_sem_t + fila.total %}
+                            <tr>
+                                <td>{{ fila.nombre }}</td>
+                                <td>{{ fila.hombres }}</td>
+                                <td>{{ fila.mujeres }}</td>
+                                <td><strong>{{ fila.total }}</strong></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>TOTALES</td>
+                            <td><strong>{{ totales_semestres.hombres if totales_semestres is defined else total_sem_h }}</strong></td>
+                            <td><strong>{{ totales_semestres.mujeres if totales_semestres is defined else total_sem_m }}</strong></td>
+                            <td><strong>{{ totales_semestres.total if totales_semestres is defined else total_sem_t }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% endif %}
 
-    {% if tabla_modalidades %}
-    <div class="tabla-seccion">
-        <div class="tabla-titulo">2️⃣ Resumen por Modalidad</div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Modalidad</th>
-                    <th style="width: 15%;">H</th>
-                    <th style="width: 15%;">M</th>
-                    <th style="width: 15%;">T</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% set total_mod_h = 0 %}
-                {% set total_mod_m = 0 %}
-                {% set total_mod_t = 0 %}
-                {% for fila in tabla_modalidades %}
-                    {% set total_mod_h = total_mod_h + fila.hombres %}
-                    {% set total_mod_m = total_mod_m + fila.mujeres %}
-                    {% set total_mod_t = total_mod_t + fila.total %}
-                    <tr>
-                        <td>{{ fila.nombre }}</td>
-                        <td>{{ fila.hombres }}</td>
-                        <td>{{ fila.mujeres }}</td>
-                        <td><strong>{{ fila.total }}</strong></td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td>TOTALES</td>
-                    <td><strong>{{ totales_modalidades.hombres if totales_modalidades is defined else total_mod_h }}</strong></td>
-                    <td><strong>{{ totales_modalidades.mujeres if totales_modalidades is defined else total_mod_m }}</strong></td>
-                    <td><strong>{{ totales_modalidades.total if totales_modalidades is defined else total_mod_t }}</strong></td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-    {% endif %}
+            {% if tabla_edades %}
+            <div class="tabla-seccion">
+                <div class="tabla-titulo">{{ '2. ' if exportando_pdf else '2️⃣ ' }}Resumen por Edad</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Edad</th>
+                            <th style="width: 15%;">H</th>
+                            <th style="width: 15%;">M</th>
+                            <th style="width: 15%;">T</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set total_edad_h = 0 %}
+                        {% set total_edad_m = 0 %}
+                        {% set total_edad_t = 0 %}
+                        {% for fila in tabla_edades %}
+                            {% set total_edad_h = total_edad_h + fila.hombres %}
+                            {% set total_edad_m = total_edad_m + fila.mujeres %}
+                            {% set total_edad_t = total_edad_t + fila.total %}
+                            <tr>
+                                <td>{{ fila.nombre }}</td>
+                                <td>{{ fila.hombres }}</td>
+                                <td>{{ fila.mujeres }}</td>
+                                <td><strong>{{ fila.total }}</strong></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>TOTALES</td>
+                            <td><strong>{{ totales_edades.hombres if totales_edades is defined else total_edad_h }}</strong></td>
+                            <td><strong>{{ totales_edades.mujeres if totales_edades is defined else total_edad_m }}</strong></td>
+                            <td><strong>{{ totales_edades.total if totales_edades is defined else total_edad_t }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% endif %}
+        </div>
 
-    {% if tabla_edades %}
-    <div class="tabla-seccion">
-        <div class="tabla-titulo">3️⃣ Resumen por Edad</div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Edad</th>
-                    <th style="width: 15%;">H</th>
-                    <th style="width: 15%;">M</th>
-                    <th style="width: 15%;">T</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% set total_edad_h = 0 %}
-                {% set total_edad_m = 0 %}
-                {% set total_edad_t = 0 %}
-                {% for fila in tabla_edades %}
-                    {% set total_edad_h = total_edad_h + fila.hombres %}
-                    {% set total_edad_m = total_edad_m + fila.mujeres %}
-                    {% set total_edad_t = total_edad_t + fila.total %}
-                    <tr>
-                        <td>{{ fila.nombre }}</td>
-                        <td>{{ fila.hombres }}</td>
-                        <td>{{ fila.mujeres }}</td>
-                        <td><strong>{{ fila.total }}</strong></td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td>TOTALES</td>
-                    <td><strong>{{ totales_edades.hombres if totales_edades is defined else total_edad_h }}</strong></td>
-                    <td><strong>{{ totales_edades.mujeres if totales_edades is defined else total_edad_m }}</strong></td>
-                    <td><strong>{{ totales_edades.total if totales_edades is defined else total_edad_t }}</strong></td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-    {% endif %}
+        <div class="columna-der">
+            {% if tabla_modalidades %}
+            <div class="tabla-seccion">
+                <div class="tabla-titulo">{{ '3. ' if exportando_pdf else '3️⃣ ' }}Resumen por Modalidad</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Modalidad</th>
+                            <th style="width: 15%;">H</th>
+                            <th style="width: 15%;">M</th>
+                            <th style="width: 15%;">T</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set total_mod_h = 0 %}
+                        {% set total_mod_m = 0 %}
+                        {% set total_mod_t = 0 %}
+                        {% for fila in tabla_modalidades %}
+                            {% set total_mod_h = total_mod_h + fila.hombres %}
+                            {% set total_mod_m = total_mod_m + fila.mujeres %}
+                            {% set total_mod_t = total_mod_t + fila.total %}
+                            <tr>
+                                <td>{{ fila.nombre }}</td>
+                                <td>{{ fila.hombres }}</td>
+                                <td>{{ fila.mujeres }}</td>
+                                <td><strong>{{ fila.total }}</strong></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>TOTALES</td>
+                            <td><strong>{{ totales_modalidades.hombres if totales_modalidades is defined else total_mod_h }}</strong></td>
+                            <td><strong>{{ totales_modalidades.mujeres if totales_modalidades is defined else total_mod_m }}</strong></td>
+                            <td><strong>{{ totales_modalidades.total if totales_modalidades is defined else total_mod_t }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% endif %}
 
-    {% if tabla_turnos %}
-    <div class="tabla-seccion">
-        <div class="tabla-titulo">4️⃣ Resumen por Turno</div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Turno</th>
-                    <th style="width: 15%;">H</th>
-                    <th style="width: 15%;">M</th>
-                    <th style="width: 15%;">T</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% set total_turno_h = 0 %}
-                {% set total_turno_m = 0 %}
-                {% set total_turno_t = 0 %}
-                {% for fila in tabla_turnos %}
-                    {% set total_turno_h = total_turno_h + fila.hombres %}
-                    {% set total_turno_m = total_turno_m + fila.mujeres %}
-                    {% set total_turno_t = total_turno_t + fila.total %}
-                    <tr>
-                        <td>{{ fila.nombre }}</td>
-                        <td>{{ fila.hombres }}</td>
-                        <td>{{ fila.mujeres }}</td>
-                        <td><strong>{{ fila.total }}</strong></td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td>TOTALES</td>
-                    <td><strong>{{ totales_turnos.hombres if totales_turnos is defined else total_turno_h }}</strong></td>
-                    <td><strong>{{ totales_turnos.mujeres if totales_turnos is defined else total_turno_m }}</strong></td>
-                    <td><strong>{{ totales_turnos.total if totales_turnos is defined else total_turno_t }}</strong></td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-    {% endif %}
+            {% if tabla_turnos %}
+            <div class="tabla-seccion">
+                <div class="tabla-titulo">{{ '4. ' if exportando_pdf else '4️⃣ ' }}Resumen por Turno</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Turno</th>
+                            <th style="width: 15%;">H</th>
+                            <th style="width: 15%;">M</th>
+                            <th style="width: 15%;">T</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set total_turno_h = 0 %}
+                        {% set total_turno_m = 0 %}
+                        {% set total_turno_t = 0 %}
+                        {% for fila in tabla_turnos %}
+                            {% set total_turno_h = total_turno_h + fila.hombres %}
+                            {% set total_turno_m = total_turno_m + fila.mujeres %}
+                            {% set total_turno_t = total_turno_t + fila.total %}
+                            <tr>
+                                <td>{{ fila.nombre }}</td>
+                                <td>{{ fila.hombres }}</td>
+                                <td>{{ fila.mujeres }}</td>
+                                <td><strong>{{ fila.total }}</strong></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>TOTALES</td>
+                            <td><strong>{{ totales_turnos.hombres if totales_turnos is defined else total_turno_h }}</strong></td>
+                            <td><strong>{{ totales_turnos.mujeres if totales_turnos is defined else total_turno_m }}</strong></td>
+                            <td><strong>{{ totales_turnos.total if totales_turnos is defined else total_turno_t }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% endif %}
 
-    {% if tabla_conceptos %}
-    <div class="tabla-seccion">
-        <div class="tabla-titulo">5️⃣ Resumen por Concepto (Tipo de Ingreso)</div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Concepto</th>
-                    <th style="width: 15%;">H</th>
-                    <th style="width: 15%;">M</th>
-                    <th style="width: 15%;">T</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% set total_concepto_h = 0 %}
-                {% set total_concepto_m = 0 %}
-                {% set total_concepto_t = 0 %}
-                {% for fila in tabla_conceptos %}
-                    {% set total_concepto_h = total_concepto_h + fila.hombres %}
-                    {% set total_concepto_m = total_concepto_m + fila.mujeres %}
-                    {% set total_concepto_t = total_concepto_t + fila.total %}
-                    <tr>
-                        <td>{{ fila.nombre }}</td>
-                        <td>{{ fila.hombres }}</td>
-                        <td>{{ fila.mujeres }}</td>
-                        <td><strong>{{ fila.total }}</strong></td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td>TOTALES</td>
-                    <td><strong>{{ totales_conceptos.hombres if totales_conceptos is defined else total_concepto_h }}</strong></td>
-                    <td><strong>{{ totales_conceptos.mujeres if totales_conceptos is defined else total_concepto_m }}</strong></td>
-                    <td><strong>{{ totales_conceptos.total if totales_conceptos is defined else total_concepto_t }}</strong></td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-    {% endif %}
+            {% if tabla_conceptos %}
+            <div class="tabla-seccion">
+                <div class="tabla-titulo">{{ '5. ' if exportando_pdf else '5️⃣ ' }}Resumen por Tipo de Ingreso</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th style="width: 15%;">H</th>
+                            <th style="width: 15%;">M</th>
+                            <th style="width: 15%;">T</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set total_concepto_h = 0 %}
+                        {% set total_concepto_m = 0 %}
+                        {% set total_concepto_t = 0 %}
+                        {% for fila in tabla_conceptos %}
+                            {% set total_concepto_h = total_concepto_h + fila.hombres %}
+                            {% set total_concepto_m = total_concepto_m + fila.mujeres %}
+                            {% set total_concepto_t = total_concepto_t + fila.total %}
+                            <tr>
+                                <td>{{ fila.nombre }}</td>
+                                <td>{{ fila.hombres }}</td>
+                                <td>{{ fila.mujeres }}</td>
+                                <td><strong>{{ fila.total }}</strong></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>TOTALES</td>
+                            <td><strong>{{ totales_conceptos.hombres if totales_conceptos is defined else total_concepto_h }}</strong></td>
+                            <td><strong>{{ totales_conceptos.mujeres if totales_conceptos is defined else total_concepto_m }}</strong></td>
+                            <td><strong>{{ totales_conceptos.total if totales_conceptos is defined else total_concepto_t }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% endif %}
 
-    {% if tabla_programas %}
-    <div class="tabla-seccion">
-        <div class="tabla-titulo">6️⃣ Resumen por Programa</div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Programa</th>
-                    <th style="width: 15%;">H</th>
-                    <th style="width: 15%;">M</th>
-                    <th style="width: 15%;">T</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% set total_prog_h = 0 %}
-                {% set total_prog_m = 0 %}
-                {% set total_prog_t = 0 %}
-                {% for fila in tabla_programas %}
-                    {% set total_prog_h = total_prog_h + fila.hombres %}
-                    {% set total_prog_m = total_prog_m + fila.mujeres %}
-                    {% set total_prog_t = total_prog_t + fila.total %}
-                    <tr>
-                        <td>{{ fila.nombre }}</td>
-                        <td>{{ fila.hombres }}</td>
-                        <td>{{ fila.mujeres }}</td>
-                        <td><strong>{{ fila.total }}</strong></td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td>TOTALES</td>
-                    <td><strong>{{ totales_programas.hombres if totales_programas is defined else total_prog_h }}</strong></td>
-                    <td><strong>{{ totales_programas.mujeres if totales_programas is defined else total_prog_m }}</strong></td>
-                    <td><strong>{{ totales_programas.total if totales_programas is defined else total_prog_t }}</strong></td>
-                </tr>
-            </tfoot>
-        </table>
+            {% if tabla_programas %}
+            <div class="tabla-seccion">
+                <div class="tabla-titulo">{{ '6. ' if exportando_pdf else '6️⃣ ' }}Resumen por Programa</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Programa</th>
+                            <th style="width: 15%;">H</th>
+                            <th style="width: 15%;">M</th>
+                            <th style="width: 15%;">T</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set total_prog_h = 0 %}
+                        {% set total_prog_m = 0 %}
+                        {% set total_prog_t = 0 %}
+                        {% for fila in tabla_programas %}
+                            {% set total_prog_h = total_prog_h + fila.hombres %}
+                            {% set total_prog_m = total_prog_m + fila.mujeres %}
+                            {% set total_prog_t = total_prog_t + fila.total %}
+                            <tr>
+                                <td>{{ fila.nombre }}</td>
+                                <td>{{ fila.hombres }}</td>
+                                <td>{{ fila.mujeres }}</td>
+                                <td><strong>{{ fila.total }}</strong></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>TOTALES</td>
+                            <td><strong>{{ totales_programas.hombres if totales_programas is defined else total_prog_h }}</strong></td>
+                            <td><strong>{{ totales_programas.mujeres if totales_programas is defined else total_prog_m }}</strong></td>
+                            <td><strong>{{ totales_programas.total if totales_programas is defined else total_prog_t }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+        
     </div>
-    {% endif %}
 
     <div class="acuse-footer">
         
@@ -322,13 +330,13 @@
         {% if not exportando_pdf %}
         <div class="acciones-validacion" id="acciones-validacion">
             {% if id_rol in [4, 5, 6, 7, 8, 9] %}
-                <button class="btn btn-success" id="btn-validar" onclick="validarMatricula()"
-                        {% if usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
-                    ✅ Validar Semestre
+                <button class="btn btn-success" id="btn-validar" onclick="validarEgresados()"
+                        {% if not puede_validar or usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
+                    ✅ Validar Matrícula
                 </button>
-                <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarMatricula()"
-                        {% if usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
-                    ❌ Rechazar Semestre
+                <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarEgresados()"
+                        {% if not puede_validar or usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
+                    ❌ Rechazar Matrícula
                 </button>
             {% endif %}
             <button class="btn btn-info" onclick="exportarPdf()">

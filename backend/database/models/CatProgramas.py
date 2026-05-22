@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from ..db_base import Base
 from sqlalchemy import Integer, String, DateTime,func
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from typing import Optional
 
 class CatProgramas(Base):
     __tablename__ = 'Cat_Programas'
@@ -13,5 +16,5 @@ class CatProgramas(Base):
     Id_Semestre: Mapped[int] = mapped_column(Integer, nullable=False) #mapped_column(ForeignKey("Cat_Semestre.Id_Semestre"))
     Fecha_Inicio: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),  nullable=False)
     Fecha_Modificacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),  nullable=False)
-    Fecha_Final: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    Fecha_Final: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     Id_Estatus: Mapped[int] = mapped_column(Integer) #mapped_column(ForeignKey("Cat_Estatus.Id_Estatus"))

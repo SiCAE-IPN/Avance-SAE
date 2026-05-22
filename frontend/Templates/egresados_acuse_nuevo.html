@@ -1,0 +1,451 @@
+{% extends "base_pdf.html" if exportando_pdf else "base.html" %}
+
+{% block title %}Acuse Validación - Egresados{% endblock %}
+
+{% block styles %}
+    {% if not exportando_pdf %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="/static/css/components/egresados_acuse.css">
+    {% endif %}
+    
+{% endblock %}
+
+{% block content %}
+    {% if estado_semaforo_actual is defined and estado_semaforo_actual < 9 %}
+        <div class="marca-agua"> Sin Validez Oficial </div>
+    {% endif %}
+
+    <div class="contenedor-acuse">
+        <div class="acuse-header">
+            <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - EGRESADOS</h1>
+
+            <div class="header-info-grid">
+                <div class="header-item">
+                    <span class="header-item-label">Período:</span>
+                    <span class="header-item-value">{{ periodo }}</span>
+                </div>
+                <div class="header-item">
+                    <span class="header-item-label">Nivel:</span>
+                    <span class="header-item-value">{{ nivel }}</span>
+                </div>
+                <div class="header-item">
+                    <span class="header-item-label">Unidad:</span>
+                    <span class="header-item-value">{{ unidad }}</span>
+                </div>
+                <div class="header-item">
+                    <span class="header-item-label">Rol:</span>
+                    <span class="header-item-value">{{ nombre_rol }}</span>
+                </div>
+                <div class="header-item">
+                    <span class="header-item-label">Fecha:</span>
+                    <span class="header-item-value" id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
+                </div>
+            </div>
+
+            <div class="total-resumen">
+                <div class="total-resumen-texto">Total de Egresados en Matrícula</div>
+                <div class="total-resumen-numero">{{ total_general.total_t if total_general is defined else 0 }}</div>
+            </div>
+        </div>
+
+        {% if error_message %}
+            <div class="acuse-footer" style="background:#fff4f4; border-color:#f1c0c0; color:#8a1f1f;">
+                {{ error_message }}
+            </div>
+        {% else %}
+        
+        <div class="mosaico-resumen">
+                    
+                    <div class="columna-izq" style="display: flex; flex-direction: column; gap: 18px;">
+                        
+                        <div class="tabla-seccion">
+                            <div class="tabla-titulo">Boleta</div>
+                            <div class="tabla-wrap">
+                                <table class="tabla-acuse centrar-primera-columna">
+                                <thead><tr><th>Boleta</th><th>H</th><th>M</th><th>T</th></tr></thead>
+                                    <tbody>
+                                        {% for boleta in boletas_columnas %}
+                                            {% set boleta_tot = total_general.boletas[boleta] if total_general is defined and total_general.boletas is defined and boleta in total_general.boletas else {'regular': {'H': 0, 'M': 0, 'T': 0}, 'extemporaneo': {'H': 0, 'M': 0, 'T': 0}} %}
+                                            {% set boleta_h = boleta_tot.regular.H + boleta_tot.extemporaneo.H %}
+                                            {% set boleta_m = boleta_tot.regular.M + boleta_tot.extemporaneo.M %}
+                                            {% set boleta_t = boleta_tot.regular.T + boleta_tot.extemporaneo.T %}
+                                            <tr><td class="label-izq">{{ boleta }}</td><td><strong>{{ boleta_h }}</strong></td><td><strong>{{ boleta_m }}</strong></td><td><strong>{{ boleta_t }}</strong></td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td></tr></tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tabla-seccion">
+                            <div class="tabla-titulo">Grupo de Edad</div>
+                            <div class="tabla-wrap">
+                                <table class="tabla-acuse centrar-primera-columna">
+                                    <thead><tr><th>Edad</th><th>H</th><th>M</th><th>T</th></tr></thead>
+                                    <tbody>
+                                        {% for fila in filas_edad_turno %}
+                                            <tr><td class="label-izq">{{ fila.edad }}</td><td><strong>{{ fila.total_h }}</strong></td><td><strong>{{ fila.total_m }}</strong></td><td><strong>{{ fila.total_t }}</strong></td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ totales_tabla2.total_h if totales_tabla2 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla2.total_m if totales_tabla2 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla2.total_t if totales_tabla2 is defined else 0 }}</strong></td></tr></tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div> <div class="columna-der" style="display: flex; flex-direction: column; gap: 18px;">
+                        
+                        <div class="tabla-seccion">
+                            <div class="tabla-titulo">Programa Académico</div>
+                            <div class="tabla-wrap">
+                                <table class="tabla-acuse">
+                                    <thead><tr><th>Programa</th><th>H</th><th>M</th><th>T</th></tr></thead>
+                                    <tbody>
+                                        {% set ns_programa = namespace(actual='', h=0, m=0, t=0, iniciado=false) %}
+                                        {% for fila in filas_pivot %}
+                                            {% if not ns_programa.iniciado %}
+                                                {% set ns_programa.actual = fila.programa %}
+                                                {% set ns_programa.iniciado = true %}
+                                            {% endif %}
+                                            {% if fila.programa != ns_programa.actual %}
+                                                <tr>
+                                                    <td class="label-izq">{{ ns_programa.actual }}</td>
+                                                    <td><strong>{{ ns_programa.h }}</strong></td>
+                                                    <td><strong>{{ ns_programa.m }}</strong></td>
+                                                    <td><strong>{{ ns_programa.t }}</strong></td>
+                                                </tr>
+                                                {% set ns_programa.actual = fila.programa %}
+                                                {% set ns_programa.h = 0 %}
+                                                {% set ns_programa.m = 0 %}
+                                                {% set ns_programa.t = 0 %}
+                                            {% endif %}
+                                            {% set ns_programa.h = ns_programa.h + fila.total_h %}
+                                            {% set ns_programa.m = ns_programa.m + fila.total_m %}
+                                            {% set ns_programa.t = ns_programa.t + fila.total_t %}
+                                            {% if loop.last %}
+                                                <tr>
+                                                    <td class="label-izq">{{ ns_programa.actual }}</td>
+                                                    <td><strong>{{ ns_programa.h }}</strong></td>
+                                                    <td><strong>{{ ns_programa.m }}</strong></td>
+                                                    <td><strong>{{ ns_programa.t }}</strong></td>
+                                                </tr>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td></tr></tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tabla-seccion">
+                            <div class="tabla-titulo">Modalidad</div>
+                            <div class="tabla-wrap">
+                                <table class="tabla-acuse">
+                                    <thead><tr><th>Modalidad</th><th>H</th><th>M</th><th>T</th></tr></thead>
+                                    <tbody>
+                                        {% for modalidad in modalidades_columnas %}
+                                            {% set mod_tot = totales_tabla1.modalidades[modalidad] if totales_tabla1 is defined and totales_tabla1.modalidades is defined and modalidad in totales_tabla1.modalidades else {'H': 0, 'M': 0, 'T': 0} %}
+                                            <tr>
+                                                <td class="label-izq">{{ modalidad }}</td>
+                                                <td><strong>{{ mod_tot.H }}</strong></td>
+                                                <td><strong>{{ mod_tot.M }}</strong></td>
+                                                <td><strong>{{ mod_tot.T }}</strong></td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ totales_tabla1.total_h if totales_tabla1 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla1.total_m if totales_tabla1 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla1.total_t if totales_tabla1 is defined else 0 }}</strong></td></tr></tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tabla-seccion">
+                            <div class="tabla-titulo">Generación</div>
+                            <div class="tabla-wrap">
+                                <table class="tabla-acuse">
+                                    <thead><tr><th>Tipo</th><th>H</th><th>M</th><th>T</th></tr></thead>
+                                    <tbody>
+                                        {% set gen_regular = subtotales_generacion_tabla1.regular if subtotales_generacion_tabla1 is defined else {'total_h': 0, 'total_m': 0, 'total_t': 0} %}
+                                        {% set gen_ext = subtotales_generacion_tabla1.extemporaneo if subtotales_generacion_tabla1 is defined else {'total_h': 0, 'total_m': 0, 'total_t': 0} %}
+                                        <tr>
+                                            <td class="label-izq">Regular</td>
+                                            <td><strong>{{ gen_regular.total_h if gen_regular is defined else 0 }}</strong></td>
+                                            <td><strong>{{ gen_regular.total_m if gen_regular is defined else 0 }}</strong></td>
+                                            <td><strong>{{ gen_regular.total_t if gen_regular is defined else 0 }}</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="label-izq">Extemporáneo</td>
+                                            <td><strong>{{ gen_ext.total_h if gen_ext is defined else 0 }}</strong></td>
+                                            <td><strong>{{ gen_ext.total_m if gen_ext is defined else 0 }}</strong></td>
+                                            <td><strong>{{ gen_ext.total_t if gen_ext is defined else 0 }}</strong></td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td></tr></tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tabla-seccion">
+                            <div class="tabla-titulo">Turno</div>
+                            <div class="tabla-wrap">
+                                <table class="tabla-acuse">
+                                    <thead><tr><th>Turno</th><th>H</th><th>M</th><th>T</th></tr></thead>
+                                    <tbody>
+                                        {% for turno in turnos_columnas %}
+                                            {% set turno_tot = totales_tabla2.turnos[turno] if totales_tabla2 is defined and totales_tabla2.turnos is defined and turno in totales_tabla2.turnos else {'H': 0, 'M': 0, 'T': 0} %}
+                                            <tr>
+                                                <td class="label-izq">{{ turno }}</td>
+                                                <td><strong>{{ turno_tot.H }}</strong></td>
+                                                <td><strong>{{ turno_tot.M }}</strong></td>
+                                                <td><strong>{{ turno_tot.T }}</strong></td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ totales_tabla2.total_h if totales_tabla2 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla2.total_m if totales_tabla2 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla2.total_t if totales_tabla2 is defined else 0 }}</strong></td></tr></tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div> </div>
+                    {% endif %}
+
+        {% if not exportando_pdf %}
+        <div class="acuse-footer">
+            {% if usuario_ya_valido %}
+                <div class="estado-validacion estado-validado">✅ EGRESADOS VALIDADOS</div>
+            {% elif usuario_ya_rechazo %}
+                <div class="estado-validacion estado-rechazado">❌ EGRESADOS RECHAZADOS</div>
+            {% elif puede_validar %}
+                <div class="estado-validacion estado-pendiente">⏳ PENDIENTE DE VALIDAR</div>
+            {% else %}
+                <div class="estado-validacion estado-esperando">⏸️ EN ESPERA DE VALIDACIÓN</div>
+            {% endif %}
+
+            <div class="acciones-validacion" id="acciones-validacion">
+                {% if id_rol in [4, 5, 6, 7, 8, 9] %}
+                    <button class="btn btn-success" id="btn-validar" onclick="validarEgresados()"
+                            {% if usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
+                        ✅ Validar Egresados
+                    </button>
+                    <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarEgresados()"
+                            {% if usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
+                        ❌ Rechazar Egresados
+                    </button>
+                {% endif %}
+                <button class="btn btn-info" onclick="exportarPdf()">📄 Exportar vista</button>
+            </div>
+
+            {% if id_rol in [4, 5, 6, 7, 8, 9] %}
+            <div class="panel-rechazo" id="panel-rechazo">
+                <h4>
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Motivo del Rechazo
+                </h4>
+                <textarea
+                    id="motivo-rechazo"
+                    placeholder="Describa el motivo del rechazo de egresados (mínimo 10, máximo 250 caracteres)..."
+                    maxlength="250"
+                    oninput="actualizarContador()"
+                ></textarea>
+                <div class="panel-rechazo-footer">
+                    <span class="contador-caracteres">
+                        <span id="contador-caracteres">0</span>/250 caracteres
+                    </span>
+                    <div class="panel-rechazo-botones">
+                        <button class="btn-cancelar-rechazo" onclick="cerrarPanelRechazo()">
+                            <i class="fas fa-times"></i>
+                            Cancelar
+                        </button>
+                        <button class="btn-confirmar-rechazo" onclick="confirmarRechazo()">
+                            <i class="fas fa-paper-plane"></i>
+                            Enviar Rechazo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mensaje-validacion" id="mensaje-validacion" style="display: none;"></div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </div>
+
+    {% if not exportando_pdf %}
+    <script src="/static/js/validacion_rechazo.js"></script>
+    <script>
+        document.getElementById('fecha-actual').textContent = new Date().toLocaleDateString('es-ES');
+
+        const idRol = Number("{{ id_rol }}") || 0;
+        const periodo = "{{ periodo }}";
+        const nivel = "{{ nivel }}";
+        const unidad = "{{ unidad }}";
+        const idUnidadAcademicaSeleccionada = Number("{{ id_unidad_academica if id_unidad_academica is defined else 0 }}") || 0;
+        const idNivelSeleccionado = Number("{{ id_nivel if id_nivel is defined else 0 }}") || 0;
+        const puedeValidar = "{{ puede_validar }}".toLowerCase() === 'true';
+        const usuarioYaValido = "{{ usuario_ya_valido }}".toLowerCase() === 'true';
+        const usuarioYaRechazo = "{{ usuario_ya_rechazo }}".toLowerCase() === 'true';
+
+        initValidacionRechazo({
+            rolesPermitidos: [4, 5, 6, 7, 8, 9],
+            idRol,
+            puedeValidar,
+            usuarioYaValido,
+            usuarioYaRechazo,
+            noReloadOnSuccess: true,
+            endpoints: {
+                validar: '/egresados/validar',
+                rechazar: '/egresados/rechazar'
+            },
+            buildValidarPayload: () => ({
+                periodo,
+                unidad,
+                nivel,
+                ...(idRol >= 6 && idRol <= 9 ? {
+                    id_unidad_academica: idUnidadAcademicaSeleccionada,
+                    id_nivel: idNivelSeleccionado
+                } : {})
+            }),
+            buildRechazarPayload: (motivo) => ({
+                periodo,
+                motivo,
+                unidad,
+                nivel,
+                ...(idRol >= 6 && idRol <= 9 ? {
+                    id_unidad_academica: idUnidadAcademicaSeleccionada,
+                    id_nivel: idNivelSeleccionado
+                } : {})
+            }),
+            htmlNoTurno: '<span style="font-size: 20px;">⏳</span> <strong>Esperando ser validado por: {{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>',
+            htmlYaValido: '<span style="font-size: 20px;">✅</span> <strong>Ya has validado estos egresados previamente.</strong>',
+            htmlYaRechazo: '<span style="font-size: 20px;">❌</span> <strong>Ya has rechazado estos egresados previamente.</strong>',
+            msgValidarBloqueado: '⏳ Aún no es tu turno de validación.',
+            beforeValidar: async () => {
+                if (typeof Swal === 'undefined') return true;
+                const result = await Swal.fire({
+                    icon: 'question',
+                    title: '¿Validar egresados?',
+                    html: `Periodo: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br>Esta acción marcará el acuse como aprobado y bloqueará cualquier modificación futura.`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, validar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    allowOutsideClick: false,
+                });
+                if (!result.isConfirmed) return false;
+                Swal.fire({
+                    title: 'Validando egresados...',
+                    text: 'Procesando la validación',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
+                return true;
+            },
+            onValidado: async (data) => {
+                const mensaje = document.getElementById('mensaje-validacion');
+                const btnValidar = document.getElementById('btn-validar');
+                const btnRechazar = document.getElementById('btn-rechazar');
+                const panel = document.getElementById('panel-rechazo');
+
+                if (panel) panel.style.display = 'none';
+                if (btnValidar) btnValidar.disabled = true;
+                if (btnRechazar) btnRechazar.disabled = true;
+
+                if (mensaje) {
+                    mensaje.style.display = 'block';
+                    mensaje.className = 'mensaje-validacion validada';
+                    mensaje.innerHTML = '<span style="font-size: 20px;">✅</span> <strong>Egresados validados correctamente.</strong>';
+                }
+
+                if (typeof Swal !== 'undefined') {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: '¡Egresados validados!',
+                        html: `${data?.mensaje || 'Los egresados fueron validados correctamente.'}<br><br><strong>Ya no se permite editar ni volver a validar.</strong>`,
+                        timer: 2600,
+                        showConfirmButton: false,
+                    });
+                }
+            },
+            beforeRechazar: async (motivo) => {
+                if (!motivo || motivo.length < 10) {
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'warning',
+                            title: 'Motivo insuficiente',
+                            text: 'Por favor, ingrese un motivo de rechazo de al menos 10 caracteres.',
+                            confirmButtonColor: '#6c757d'
+                        });
+                    } else {
+                        _notify('warning', '⚠️ Por favor, ingrese un motivo de rechazo (mínimo 10 caracteres).');
+                    }
+                    return false;
+                }
+
+                if (typeof Swal === 'undefined') return true;
+                const result = await Swal.fire({
+                    icon: 'warning',
+                    title: '¿Rechazar egresados?',
+                    html: `Periodo: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br><b>Motivo:</b> ${motivo.substring(0, 100)}${motivo.length > 100 ? '...' : ''}<br><br>Esta acción devolverá los egresados para correcciones.`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, rechazar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    allowOutsideClick: false,
+                });
+                if (!result.isConfirmed) return false;
+                Swal.fire({
+                    title: 'Enviando rechazo...',
+                    text: 'Procesando la devolución de egresados',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
+                return true;
+            },
+            onRechazado: async (data) => {
+                const mensaje = document.getElementById('mensaje-validacion');
+                const btnValidar = document.getElementById('btn-validar');
+                const btnRechazar = document.getElementById('btn-rechazar');
+                const panel = document.getElementById('panel-rechazo');
+
+                if (panel) panel.style.display = 'none';
+                if (btnValidar) btnValidar.disabled = true;
+                if (btnRechazar) btnRechazar.disabled = true;
+
+                if (mensaje) {
+                    mensaje.style.display = 'block';
+                    mensaje.className = 'mensaje-validacion rechazada';
+                    mensaje.innerHTML = '<span style="font-size: 20px;">❌</span> <strong>Egresados rechazados correctamente.</strong>';
+                }
+
+                if (typeof Swal !== 'undefined') {
+                    await Swal.fire({
+                        icon: 'error',
+                        title: '¡Egresados rechazados!',
+                        html: `${data?.mensaje || 'Los egresados fueron rechazados correctamente.'}<br><br><strong>Se notificó al capturista para corregirlos.</strong>`,
+                        timer: 2600,
+                        showConfirmButton: false,
+                    });
+                }
+            }
+        });
+
+        function validarEgresados() { window.__validacionRechazo?.ejecutarValidacion(); }
+        function rechazarEgresados() { window.__validacionRechazo?.abrirPanelRechazo(); }
+        function cerrarPanelRechazo() { window.__validacionRechazo?.cerrarPanelRechazo(); }
+        function actualizarContador() { window.__validacionRechazo?.actualizarContador(); }
+        function confirmarRechazo() { window.__validacionRechazo?.ejecutarRechazo(); }
+
+        function exportarPdf() {
+            const url = `/egresados/acuse-validacion/pdf?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}`;
+            // Navegar al endpoint que descarga directamente el PDF
+            window.location.href = url;
+        }
+    </script>
+    {% endif %}
+{% endblock %}

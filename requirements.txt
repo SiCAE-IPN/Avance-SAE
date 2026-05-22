@@ -20,7 +20,7 @@ python-multipart==0.0.6
 pyodbc==4.0.35
 reportlab==4.0.0
 requests==2.31.0
-SQLAlchemy==1.4.49
+SQLAlchemy==2.0.32
 uvicorn==0.22.0
 WeasyPrint==60.0
 

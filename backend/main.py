@@ -11,6 +11,7 @@ from backend.api import titulados_sp
 from backend.api import recuperacion
 from backend.api.catalogos import domicilios, estatus, periodos, programas, roles, semaforo, modulos, objetos, egresados
 from backend.core.templates import static
+from fastapi.staticfiles import StaticFiles as _StaticFiles
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
@@ -19,6 +20,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 app = FastAPI()
 app.mount("/static", static)
+# Montar la carpeta 'Tipografía' para servir fuentes que el equipo colocó en la raíz del proyecto
+tipo_dir = os.path.join(os.path.dirname(__file__), '..', 'Tipografía')
+if os.path.exists(tipo_dir):
+    app.mount('/tipografia', _StaticFiles(directory=tipo_dir), name='tipografia')
 app.include_router(registro.router, prefix="/registro")
 app.include_router(login.router , prefix="/login")
 app.include_router(usuarios.router , prefix="/usuarios")

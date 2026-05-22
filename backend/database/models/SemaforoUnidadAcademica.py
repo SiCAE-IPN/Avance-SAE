@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from ..db_base import Base
 from sqlalchemy import Integer, String, DateTime,func
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from typing import Optional
 
 class SemaforoUnidadAcademica(Base):
     __tablename__ = 'Semaforo_Unidad_Academica'
@@ -15,3 +18,4 @@ class SemaforoUnidadAcademica(Base):
     Fecha_Inicio: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),  nullable=False)
     Fecha_Modificacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),  nullable=False)
     Fecha_Final: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    Fecha_Final: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

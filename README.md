@@ -86,6 +86,8 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
+Si ya tienes otro Python activo, como el de Miniconda, asegúrate de activar la .venv antes de ejecutar el proyecto. Este código usa SQLAlchemy 2.x, así que arrancarlo desde un entorno con SQLAlchemy 1.4 volverá a dar error al importar los modelos.
+
 ### Paso 3: Instalar Dependencias
 
 ```bash
@@ -143,13 +145,15 @@ python -c "from backend.database.connection import get_db; print('Conexión exit
 ### Modo Desarrollo (Recomendado para pruebas)
 
 ```bash
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+.venv\Scripts\python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+En Windows también puedes ejecutar `start_backend.bat`, que usa directamente el Python de la .venv.
 
 ### Modo Producción
 
 ```bash
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+.venv\Scripts\python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### Acceder al Sistema

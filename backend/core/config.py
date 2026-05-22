@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Optional
+
 from pydantic import EmailStr
 from pydantic_settings import BaseSettings
 from functools import lru_cache
@@ -8,7 +12,7 @@ class Settings(BaseSettings):
 	SMTP_PORT: int = 465
 	SMTP_USER: str = ""
 	SMTP_PASS: str = ""
-	SMTP_FROM: EmailStr | None = None
+	SMTP_FROM: Optional[EmailStr] = None
 	SMTP_SUBJECT_PREFIX: str = "SAE"
 
 	# DB (se mantienen para compatibilidad con entorno existente)

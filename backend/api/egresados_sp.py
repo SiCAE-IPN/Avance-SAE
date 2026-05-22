@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Request, Depends
+from fastapi.responses import RedirectResponse, Response
+from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func
 import json
@@ -750,16 +752,47 @@ async def consultar_egresados(request: Request, sess=Depends(get_current_session
 
         nivel = None
         try:
-            if id_nivel is not None:
-                nivel = db.query(Nivel).filter(Nivel.Id_Nivel == int(id_nivel)).first()
+            nivel = db.query(Nivel).filter(Nivel.Id_Nivel == int(id_nivel)).first()
         except Exception:
             nivel = None
 
         if not all([periodo, unidad, nivel]):
             raise HTTPException(status_code=400, detail="Faltan datos requeridos: periodo, unidad o nivel")
 
-        periodo_literal = periodo.Periodo
         unidad_sigla = unidad.Sigla
+
+        resp = await resumen_egresados_dinamico_view(request, periodo, nivel, unidad, sess, db)
+        if isinstance(resp, RedirectResponse):
+            return resp
+
+        if isinstance(resp.body, memoryview):
+            html_text = resp.body.tobytes().decode('utf-8')
+        else:
+            html_text = bytes(resp.body).decode('utf-8')
+
+        base_path = Path(__file__).resolve().parents[2] / 'frontend' / 'static'
+        ruta_css = base_path / 'css' / 'components' / 'egresados_acuse_print.css'
+
+        if not ruta_css.exists():
+            raise HTTPException(
+                status_code=500, 
+                detail=f"No se encontró el archivo CSS en: {ruta_css}." 
+            )
+
+        try:
+            pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
+                stylesheets=[
+                    weasyprint.CSS(filename=str(ruta_css)),
+                    weasyprint.CSS(string='@page { size: Letter; margin: 1cm }')
+                ]
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
+
+        filename = f"acuse_egresados_{unidad}_{periodo}.pdf".replace(' ', '_')
+        return Response(content=pdf_bytes, media_type='application/pdf', headers={
+            'Content-Disposition': f'attachment; filename="{filename}"'
+        })
         nivel_nombre = nivel.Nivel
 
         print(f"\n{'='*60}")
@@ -1807,7 +1840,7 @@ async def obtener_estados_semaforo_por_turnos(request: Request, sess=Depends(get
         data = await request.json()
         periodo_input = data.get('periodo')
         programa_id = data.get('programa')
-        modalidad_id = data.get('modalidad')  # informativo; el cálculo es por programa
+        modalidad_id = data.get('modalidad')
         id_unidad_payload = data.get('id_unidad_academica')
 
         if not programa_id:
@@ -1885,6 +1918,14 @@ async def obtener_estados_semaforo_por_turnos(request: Request, sess=Depends(get
             return {"success": False, "error": "Programa no válido"}
         programa_nombre = str(programa.Nombre_Programa or '').strip()
 
+        modalidad_nombre = None
+        if modalidad_id not in (None, '', 'null', 'None'):
+            try:
+                modalidad_obj = db.query(Modalidad).filter(Modalidad.Id_Modalidad == int(modalidad_id)).first()
+                modalidad_nombre = str(modalidad_obj.Modalidad or '').strip() if modalidad_obj else None
+            except Exception:
+                modalidad_nombre = None
+
         usuario_sp = str(getattr(sess, 'usuario', '') or 'sistema')
         host_sp = get_request_host(request)
 
@@ -1894,7 +1935,7 @@ async def obtener_estados_semaforo_por_turnos(request: Request, sess=Depends(get
         print(f"UA: {unidad_sigla}")
         print(f"Nivel: {nivel_nombre}")
         print(f"Programa ID: {programa_id} | Programa: {programa_nombre}")
-        print(f"Modalidad seleccionada (informativa): {modalidad_id}")
+        print(f"Modalidad seleccionada: {modalidad_id} | Nombre: {modalidad_nombre}")
         print(f"{'='*60}")
 
         rows_sp, _ = execute_egresados_sp(
@@ -1911,8 +1952,16 @@ async def obtener_estados_semaforo_por_turnos(request: Request, sess=Depends(get
             if _norm(r.get('Nombre_Programa') or r.get('nombre_programa')) == _norm(programa_nombre)
         ]
 
+        if modalidad_nombre:
+            rows_programa = [
+                r for r in rows_programa
+                if _norm(r.get('Modalidad') or r.get('modalidad')) == _norm(modalidad_nombre)
+            ]
+        else:
+            print("⚠️ No se pudo resolver la modalidad seleccionada; se mantuvo el filtro por programa")
+
         print(f"📊 Filas SP totales: {len(rows_sp)}")
-        print(f"📊 Filas SP del programa '{programa_nombre}': {len(rows_programa)}")
+        print(f"📊 Filas SP del programa '{programa_nombre}' y modalidad '{modalidad_nombre}': {len(rows_programa)}")
 
         turnos_db = db.query(Turno).filter(Turno.Id_Estatus == 1).all()
         turno_nombre_a_id = {_norm(t.Turno): int(t.Id_Turno) for t in turnos_db}
@@ -1959,7 +2008,8 @@ async def resumen_egresados_dinamico_view(
     periodo: str,
     nivel: str,
     unidad: str, sess=Depends(get_current_session),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    vista: str = 'resumen'
 ):
     """
     Vista de resumen dinámico de egresados con estructura adaptativa.
@@ -1987,6 +2037,11 @@ async def resumen_egresados_dinamico_view(
     print(f"Periodo: {periodo}, Nivel: {nivel}, Unidad: {unidad}")
     print(f"Usuario: {nombre_completo} ({nombre_rol})")
     print(f"{'='*60}")
+
+    vista_normalizada = str(vista or '').strip().lower()
+    es_vista_acuse = vista_normalizada == 'acuse'
+    es_rol_con_acuse = id_rol in [4, 5, 6, 7, 8, 9]
+    nombre_template = "egresados_acuse_nuevo.html" if (es_vista_acuse or es_rol_con_acuse) else "egresados_resumen_dinamico.html"
 
     try:
         # ------------------------------------------------------------
@@ -2079,7 +2134,7 @@ async def resumen_egresados_dinamico_view(
             pass
 
         if not egresados_data:
-            return templates.TemplateResponse("egresados_resumen_dinamico.html", {
+            return templates.TemplateResponse(nombre_template, {
                 "request": request,
                 "nombre_usuario": nombre_completo,
                 "nombre_rol": nombre_rol,
@@ -2579,7 +2634,39 @@ async def resumen_egresados_dinamico_view(
                         'total_t': total_t
                     })
 
-        return templates.TemplateResponse("egresados_resumen_dinamico.html", {
+        # === Simplificar filas_edad_turno para evitar duplicados (edad 19 repetida) ===
+        # Agrupar edades globalmente
+        edades_agrupadas = {}
+        for fila in filas_edad_turno:
+            edad = fila['edad']
+            if edad not in edades_agrupadas:
+                edades_agrupadas[edad] = {'H': 0, 'M': 0, 'T': 0}
+            edades_agrupadas[edad]['H'] += fila['total_h']
+            edades_agrupadas[edad]['M'] += fila['total_m']
+            edades_agrupadas[edad]['T'] += fila['total_t']
+        
+        filas_edad_turno_simple = []
+        for edad in _sort_mixed_numbers(list(edades_agrupadas.keys())):
+            totales = edades_agrupadas[edad]
+            filas_edad_turno_simple.append({
+                'edad': edad,
+                'total_h': totales['H'],
+                'total_m': totales['M'],
+                'total_t': totales['T']
+            })
+        filas_edad_turno = filas_edad_turno_simple
+
+        # === Layout fijo de dos columnas: izq (Boleta+Edad), der (Programa+otras) ===
+        col_left = ['Boleta', 'GrupoEdad']
+        col_right = ['Programa', 'Modalidad', 'Generacion', 'Turno']
+        max_len = max(len(col_left), len(col_right))
+        tablas_filas = []
+        for i in range(max_len):
+            left = col_left[i] if i < len(col_left) else None
+            right = col_right[i] if i < len(col_right) else None
+            tablas_filas.append((left, right))
+
+        return templates.TemplateResponse(nombre_template, {
             "request": request,
             "nombre_usuario": nombre_completo,
             "nombre_rol": nombre_rol,
@@ -2604,10 +2691,12 @@ async def resumen_egresados_dinamico_view(
             "edades_columnas": edades_columnas,
             "filas_edad_turno": filas_edad_turno,
             "programa_counts_edad": programa_counts_edad,
+            "tablas_filas": tablas_filas,
             "totales_tabla1": totales_tabla1,
             "totales_tabla2": totales_tabla2,
             "subtotales_generacion_tabla1": subtotales_generacion_tabla1,
             "subtotales_generacion_tabla2": subtotales_generacion_tabla2,
+            "estado_semaforo_actual": estado_semaforo if ('estado_semaforo' in locals() and estado_semaforo is not None) else 0,
             "error_message": None
         })
         
@@ -2615,7 +2704,7 @@ async def resumen_egresados_dinamico_view(
         print(f"❌ Error en resumen dinámico: {str(e)}")
         import traceback
         traceback.print_exc()
-        return templates.TemplateResponse("egresados_resumen_dinamico.html", {
+        return templates.TemplateResponse(nombre_template, {
             "request": request,
             "nombre_usuario": nombre_completo,
             "nombre_rol": nombre_rol,
@@ -2628,11 +2717,19 @@ async def resumen_egresados_dinamico_view(
             "generaciones": [],
             "boletas_columnas": [],
             "filas_pivot": [],
+            "modalidades_columnas": [],
+            "filas_edad_turno": [],
+            "turnos_columnas": [],
             "total_general": {"boletas": {}, "total_h": 0, "total_m": 0, "total_t": 0},
+            "totales_tabla1": {"modalidades": {}, "total_h": 0, "total_m": 0, "total_t": 0},
+            "totales_tabla2": {"turnos": {}, "total_h": 0, "total_m": 0, "total_t": 0},
+            "subtotales_generacion_tabla1": {"regular": {"modalidades": {}, "total_h": 0, "total_m": 0, "total_t": 0}, "extemporaneo": {"modalidades": {}, "total_h": 0, "total_m": 0, "total_t": 0}},
+            "subtotales_generacion_tabla2": {"regular": {"turnos": {}, "total_h": 0, "total_m": 0, "total_t": 0}, "extemporaneo": {"turnos": {}, "total_h": 0, "total_m": 0, "total_t": 0}},
             "puede_validar": False,
             "usuario_ya_valido": False,
             "usuario_ya_rechazo": False,
             "esperando_por_rol": None,
+            "tablas_filas": [],
             "error_message": f"Error al procesar datos: {str(e)}"
         })
 

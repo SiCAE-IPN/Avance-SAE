@@ -911,6 +911,7 @@
     // Mapeo de Programa ID -> Modalidades IDs para filtrado dinámico
     let programaAModalidades = {};
     let todasLasModalidades = [];
+    let estadoSemaforoCapturaActual = 1;
     const catalogoSemaforo = {{ semaforo_estados | tojson }};
     const mapaColoresSemaforo = {};
     (catalogoSemaforo || []).forEach(estado => {
@@ -1078,6 +1079,8 @@
             if (acciones) acciones.style.display = 'flex';  // Mostrar botones de validación/rechazo
             console.log('✅ Validador: sección de validación visible (semáforo en nivel correcto)');
         }
+
+        aplicarBloqueoCapturaPorSemaforo(estadoSemaforoCapturaActual === 3);
         
         // Generar/actualizar cabecera de tabla con turnos dinámicos
         generarCabeceraTabla();
@@ -1086,6 +1089,7 @@
     }
 
     function ocultarSeccionCaptura() {
+        estadoSemaforoCapturaActual = 1;
         const seccion = document.getElementById('seccion-captura-egresados');
         if (seccion) seccion.style.display = 'none';
         const banner = document.getElementById('banner-seleccion-egresados');
@@ -1094,6 +1098,7 @@
         if (acciones) acciones.style.display = 'none';
         const tablaWrap = document.querySelector('.tabla-captura-wrap');
         if (tablaWrap) tablaWrap.style.display = 'none';
+        aplicarBloqueoCapturaPorSemaforo(false);
         aplicarSemaforoPestana(1);
     }
 
@@ -1181,6 +1186,27 @@
         texto.textContent = obtenerTextoSemaforo(estado);
     }
 
+    function aplicarBloqueoCapturaPorSemaforo(bloquear) {
+        const elementosBloqueables = document.querySelectorAll(
+            '.filtros-secundarios-container input, .filtros-secundarios-container select, .filtros-secundarios-container button, '
+            + '.tabla-header-egresados button, #tabla-egresados-main input, #tabla-egresados-main button, '
+            + '.actions-after-table button'
+        );
+
+        elementosBloqueables.forEach(elemento => {
+            elemento.disabled = bloquear;
+            if (elemento.tagName === 'BUTTON') {
+                elemento.style.opacity = bloquear ? '0.65' : '';
+                elemento.style.cursor = bloquear ? 'not-allowed' : '';
+            }
+        });
+
+        const tabla = document.getElementById('tabla-egresados-main');
+        if (tabla) {
+            tabla.style.opacity = bloquear ? '0.72' : '';
+        }
+    }
+
     function calcularEstadoGlobalSemaforo(estadosPorTurno) {
         const estadoDefault = 1;
         const clavesTurno = (turnosDisponibles || []).map(t => String(t.id));
@@ -1204,6 +1230,8 @@
         const periodo = document.getElementById('periodo');
 
         if (!programa || !modalidad || !periodo || !programa.value || !modalidad.value) {
+            estadoSemaforoCapturaActual = 1;
+            aplicarBloqueoCapturaPorSemaforo(false);
             aplicarSemaforoPestana(1);
             return;
         }
@@ -1230,9 +1258,13 @@
             }
 
             const estadoGlobal = calcularEstadoGlobalSemaforo(resultado.estados_semaforo || {});
+            estadoSemaforoCapturaActual = estadoGlobal;
             aplicarSemaforoPestana(estadoGlobal);
+            aplicarBloqueoCapturaPorSemaforo(estadoGlobal === 3);
         } catch (error) {
             console.warn('⚠️ No se pudo actualizar el semáforo de captura:', error);
+            estadoSemaforoCapturaActual = 1;
+            aplicarBloqueoCapturaPorSemaforo(false);
             aplicarSemaforoPestana(1);
         }
     }
@@ -1408,6 +1440,8 @@
         });
 
         ajustarScrollTablaEgresados();
+
+        aplicarBloqueoCapturaPorSemaforo(estadoSemaforoCapturaActual === 3);
 
         actualizarInformeEgresados();
     }
@@ -1641,7 +1675,7 @@
             // ========================================================================
             // PAUSA - SP COMENTADO (GUARDAR AVANCE) Comentar en dado caso de querer guardar datos en Temp_Egresados
             // ========================================================================
-
+/*
             const response = await fetch('/egresados/guardar_avance', {
                 method: 'POST',
                 credentials: 'same-origin',
@@ -1673,7 +1707,7 @@
             } else {
                 alert(`❌ Error: ${resultado.error || 'No se pudo guardar el avance'}`);
             }
-           
+           */
             // ========================================================================
             // ...hasta aquí para activar el SP de Guardar Avance
             // ========================================================================
@@ -2000,13 +2034,16 @@
                     const hombres = registro.Hombres;
                     const mujeres = registro.Mujeres;
                     const total = hombres + mujeres;
-                    
+
+                    // No mostrar filas cuyo total sea 0 (no relevante)
+                    if (total === 0) return;
+
                     totalGeneralHombres += hombres;
                     totalGeneralMujeres += mujeres;
-                    
+
                     const estiloFila = index % 2 === 0 ? 'background: #f9f9f9;' : 'background: white;';
-                    
-                    htmlFilas += `<tr style="${estiloFila}">
+
+                    htmlFilas += `<tr data-hombres="${hombres}" data-mujeres="${mujeres}" style="${estiloFila}">
                         <td style="padding: 10px; border: 1px solid #ddd;">${registro.Nombre_Programa}</td>
                         <td style="padding: 10px; border: 1px solid #ddd;">${registro.Modalidad}</td>
                         <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${registro.Turno}</td>
@@ -2021,11 +2058,11 @@
                 
                 // Agregar fila de totales
                 const totalGeneral = totalGeneralHombres + totalGeneralMujeres;
-                htmlFilas += `<tr style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color: white; font-weight: 700;">
-                    <td colspan="6" style="padding: 12px; border: 1px solid #ddd; text-align: right;">TOTALES GENERALES:</td>
-                    <td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralHombres}</td>
-                    <td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralMujeres}</td>
-                    <td style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 18px;">${totalGeneral}</td>
+                htmlFilas += `<tr id="informe-total-row" style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color: white; font-weight: 700;">
+                    <td colspan="6" style="padding: 12px; border: 1px solid #ddd; text-align: right;">TOTAL GENERAL:</td>
+                    <td class="total-hombres" style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralHombres}</td>
+                    <td class="total-mujeres" style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralMujeres}</td>
+                    <th class="total-general-egresados" style="padding: 12px; text-align: center; font-size: 18px;">${totalGeneral}</th>
                 </tr>`;
                 
                 tbody.innerHTML = htmlFilas;
@@ -2570,7 +2607,7 @@
 
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        context.font = '600 13px Segoe UI';
+        context.font = '600 13px "Noto Sans"';
 
         const textWidth = Math.ceil(context.measureText(longestText).width);
         const headerWidth = Math.ceil(headerElement.getBoundingClientRect().width);
@@ -2731,9 +2768,46 @@
             if (shouldShow) visibleCount++;
         });
 
+        // Recalcular totales a partir de las filas visibles
+        let totalVisibleHombres = 0;
+        let totalVisibleMujeres = 0;
+        let totalVisibleGeneral = 0;
+
+        rows.forEach(row => {
+            if (row.style.display === 'none') return;
+            
+            // Preferir atributos data-hombres/data-mujeres si existen
+            const dh = row.dataset && row.dataset.hombres ? parseInt(row.dataset.hombres) : NaN;
+            const dm = row.dataset && row.dataset.mujeres ? parseInt(row.dataset.mujeres) : NaN;
+
+            let h = !isNaN(dh) ? dh : (parseInt(row.cells[6]?.textContent.trim()) || 0);
+            let m = !isNaN(dm) ? dm : (parseInt(row.cells[7]?.textContent.trim()) || 0);
+
+            totalVisibleHombres += h;
+            totalVisibleMujeres += m;
+            totalVisibleGeneral += (h + m); // Sumamos dinámicamente el total de esta fila
+        });
+
+        const totalRow = document.getElementById('informe-total-row');
+
+        if (totalRow) {
+            if (totalVisibleGeneral === 0) {
+                totalRow.style.display = 'none';
+            } else {
+                totalRow.style.display = '';
+                const th = totalRow.querySelector('.total-hombres');
+                const tm = totalRow.querySelector('.total-mujeres');
+                const tg = totalRow.querySelector('.total-general-egresados');
+                
+                if (th) th.textContent = totalVisibleHombres;
+                if (tm) tm.textContent = totalVisibleMujeres;
+                if (tg) tg.textContent = totalVisibleGeneral;
+            }
+        }
+
         updateFilterHeaderStates();
-        
-        console.log(`📊 Filtros aplicados: ${visibleCount}/${rows.length} filas visibles`);
+
+        console.log(`📊 Filtros aplicados: ${visibleCount}/${rows.length} filas visibles — Totales: Hombres=${totalVisibleHombres}, Mujeres=${totalVisibleMujeres}, Total=${totalVisibleGeneral}`);
     }
     
 </script>

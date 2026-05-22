@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from backend.database.models.CatRoles import CatRoles
 from backend.crud.CatRoles import create_rol, read_role_by_name, read_all_names_roles, read_id_by_name, read_all_roles
 from sqlalchemy.orm import Session

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from backend.crud.Usuario import (
     create_usuario,
     read_user_by_username,
