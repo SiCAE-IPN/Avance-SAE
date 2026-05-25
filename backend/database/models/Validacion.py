@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from ..db_base import Base
 from sqlalchemy import Integer, String, DateTime, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
+from typing import Optional
 
 class Validacion(Base):
     __tablename__ = 'Validacion'
@@ -13,5 +16,5 @@ class Validacion(Base):
     Id_Formato: Mapped[int] = mapped_column(Integer, primary_key=True)
     #Tipo de dato de Validado es igual a 'bit' en la base de datos
     Validado: Mapped[bool] = mapped_column(Integer, nullable=False)  # 0=Rechazo, 1=Validación
-    Nota: Mapped[str | None] = mapped_column(Text, nullable=True)  # Motivo del rechazo/validación
+    Nota: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Motivo del rechazo/validación
     Fecha: Mapped[datetime] = mapped_column(DateTime, nullable=False)

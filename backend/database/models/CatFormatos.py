@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from ..db_base import Base
 
 from sqlalchemy import Integer,String, DateTime, func

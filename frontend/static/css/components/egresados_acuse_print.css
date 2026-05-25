@@ -1,0 +1,97 @@
+/* egresados_acuse_print.css
+   Versión formal e independiente basada en matricula_acuse.css
+   Colores y detalles ajustados para un look más sobrio/profesional
+*/
+
+/* BASE - TAMAÑO CARTA */
+body {
+    background-color: #f8f9fa;
+    margin: 0;
+    padding: 10px;
+}
+
+.contenedor-acuse {
+    max-width: 8.5in;
+    margin: 0 auto;
+    background-color: white;
+    padding: 0.5in;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    font-family: var(--sae-font-primary);
+    font-size: 11px;
+    line-height: 1.25;
+    color: #222;
+}
+
+/* Encabezado formal */
+.acuse-header {
+    border-bottom: 3px solid #243447;
+    margin-bottom: 0.25in;
+    padding-bottom: 0.12in;
+    text-align: center;
+}
+
+.acuse-header h1 {
+    margin: 0 0 6px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #243447;
+}
+
+.header-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    font-size: 10px;
+}
+
+.header-item-label { font-weight: 700; color: #243447; }
+.header-item-value { color: #444; }
+
+.total-resumen { background: #f1f5f9; border-left: 4px solid #1f6feb; padding: 8px 10px; border-radius: 3px; text-align: center; font-weight:700; margin-top:8px }
+.total-resumen-numero { font-size:22px; color:#243447 }
+
+/* Paleta formal */
+:root {
+    --formal-primary: #243447;
+    --formal-accent: #1f6feb;
+    --formal-muted: #6b7280;
+}
+
+.contenedor-tabla { overflow-x:auto; margin-bottom:12px; background:white; padding:6px; border-radius:6px }
+
+.tabla-seccion { margin-bottom: 0.18in; page-break-inside: avoid }
+
+.tabla-titulo { background-color: var(--formal-primary); color: white; padding:6px 8px; font-weight:700; border-left:4px solid var(--formal-accent); border-radius:3px; margin-bottom:6px }
+
+table { width:100%; border-collapse: collapse; font-size:10px }
+table th { background:#f3f6fb; color:#243447; padding:6px; border-bottom:1px solid #dbe6f3; text-align:center }
+table td { padding:5px; border-bottom:1px solid #eef2f7; text-align:center }
+table td:first-child { text-align:left; font-weight:600 }
+
+table tbody tr:nth-child(odd){ background:#ffffff }
+table tbody tr:nth-child(even){ background:#fbfdff }
+
+table tfoot { background:#f7fbff; font-weight:700; border-top:2px solid #e6eefc }
+
+.acuse-footer { margin-top:0.25in; padding-top:0.15in; border-top:3px solid #243447; text-align:center }
+
+.estado-validacion { display:inline-block; padding:8px 12px; border-radius:4px; font-weight:700; font-size:11px }
+.estado-validado { background:#e6f4ea; color:#0b6b2e; border:1px solid #cde6cf }
+.estado-rechazado { background:#fdecea; color:#7a1c1c; border:1px solid #f4c6c6 }
+.estado-pendiente { background:#fff6e6; color:#8a6b00; border:1px solid #ffecb5 }
+.estado-esperando { background:#f3f4f6; color:#333; border:1px solid #e6e7ea }
+
+/* Impresión */
+@media print {
+    body { background:white; margin:0; padding:0 }
+    .contenedor-acuse { max-width:100%; margin:0; padding:0.5in; box-shadow:none }
+    .tabla-seccion, .acuse-header, .acuse-footer { page-break-inside: avoid }
+    .botones-accion { display:none !important }
+    table thead { display: table-header-group }
+}
+
+/* Marca de agua ligera para documentos oficiales */
+.marca-agua { position: fixed; top:42%; left:40%; transform:rotate(-45deg); font-size:60px; color:rgba(120,120,120,0.12); font-weight:700; pointer-events:none }
+
+/* Responsive */
+@media (max-width:768px){ .header-info-grid { grid-template-columns:1fr } table { font-size:9px } }

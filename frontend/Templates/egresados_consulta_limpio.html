@@ -886,6 +886,19 @@
     let spEnEjecucion = false;
     let interfazBloqueada = false;
     
+    // Variables de estado de validación (desde el backend)
+    const puedeValidar = "{{ puede_validar }}".toLowerCase() === 'true';
+    const usuarioYaValido = "{{ usuario_ya_valido }}".toLowerCase() === 'true';
+    const usuarioYaRechazo = "{{ usuario_ya_rechazo }}".toLowerCase() === 'true';
+    const esValidador = {{ 'true' if es_validador else 'false' }};
+    
+    console.log('🔍 Estado de validación al cargar:');
+    console.log(`   puedeValidar: ${puedeValidar}`);
+    console.log(`   usuarioYaValido: ${usuarioYaValido}`);
+    console.log(`   usuarioYaRechazo: ${usuarioYaRechazo}`);
+    console.log(`   esCapturista: ${esCapturista}`);
+    console.log(`   esValidador: ${esValidador}`);
+    
     // Almacén de filas de egresados en memoria (estructura única, turnos como columnas)
     // [ { id, programa, programaNombre, modalidad, modalidadNombre, boleta, boletaNombre,
     //     generacion, generacionNombre, edad, edadNombre,
@@ -898,6 +911,7 @@
     // Mapeo de Programa ID -> Modalidades IDs para filtrado dinámico
     let programaAModalidades = {};
     let todasLasModalidades = [];
+    let estadoSemaforoCapturaActual = 1;
     const catalogoSemaforo = {{ semaforo_estados | tojson }};
     const mapaColoresSemaforo = {};
     (catalogoSemaforo || []).forEach(estado => {
@@ -1045,7 +1059,29 @@
     
     function mostrarSeccionCaptura() {
         const seccion = document.getElementById('seccion-captura-egresados');
-        if (seccion) seccion.style.display = 'block';
+        const acciones = document.querySelector('.actions-after-table');
+        
+        // Para Capturista (rol 3): SIEMPRE mostrar el formulario y botones (sin restricción de semáforo)
+        if (esCapturista) {
+            if (seccion) seccion.style.display = 'block';
+            if (acciones) acciones.style.display = 'flex';  // Mostrar botones
+            console.log('✅ Capturista: sección de captura visible (sin restricción de semáforo)');
+        } 
+        // Para Validador (roles 4-9): mostrar solo si puede validar (semáforo en su nivel)
+        else if (esValidador) {
+            if (!puedeValidar) {
+                console.log('⏳ Validador esperando: semáforo no en su nivel aún');
+                if (seccion) seccion.style.display = 'none';
+                if (acciones) acciones.style.display = 'none';
+                return;
+            }
+            if (seccion) seccion.style.display = 'block';
+            if (acciones) acciones.style.display = 'flex';  // Mostrar botones de validación/rechazo
+            console.log('✅ Validador: sección de validación visible (semáforo en nivel correcto)');
+        }
+
+        aplicarBloqueoCapturaPorSemaforo(estadoSemaforoCapturaActual === 3);
+        
         // Generar/actualizar cabecera de tabla con turnos dinámicos
         generarCabeceraTabla();
         requestAnimationFrame(() => ajustarTamanoBannerSeleccion());
@@ -1053,10 +1089,16 @@
     }
 
     function ocultarSeccionCaptura() {
+        estadoSemaforoCapturaActual = 1;
         const seccion = document.getElementById('seccion-captura-egresados');
         if (seccion) seccion.style.display = 'none';
         const banner = document.getElementById('banner-seleccion-egresados');
         if (banner) banner.classList.remove('visible');
+        const acciones = document.querySelector('.actions-after-table');
+        if (acciones) acciones.style.display = 'none';
+        const tablaWrap = document.querySelector('.tabla-captura-wrap');
+        if (tablaWrap) tablaWrap.style.display = 'none';
+        aplicarBloqueoCapturaPorSemaforo(false);
         aplicarSemaforoPestana(1);
     }
 
@@ -1144,6 +1186,27 @@
         texto.textContent = obtenerTextoSemaforo(estado);
     }
 
+    function aplicarBloqueoCapturaPorSemaforo(bloquear) {
+        const elementosBloqueables = document.querySelectorAll(
+            '.filtros-secundarios-container input, .filtros-secundarios-container select, .filtros-secundarios-container button, '
+            + '.tabla-header-egresados button, #tabla-egresados-main input, #tabla-egresados-main button, '
+            + '.actions-after-table button'
+        );
+
+        elementosBloqueables.forEach(elemento => {
+            elemento.disabled = bloquear;
+            if (elemento.tagName === 'BUTTON') {
+                elemento.style.opacity = bloquear ? '0.65' : '';
+                elemento.style.cursor = bloquear ? 'not-allowed' : '';
+            }
+        });
+
+        const tabla = document.getElementById('tabla-egresados-main');
+        if (tabla) {
+            tabla.style.opacity = bloquear ? '0.72' : '';
+        }
+    }
+
     function calcularEstadoGlobalSemaforo(estadosPorTurno) {
         const estadoDefault = 1;
         const clavesTurno = (turnosDisponibles || []).map(t => String(t.id));
@@ -1167,6 +1230,8 @@
         const periodo = document.getElementById('periodo');
 
         if (!programa || !modalidad || !periodo || !programa.value || !modalidad.value) {
+            estadoSemaforoCapturaActual = 1;
+            aplicarBloqueoCapturaPorSemaforo(false);
             aplicarSemaforoPestana(1);
             return;
         }
@@ -1193,9 +1258,13 @@
             }
 
             const estadoGlobal = calcularEstadoGlobalSemaforo(resultado.estados_semaforo || {});
+            estadoSemaforoCapturaActual = estadoGlobal;
             aplicarSemaforoPestana(estadoGlobal);
+            aplicarBloqueoCapturaPorSemaforo(estadoGlobal === 3);
         } catch (error) {
             console.warn('⚠️ No se pudo actualizar el semáforo de captura:', error);
+            estadoSemaforoCapturaActual = 1;
+            aplicarBloqueoCapturaPorSemaforo(false);
             aplicarSemaforoPestana(1);
         }
     }
@@ -1372,6 +1441,8 @@
 
         ajustarScrollTablaEgresados();
 
+        aplicarBloqueoCapturaPorSemaforo(estadoSemaforoCapturaActual === 3);
+
         actualizarInformeEgresados();
     }
 
@@ -1454,6 +1525,7 @@
         try {
             const response = await fetch('/egresados/validar', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -1495,6 +1567,7 @@
         try {
             const response = await fetch('/egresados/rechazar', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -1583,6 +1656,7 @@
         try {
             const responseTemp = await fetch('/egresados/guardar', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     periodo: document.getElementById('periodo').value,
@@ -1597,13 +1671,14 @@
             }
             
             console.log('✅ Datos guardados en Temp_Egresados');
-            
+
             // ========================================================================
             // PAUSA - SP COMENTADO (GUARDAR AVANCE) Comentar en dado caso de querer guardar datos en Temp_Egresados
             // ========================================================================
-
+/*
             const response = await fetch('/egresados/guardar_avance', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     periodo: document.getElementById('periodo').value
@@ -1632,7 +1707,7 @@
             } else {
                 alert(`❌ Error: ${resultado.error || 'No se pudo guardar el avance'}`);
             }
-           
+           */
             // ========================================================================
             // ...hasta aquí para activar el SP de Guardar Avance
             // ========================================================================
@@ -1671,6 +1746,10 @@
     async function finalizarCapturaEgresados() {
         const programa = document.getElementById('programa');
         const modalidad = document.getElementById('modalidad');
+        const btnGuardar = document.getElementById('btn-guardar-avance');
+        const btnLimpiar = document.getElementById('btn-limpiar-formulario');
+        const btnFinalizar = document.getElementById('btn-finalizar-captura');
+        const tieneFilas = Array.isArray(filasEgresados) && filasEgresados.length > 0;
         
         if (!programa || !programa.value) {
             alert('⚠️ Por favor seleccione un Programa antes de finalizar');
@@ -1682,71 +1761,84 @@
             return;
         }
         
-        if (filasEgresados.length === 0) {
-            alert('⚠️ No hay datos para finalizar. Agregue al menos una fila.');
-            return;
-        }
-        
-        // Rellenar valores vacíos con 0 para todos los turnos
-        filasEgresados.forEach(fila => {
-            turnosDisponibles.forEach(turno => {
-                if (!fila.turnos[turno.id]) {
-                    fila.turnos[turno.id] = { hombres: 0, mujeres: 0 };
-                } else {
-                    if (fila.turnos[turno.id].hombres === '' || fila.turnos[turno.id].hombres === null || fila.turnos[turno.id].hombres === undefined) {
-                        fila.turnos[turno.id].hombres = 0;
+        if (tieneFilas) {
+            filasEgresados.forEach(fila => {
+                turnosDisponibles.forEach(turno => {
+                    if (!fila.turnos[turno.id]) {
+                        fila.turnos[turno.id] = { hombres: 0, mujeres: 0 };
+                    } else {
+                        if (fila.turnos[turno.id].hombres === '' || fila.turnos[turno.id].hombres === null || fila.turnos[turno.id].hombres === undefined) {
+                            fila.turnos[turno.id].hombres = 0;
+                        }
+                        if (fila.turnos[turno.id].mujeres === '' || fila.turnos[turno.id].mujeres === null || fila.turnos[turno.id].mujeres === undefined) {
+                            fila.turnos[turno.id].mujeres = 0;
+                        }
                     }
-                    if (fila.turnos[turno.id].mujeres === '' || fila.turnos[turno.id].mujeres === null || fila.turnos[turno.id].mujeres === undefined) {
-                        fila.turnos[turno.id].mujeres = 0;
-                    }
-                }
+                });
             });
-        });
-        
-        // Re-renderizar para reflejar los 0 en los inputs
-        renderizarTablaEgresados();
+            renderizarTablaEgresados();
+        }
         
         const programaNombre = programa.options[programa.selectedIndex].text;
         const modalidadNombre = modalidad.options[modalidad.selectedIndex].text;
+        const totalFilas = tieneFilas ? filasEgresados.length : 0;
+        const confirmacionTexto = tieneFilas
+            ? `¿Está seguro de FINALIZAR la captura?\n\n` +
+              `📚 Programa: ${programaNombre}\n` +
+              `📋 Modalidad: ${modalidadNombre}\n` +
+              `📊 Total de filas: ${totalFilas}\n\n` +
+              `⚠️ Esta acción marcará la captura como completada.\n` +
+              `Los campos vacíos se guardarán como 0.`
+            : `¿Está seguro de FINALIZAR la captura?\n\n` +
+              `📚 Programa: ${programaNombre}\n` +
+              `📋 Modalidad: ${modalidadNombre}\n\n` +
+              `⚠️ No hay filas capturadas, pero la captura se cerrará igualmente.`;
         
-        if (!confirm(
-            `¿Está seguro de FINALIZAR la captura?\n\n` +
-            `📚 Programa: ${programaNombre}\n` +
-            `📋 Modalidad: ${modalidadNombre}\n` +
-            `📊 Total de filas: ${filasEgresados.length}\n\n` +
-            `⚠️ Esta acción marcará la captura como completada.\n` +
-            `Los campos vacíos se guardarán como 0.`
-        )) {
+        if (!confirm(confirmacionTexto)) {
             return;
         }
+        
+        if (btnGuardar) btnGuardar.disabled = true;
+        if (btnLimpiar) btnLimpiar.disabled = true;
+        if (btnFinalizar) btnFinalizar.disabled = true;
         
         mostrarOverlayCarga('Finalizando Captura...', 'Procesando datos y actualizando semáforo');
         
         try {
-            const responseTemp = await fetch('/egresados/guardar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    periodo: document.getElementById('periodo').value,
-                    registros: filasEgresados
-                })
-            });
-            
-            const resultadoTemp = await responseTemp.json();
-            
-            if (!resultadoTemp.success) {
-                throw new Error(resultadoTemp.error || 'Error al guardar en Temp_Egresados');
+            if (tieneFilas) {
+                const responseTemp = await fetch('/egresados/guardar', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        periodo: document.getElementById('periodo').value,
+                        registros: filasEgresados
+                    })
+                });
+                
+                const resultadoTemp = await responseTemp.json();
+                
+                if (!resultadoTemp.success) {
+                    throw new Error(resultadoTemp.error || 'Error al guardar en Temp_Egresados');
+                }
+                
+                console.log('✅ Datos guardados en Temp_Egresados');
+                /**
+                await Swal.fire({
+                    title: 'Datos guardados en temporal',
+                    html: 'Revisa <b>Temp_Egresados</b> antes de finalizar la captura.',
+                    icon: 'info',
+                    timer: 4000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                });**/
             }
-            
-            console.log('✅ Datos guardados en Temp_Egresados');
-            
-            // ========================================================================
-            // 🔴 PAUSA - SP COMENTADO (FINALIZAR CAPTURA)
-            // Para reactivar los Stored Procedures, descomenta desde aquí...
-            // ========================================================================
             
             const response = await fetch('/egresados/finalizar_captura', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     periodo: document.getElementById('periodo').value,
@@ -1764,36 +1856,28 @@
                       `📊 Registros procesados: ${resultado.registros_procesados || 0}\n` +
                       `🚦 Semáforo: ${resultado.semaforo_actualizado || 'Completado'}\n\n` +
                       `La captura ha sido marcada como completada.`);
+
                 filasEgresados = [];
                 renderizarTablaEgresados();
+                ocultarSeccionCaptura();
+                const informePanel = document.getElementById('informe-panel');
+                if (informePanel) informePanel.style.display = 'block';
                 await actualizarInformeEgresados();
-                setTimeout(() => { window.location.reload(); }, 2000);
-            } else if (resultado.warning) {
-                alert(`⚠️ ${resultado.warning}`);
+                await actualizarSemaforoPestana();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
-                alert(`❌ Error: ${resultado.error || 'No se pudo finalizar la captura'}`);
+                const mensajeError = resultado.warning || resultado.error || 'No se pudo finalizar la captura';
+                alert(`❌ ${mensajeError}`);
+                if (btnGuardar) btnGuardar.disabled = false;
+                if (btnLimpiar) btnLimpiar.disabled = false;
+                if (btnFinalizar) btnFinalizar.disabled = false;
             }
-            
-            // ========================================================================
-            // ...hasta aquí para activar el SP de Finalizar Captura
-            // ========================================================================
-            
-            // 🟢 MENSAJE TEMPORAL (mientras el SP está pausado)
-            // alert(`✅ Datos guardados en Temp_Egresados\n\n` +
-            //       `📚 Programa: ${programaNombre}\n` +
-            //       `📋 Modalidad: ${modalidadNombre}\n` +
-            //       `📊 Registros guardados: ${filasEgresados.length}\n\n` +
-            //       `⚠️ NOTA: Los Stored Procedures están pausados.\n` +
-            //       `Los datos se guardan solo en la tabla temporal.`);
-            // console.log('✅ Guardado en Temp_Egresados (SP pausado)');
-            
-            filasEgresados = [];
-            renderizarTablaEgresados();
-            await actualizarInformeEgresados();
-            await actualizarSemaforoPestana();
         } catch (error) {
             console.error('❌ Error al finalizar captura:', error);
             alert(`❌ Error al finalizar captura: ${error.message}`);
+            if (btnGuardar) btnGuardar.disabled = false;
+            if (btnLimpiar) btnLimpiar.disabled = false;
+            if (btnFinalizar) btnFinalizar.disabled = false;
         } finally {
             ocultarOverlayCarga();
         }
@@ -1803,15 +1887,15 @@
        ============================================== */
     
     /**
-     * Actualizar el informe de egresados con datos reales del SP
+     * Actualizar el informe de egresados desde el SP
      */
     async function actualizarInformeEgresados() {
-        console.log('📊 Cargando informe de egresados desde el servidor...');
-        
-        const tbody = document.querySelector('#informe-egresados-table tbody');
+        const tbody = document.getElementById('informe-egresados-table')?.querySelector('tbody');
         
         if (!tbody) {
             console.warn('⚠️ No se encontró la tabla de informe');
+            // Recargar la página para obtener el nuevo estado del semáforo
+            setTimeout(() => location.reload(), 1500);
             return;
         }
         
@@ -1827,6 +1911,7 @@
             // Obtener datos del servidor (del SP)
             const response = await fetch('/egresados/informe', {
                 method: 'GET',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                 }
@@ -1949,13 +2034,16 @@
                     const hombres = registro.Hombres;
                     const mujeres = registro.Mujeres;
                     const total = hombres + mujeres;
-                    
+
+                    // No mostrar filas cuyo total sea 0 (no relevante)
+                    if (total === 0) return;
+
                     totalGeneralHombres += hombres;
                     totalGeneralMujeres += mujeres;
-                    
+
                     const estiloFila = index % 2 === 0 ? 'background: #f9f9f9;' : 'background: white;';
-                    
-                    htmlFilas += `<tr style="${estiloFila}">
+
+                    htmlFilas += `<tr data-hombres="${hombres}" data-mujeres="${mujeres}" style="${estiloFila}">
                         <td style="padding: 10px; border: 1px solid #ddd;">${registro.Nombre_Programa}</td>
                         <td style="padding: 10px; border: 1px solid #ddd;">${registro.Modalidad}</td>
                         <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${registro.Turno}</td>
@@ -1970,11 +2058,11 @@
                 
                 // Agregar fila de totales
                 const totalGeneral = totalGeneralHombres + totalGeneralMujeres;
-                htmlFilas += `<tr style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color: white; font-weight: 700;">
-                    <td colspan="6" style="padding: 12px; border: 1px solid #ddd; text-align: right;">TOTALES GENERALES:</td>
-                    <td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralHombres}</td>
-                    <td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralMujeres}</td>
-                    <td style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 18px;">${totalGeneral}</td>
+                htmlFilas += `<tr id="informe-total-row" style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color: white; font-weight: 700;">
+                    <td colspan="6" style="padding: 12px; border: 1px solid #ddd; text-align: right;">TOTAL GENERAL:</td>
+                    <td class="total-hombres" style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralHombres}</td>
+                    <td class="total-mujeres" style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralMujeres}</td>
+                    <th class="total-general-egresados" style="padding: 12px; text-align: center; font-size: 18px;">${totalGeneral}</th>
                 </tr>`;
                 
                 tbody.innerHTML = htmlFilas;
@@ -2240,7 +2328,7 @@
             selectModalidad.disabled = true;
             
             selectPrograma.addEventListener('change', function() {
-                // Al cambiar programa, regresar al estado inicial de captura
+                // Al cambiar programa, regresar al estado de informe y no reabrir captura si ya se finalizó
                 ocultarSeccionCaptura();
                 selectModalidad.value = '';
                 filtrarModalidadesPorPrograma();
@@ -2294,7 +2382,6 @@
         });
         
         // Cargar el informe de egresados al iniciar (solo para capturistas)
-        const esCapturista = {{ 'true' if es_capturista else 'false' }};
         if (esCapturista) {
             actualizarInformeEgresados();
             initTableFilters();
@@ -2520,7 +2607,7 @@
 
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        context.font = '600 13px Segoe UI';
+        context.font = '600 13px "Noto Sans"';
 
         const textWidth = Math.ceil(context.measureText(longestText).width);
         const headerWidth = Math.ceil(headerElement.getBoundingClientRect().width);
@@ -2681,9 +2768,46 @@
             if (shouldShow) visibleCount++;
         });
 
+        // Recalcular totales a partir de las filas visibles
+        let totalVisibleHombres = 0;
+        let totalVisibleMujeres = 0;
+        let totalVisibleGeneral = 0;
+
+        rows.forEach(row => {
+            if (row.style.display === 'none') return;
+            
+            // Preferir atributos data-hombres/data-mujeres si existen
+            const dh = row.dataset && row.dataset.hombres ? parseInt(row.dataset.hombres) : NaN;
+            const dm = row.dataset && row.dataset.mujeres ? parseInt(row.dataset.mujeres) : NaN;
+
+            let h = !isNaN(dh) ? dh : (parseInt(row.cells[6]?.textContent.trim()) || 0);
+            let m = !isNaN(dm) ? dm : (parseInt(row.cells[7]?.textContent.trim()) || 0);
+
+            totalVisibleHombres += h;
+            totalVisibleMujeres += m;
+            totalVisibleGeneral += (h + m); // Sumamos dinámicamente el total de esta fila
+        });
+
+        const totalRow = document.getElementById('informe-total-row');
+
+        if (totalRow) {
+            if (totalVisibleGeneral === 0) {
+                totalRow.style.display = 'none';
+            } else {
+                totalRow.style.display = '';
+                const th = totalRow.querySelector('.total-hombres');
+                const tm = totalRow.querySelector('.total-mujeres');
+                const tg = totalRow.querySelector('.total-general-egresados');
+                
+                if (th) th.textContent = totalVisibleHombres;
+                if (tm) tm.textContent = totalVisibleMujeres;
+                if (tg) tg.textContent = totalVisibleGeneral;
+            }
+        }
+
         updateFilterHeaderStates();
-        
-        console.log(`📊 Filtros aplicados: ${visibleCount}/${rows.length} filas visibles`);
+
+        console.log(`📊 Filtros aplicados: ${visibleCount}/${rows.length} filas visibles — Totales: Hombres=${totalVisibleHombres}, Mujeres=${totalVisibleMujeres}, Total=${totalVisibleGeneral}`);
     }
     
 </script>

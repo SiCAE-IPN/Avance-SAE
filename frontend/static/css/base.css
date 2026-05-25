@@ -2,7 +2,7 @@
 
 /* Estilos generales del body */
 body {
-    font-family: Arial, sans-serif;
+    font-family: var(--sae-font-primary);
     margin: 0;
     padding: 0;
     display: flex;

@@ -4348,6 +4348,9 @@ async def acuse_validacion_view(
                 if validacion_rechazo and not (semaforo and estado_semaforo == (id_rol - 1)):
                     usuario_ya_rechazo = True
                     puede_validar = False
+                
+        # Modificar el '9' para el semaforo en que se desee ya no mostrar la marca de agua en el acuse
+        no_validado = estado_semaforo_actual < 9
         
         return templates.TemplateResponse("matricula_acuse_nuevo.html", {
             "request": request, "nombre_usuario": nombre_completo, "nombre_rol": nombre_rol, "id_rol": id_rol,
@@ -4362,6 +4365,7 @@ async def acuse_validacion_view(
             "puede_validar": puede_validar, "usuario_ya_valido": usuario_ya_valido, "usuario_ya_rechazo": usuario_ya_rechazo,
             "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
             "estado_semaforo_actual": estado_semaforo_actual, # PASADO AL TEMPLATE
+            "no_validado": no_validado, # PASADO AL TEMPLATE
             "fecha_hoy": datetime.now().strftime("%d/%m/%Y"), # FECHA DEL SISTEMA
             "error_message": None
         })
@@ -4379,6 +4383,7 @@ async def acuse_validacion_view(
             "totales_conceptos": {"hombres":0,"mujeres":0,"total":0}, "totales_programas": {"hombres":0,"mujeres":0,"total":0},
             "id_unidad_academica": 0, "id_nivel": 0, "puede_validar": False, "usuario_ya_valido": False, "usuario_ya_rechazo": False,
             "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
+            "no_validado": True, # PASADO AL TEMPLATE
             "fecha_hoy": datetime.now().strftime("%d/%m/%Y"),
             "error_message": f"Error al procesar acuse: {str(e)}"
         })

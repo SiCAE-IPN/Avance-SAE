@@ -14,7 +14,7 @@ body {
     background-color: white;
     padding: 0.5in;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    font-family: 'Calibri', 'Arial', sans-serif;
+    font-family: var(--sae-font-primary);
     font-size: 11px;
     line-height: 1.2;
     color: #333;
@@ -301,6 +301,43 @@ table tfoot td:last-child {
     border: 1px solid #d3d6d8;
 }
 
+/* ===============================================
+   LAYOUT EN DOS COLUMNAS PARA TABLAS
+   =============================================== */
+.contenedor-columnas {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    width: 100%;
+    gap: 20px; /* Espacio entre la columna izquierda y derecha */
+    margin-bottom: 15px;
+}
+
+.columna-izq, .columna-der {
+    width: 48%; /* Se dividen a la mitad casi exactas dejando espacio en medio */
+}
+
+/* Ajuste específico para que WeasyPrint exporte el PDF sin romper las columnas */
+@media print {
+    .contenedor-columnas {
+        display: flex;
+        page-break-inside: avoid;
+    }
+    .columna-izq, .columna-der {
+        width: 48%;
+        float: left; /* Fallback seguro en caso de que flex falle en PDF */
+    }
+    .columna-der {
+        float: right;
+    }
+    /* Limpia los flotados después de las columnas para no dañar el footer */
+    .contenedor-columnas::after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+}
+
 /* Contenedor de los botones de acción */
 .acciones-validacion {
     display: flex;
@@ -451,6 +488,10 @@ table tfoot td:last-child {
         display: none !important;
     }
 
+    .estado-validacion {
+        display: none !important;
+    }
+
     table {
         page-break-inside: avoid;
     }
@@ -461,6 +502,15 @@ table tfoot td:last-child {
 
     .tabla-titulo {
         page-break-after: avoid;
+    }
+
+    .marca-agua {
+        position: fixed;
+        top: 40%;
+        left: 50%; /* Lo recorremos un poco a la izquierda para centrarlo en la hoja Carta */
+        transform: rotate(-45deg); /* Solo rotación, WeasyPrint lo procesa mejor sin translate */
+        font-size: 80px; /* Un poquito más grande para que abarque la hoja */
+        color: rgba(128, 128, 128, 0.15); /* Ligeramente más transparente en PDF para no tapar datos */
     }
 }
 
@@ -502,15 +552,16 @@ table tfoot td:last-child {
    =============================================== */
 .marca-agua {
     position: fixed; 
-    top: 40%;
-    left: 40%;
-    transform: rotate(-45deg); /* Solo rotación, sin translate que rompe WeasyPrint */
-    font-size: 70px; /* Un poco más pequeño para asegurar que quepa en la hoja */
+    top: 45%;
+    left: 25%;
+    transform: rotate(-45deg);
+    font-size: 70px;
     font-weight: bold;
-    color: rgba(128, 128, 128, 0.3); /* Gris muy transparente */
+    color: rgba(128, 128, 128, 0.25);
     text-transform: uppercase;
-    /*z-index: 9999; /* ¡Garantiza que salga POR ENCIMA de las tablas y fondos blancos! */
-    pointer-events: none; 
+    pointer-events: none;
+    z-index: 999;
+    white-space: nowrap;
 }
 
 /* ===============================================

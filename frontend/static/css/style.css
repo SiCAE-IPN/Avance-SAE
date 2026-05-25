@@ -1,7 +1,7 @@
 /* static/css/style.css */
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: var(--sae-font-primary);
     background: linear-gradient(135deg, #6e0343 60%, #ffffff 100%);
     min-height: 100vh;
     margin: 0;
@@ -472,7 +472,7 @@ button.btn-danger:hover,
     border: 2px solid #d1d5db;
     border-radius: 8px;
     font-size: 0.95rem;
-    font-family: 'Segoe UI', Arial, sans-serif;
+    font-family: var(--sae-font-primary);
     resize: vertical;
     min-height: 110px;
     transition: all 0.3s ease;
