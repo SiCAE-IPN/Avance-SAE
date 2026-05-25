@@ -421,11 +421,11 @@
         
         <!-- Panel de Informe (oculto para roles 4-9) -->
         <div id="informe-panel" class="informe-container" style="{% if es_rol_director or es_rol_superior %}display:none;{% else %}display:block;{% endif %} margin-top: 30px;">
-            <h3 style="text-align:center; color:#6e0343;">📊 Informe de Egresados Guardados</h3>
+            <h3 style="text-align:center; color:#6e0343;">📊 Informe de Titulados Guardados</h3>
             <p style="text-align:center; color:#666; margin-bottom: 20px;">Datos actuales guardados en la base de datos</p>
             
             <div style="overflow-x: auto;">
-                <table id="informe-egresados-table" style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <table id="informe-titulados-table" style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <thead style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color: white;">
                         <tr>
                             <th class="filterable-header" data-column="0" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
@@ -441,7 +441,7 @@
                                 Boleta <span class="filter-icon">▼</span>
                             </th>
                             <th class="filterable-header" data-column="4" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
-                                Generación <span class="filter-icon">▼</span>
+                                Tipo de Titulación <span class="filter-icon">▼</span>
                             </th>
                             <th class="filterable-header" data-column="5" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                                 Edad <span class="filter-icon">▼</span>
@@ -487,6 +487,8 @@
 
     function obtenerValorOrdenEdad(edad) {
     const str = String(edad).trim();
+
+
     
     if (str.startsWith('<=')) {
         return parseInt(str.replace('<=', '')) - 0.5; 
@@ -503,4 +505,13 @@
 <script src="/static/js/titulados_mapeo.js"></script>
 <script src="/static/js/titulados_consulta.js"></script>
 <script src="/static/js/titulados_datos.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (datosFilas && datosFilas.length > 0) {
+            renderizarTablaTitulados(datosFilas);
+        }
+    });
+</script>
+
 {% endblock %}

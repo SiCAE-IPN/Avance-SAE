@@ -246,3 +246,54 @@ def guardar_titulados(
         return JSONResponse(content={"status": "error", "message": f"Error preparando datos: {str(e)}"}, status_code=500)
     
     return {"status": "guardado", "total_registros": total}
+
+"""
+
+@router.post("/finalizar-captura-titulados", response_class=JSONResponse)
+def finalizar_captura_titulados(
+    request: Request,
+    datos: List[dict],
+    sess = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    
+    sigla_unidad_academica = sess.sigla_unidad_academica
+    nivel = sess.nombre_nivel
+
+    try:
+        id_p, periodo = get_periodo_anterior_al_ultimo(db)
+        id_p_actual, periodo_actual = get_periodo_activo(db)
+
+        if periodo is None:
+            return JSONResponse(
+                content={"status": "error", "message": "No se encontró un periodo activo."}, 
+                status_code=404
+            )
+    
+    except Exception as e:
+        print(f"Error al obtener periodo activo: {str(e)}")
+        return JSONResponse(content={"status": "error", "message": f"Error al obtener periodo activo: {str(e)}"}, status_code=500)
+
+    try:
+        registros = preparar_datos_temp_titulados(
+            datos=datos,
+            periodo = periodo,
+            sigla= sigla_unidad_academica,
+            nivel= nivel
+        )
+
+        #insertar en temp titulados con datos preparados
+        total = insertar_temp_titulados(db, registros)
+
+        #insertar en titulados
+
+        insertar_titulados_sp(db, sigla_unidad_academica, sess.usuario, host, periodo_actual, nivel)
+ 
+        # Verificar registros en 0 de titulados
+
+        insertar_titulados_sp(db, sigla_unidad_academica, sess.usuario, host, periodo_actual, nivel)
+    except Exception as e:
+        print(f"Error al finalizar captura de titulados: {str(e)}")
+        return JSONResponse(content={"status": "error", "message": f"Error al finalizar captura: {str(e)}"}, status_code=500)
+
+    return {"status": "finalizado"}"""
