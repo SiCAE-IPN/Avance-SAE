@@ -26,7 +26,10 @@ function llenarSelect(select, opciones) {
 
 selectPrograma.addEventListener('change', function() {
     const programaSeleccionado = this.value;
-    
+    const filtrosSecundarios = document.getElementById('filtros-secundarios');
+
+    filtrosSecundarios.style.display = 'none';
+
     resetSelect(selectModalidad, '-- Seleccione una Modalidad --');
     resetSelect(selectBoleta, '-- Seleccione Boleta --');
     selectBoleta.disabled = true;
@@ -51,14 +54,22 @@ selectPrograma.addEventListener('change', function() {
     }
 });
 
-
 selectModalidad.addEventListener('change', function() {
+    console.log('Modalidad cambiada:', this.value);
+    
     resetSelect(selectBoleta, '-- Seleccione Boleta --');
     resetSelect(selectTipoTitulacion, '-- Seleccione Tipo de Titulación --');
     resetSelect(selectTurno, '-- Seleccione Turno --');
 
-    if (!this.value) return;
-   
+    const filtrosSecundarios = document.getElementById('filtros-secundarios');
+
+    if (!this.value) {
+        filtrosSecundarios.style.display = 'none';
+        return;
+    }
+
+    filtrosSecundarios.style.display = 'block'; 
+
     llenarSelect(selectBoleta, boletas);
     selectBoleta.disabled = false;
 

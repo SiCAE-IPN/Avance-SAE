@@ -46,6 +46,7 @@ def obtener_titulados(
             "Grupo_Edad": row["Grupo_Edad"],
             "Tipo_Titulacion": row["Tipo_Titulacion"],
             "Turno": row["Turno"],
+            "Boleta": row["Boleta"],
             "Sexo": row["Sexo"],
             "Id_Semaforo": row["Id_Semaforo"],
             "Titulados": row["Titulados"],

@@ -40,6 +40,7 @@ function agruparPorSexo(datosFilas) {
             fila.Nombre_Programa,
             fila.Modalidad,
             fila.Turno,
+            fila.Boleta,
             fila.Tipo_Titulacion,
             fila.Grupo_Edad
         ].join('|');
@@ -49,6 +50,7 @@ function agruparPorSexo(datosFilas) {
                 Nombre_Programa: fila.Nombre_Programa,
                 Modalidad:       fila.Modalidad,
                 Turno:           fila.Turno,
+                Boleta:          fila.Boleta,
                 Tipo_Titulacion: fila.Tipo_Titulacion,
                 Grupo_Edad:      fila.Grupo_Edad,
                 Hombres:         0,
@@ -89,25 +91,449 @@ function renderizarTablaTitulados(datosFilas) {
         return;
     }
 
-    filas.forEach(fila => {
+    let html = '';
+    let totalH = 0, totalM = 0;
+
+    filas.forEach((fila, i) => {
         const total = fila.Hombres + fila.Mujeres;
-        const tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid #ddd';
-        tr.innerHTML = `
-            <td style="padding: 12px; text-align: left;   border: 1px solid #ddd;">${fila.Nombre_Programa}</td>
-            <td style="padding: 12px; text-align: left;   border: 1px solid #ddd;">${fila.Modalidad}</td>
-            <td style="padding: 12px; text-align: left;   border: 1px solid #ddd;">${fila.Turno}</td>
-            <td style="padding: 12px; text-align: center; border: 1px solid #ddd;">2024</td>
-            <td style="padding: 12px; text-align: left;   border: 1px solid #ddd;">${fila.Tipo_Titulacion}</td>
-            <td style="padding: 12px; text-align: left;   border: 1px solid #ddd;">${fila.Grupo_Edad}</td>
-            <td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${fila.Hombres}</td>
-            <td style="padding: 12px; text-align: center; border: 1px solid #ddd;">${fila.Mujeres}</td>
-            <td style="padding: 12px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${total}</td>
-        `;
-        tbody.appendChild(tr);
+        totalH += fila.Hombres;
+        totalM += fila.Mujeres;
+        html += `<tr style="background: ${i % 2 === 0 ? '#f9f9f9' : 'white'}">
+            <td style="padding:10px; border:1px solid #ddd;">${fila.Nombre_Programa}</td>
+            <td style="padding:10px; border:1px solid #ddd;">${fila.Modalidad}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Turno}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Boleta}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Tipo_Titulacion}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Grupo_Edad}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Hombres}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Mujeres}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd; font-weight:700;">${total}</td>
+        </tr>`;
     });
+
+    html += `<tr style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color:white; font-weight:700;">
+        <td colspan="6" style="padding:12px; border:1px solid #ddd; text-align:right;">TOTAL GENERAL:</td>
+        <td style="padding:12px; text-align:center; border:1px solid #ddd;">${totalH}</td>
+        <td style="padding:12px; text-align:center; border:1px solid #ddd;">${totalM}</td>
+        <td style="padding:12px; text-align:center; font-size:18px;">${totalH + totalM}</td>
+    </tr>`;
+
+    tbody.innerHTML = html;
 }
 
 
+// Filtros de resumen
 
+
+
+function initTableFilters() {
+
+
+    const headers = document.querySelectorAll('.filterable-header');
+    updateFilterHeaderStates();
+    
+    headers.forEach(header => {
+        header.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const columnIndex = parseInt(this.dataset.column);
+            
+            if (currentFilterDropdown) {
+                currentFilterDropdown.remove();
+                if (currentFilterDropdown.dataset.column == columnIndex) {
+                    currentFilterDropdown = null;
+                    currentFilterHeaderEl = null;
+                    unbindFilterDropdownAutoPosition();
+                    clearHeaderOpenState();
+                    return;
+                }
+            }
+            
+            showFilterDropdown(this, columnIndex);
+        });
+    });
+}
+
+function clearHeaderOpenState() {
+    document.querySelectorAll('.filterable-header.is-open').forEach(header => {
+        header.classList.remove('is-open');
+    });
+}
+
+function updateFilterHeaderStates() {
+    const headers = document.querySelectorAll('.filterable-header');
+    headers.forEach(header => {
+        const columnKey = String(header.dataset.column);
+        const hasFilter = Object.prototype.hasOwnProperty.call(activeFilters, columnKey);
+        header.classList.toggle('has-filter', hasFilter);
+    });
+}
+
+function showFilterDropdown(headerElement, columnIndex) {
+    const table = document.getElementById('informe-titulados-table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('td[colspan]'));
+    
+    if (rows.length === 0) {
+        console.log('⚠️ No hay datos para filtrar');
+        return;
+    }
+    
+    // Recopilar valores únicos de la columna
+    const uniqueValues = new Set();
+    rows.forEach(row => {
+        const cell = row.cells[columnIndex];
+        if (cell) {
+            const value = cell.textContent.trim();
+            uniqueValues.add(value);
+        }
+    });
+    
+    const sortedValues = Array.from(uniqueValues).sort((a, b) => {
+        // Ordenar numéricamente si ambos son números
+        const numA = parseFloat(a);
+        const numB = parseFloat(b);
+        if (!isNaN(numA) && !isNaN(numB)) {
+            return numA - numB;
+        }
+        return a.localeCompare(b, 'es', {numeric: true});
+    });
+
+    const dropdownWidth = calculateDynamicDropdownWidth(sortedValues, headerElement);
+    
+    // Crear dropdown
+    const dropdown = document.createElement('div');
+    dropdown.className = 'filter-dropdown active';
+    dropdown.dataset.column = columnIndex;
+    
+    // Prevenir que clicks dentro del dropdown lo cierren
+    dropdown.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    
+    // Contenedor de opciones
+    const optionsContainer = document.createElement('div');
+    optionsContainer.className = 'filter-options';
+    
+    // Opción "Seleccionar todo"
+    const selectAllOption = createFilterOption('(Seleccionar todo)', '__ALL__', columnIndex);
+    optionsContainer.appendChild(selectAllOption);
+    
+    // Opciones individuales
+    sortedValues.forEach(value => {
+        const option = createFilterOption(value, value, columnIndex);
+        optionsContainer.appendChild(option);
+    });
+    
+    dropdown.appendChild(optionsContainer);
+    
+    // Posicionar dropdown
+    clearHeaderOpenState();
+    headerElement.classList.add('is-open');
+    dropdown.style.width = `${dropdownWidth}px`;
+
+    document.body.appendChild(dropdown);
+    positionFilterDropdown(dropdown, headerElement, dropdownWidth);
+    currentFilterDropdown = dropdown;
+    currentFilterHeaderEl = headerElement;
+    bindFilterDropdownAutoPosition();
+    
+    // Marcar checkboxes según filtros activos
+    const activeColumnFilter = activeFilters[columnIndex];
+    if (activeColumnFilter) {
+        const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            const value = checkbox.dataset.value;
+            checkbox.checked = activeColumnFilter.includes(value);
+            setOptionCheckedStyle(checkbox);
+        });
+    } else {
+        // Por defecto, todos seleccionados
+        const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+            setOptionCheckedStyle(checkbox);
+        });
+    }
+}
+
+function positionFilterDropdown(dropdown, headerElement, dropdownWidth) {
+    const headerRect = headerElement.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const minMargin = 10;
+    const gap = 8;
+    const optionsContainer = dropdown.querySelector('.filter-options');
+
+    let left = headerRect.left;
+    if (left + dropdownWidth > viewportWidth - minMargin) {
+        left = viewportWidth - dropdownWidth - minMargin;
+    }
+    if (left < minMargin) {
+        left = minMargin;
+    }
+
+    const spaceBelow = viewportHeight - headerRect.bottom - gap - minMargin;
+    const spaceAbove = headerRect.top - gap - minMargin;
+
+    const contentHeight = Math.ceil(dropdown.scrollHeight || 240);
+    const prefersAbove = spaceBelow < 120 && spaceAbove > spaceBelow;
+    let openAbove = prefersAbove;
+
+    if (!prefersAbove && contentHeight > spaceBelow && spaceAbove > spaceBelow) {
+        openAbove = true;
+    }
+
+    const availableHeight = openAbove ? spaceAbove : spaceBelow;
+    const safeHeight = Math.max(90, Math.floor(availableHeight));
+    if (optionsContainer) {
+        const reservedChrome = 22;
+        optionsContainer.style.maxHeight = `${Math.max(70, safeHeight - reservedChrome)}px`;
+    }
+
+    const panelHeight = Math.ceil(dropdown.offsetHeight || safeHeight);
+    let top = openAbove
+        ? (headerRect.top - panelHeight - gap)
+        : (headerRect.bottom + gap);
+
+    if (top + panelHeight > viewportHeight - minMargin) {
+        top = viewportHeight - panelHeight - minMargin;
+    }
+
+    if (top < minMargin) {
+        top = minMargin;
+    }
+
+    const anchorX = Math.round((headerRect.left + (headerRect.width / 2)) - left - 6);
+    const arrowMin = 14;
+    const arrowMax = Math.max(arrowMin, dropdownWidth - 26);
+    const arrowOffset = Math.min(Math.max(anchorX, arrowMin), arrowMax);
+
+    dropdown.style.left = `${Math.round(left)}px`;
+    dropdown.style.top = `${Math.round(top)}px`;
+    dropdown.style.setProperty('--anchor-offset', `${arrowOffset}px`);
+    dropdown.classList.toggle('open-up', openAbove);
+}
+
+function repositionCurrentFilterDropdown() {
+    if (!currentFilterDropdown || !currentFilterHeaderEl) return;
+    const currentWidth = currentFilterDropdown.offsetWidth || parseInt(currentFilterDropdown.style.width || '220', 10);
+    positionFilterDropdown(currentFilterDropdown, currentFilterHeaderEl, currentWidth);
+}
+
+function bindFilterDropdownAutoPosition() {
+    window.addEventListener('resize', repositionCurrentFilterDropdown);
+    document.addEventListener('scroll', repositionCurrentFilterDropdown, true);
+}
+
+function unbindFilterDropdownAutoPosition() {
+    window.removeEventListener('resize', repositionCurrentFilterDropdown);
+    document.removeEventListener('scroll', repositionCurrentFilterDropdown, true);
+}
+
+function calculateDynamicDropdownWidth(values, headerElement) {
+    const allValues = ['(Seleccionar todo)', ...values.map(v => String(v || ''))];
+    const longestText = allValues.reduce((max, current) => {
+        return current.length > max.length ? current : max;
+    }, '');
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    context.font = '600 13px "Noto Sans"';
+
+    const textWidth = Math.ceil(context.measureText(longestText).width);
+    const headerWidth = Math.ceil(headerElement.getBoundingClientRect().width);
+
+    const estimatedWidth = Math.max(
+        headerWidth + 28,
+        textWidth + 88,
+        220
+    );
+
+    const maxAllowedByViewport = Math.max(220, window.innerWidth - 24);
+    return Math.min(estimatedWidth, 520, maxAllowedByViewport);
+}
+
+function setOptionCheckedStyle(checkboxElement) {
+    const option = checkboxElement.closest('.filter-option');
+    if (option) {
+        option.classList.toggle('is-checked', checkboxElement.checked);
+    }
+}
+
+function createFilterOption(label, value, columnIndex) {
+    const option = document.createElement('div');
+    option.className = 'filter-option';
+    
+    // Prevenir propagación de click en la opción
+    option.addEventListener('click', function(e) {
+        e.stopPropagation();
+        // Toggle del checkbox cuando se hace clic en la opción
+        const checkbox = this.querySelector('input[type="checkbox"]');
+        checkbox.checked = !checkbox.checked;
+        
+        // Disparar evento change manualmente
+        const event = new Event('change', { bubbles: true });
+        checkbox.dispatchEvent(event);
+    });
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.dataset.value = value;
+    checkbox.checked = true;
+    
+    // Prevenir propagación en el checkbox mismo
+    checkbox.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    
+    // Lógica "Seleccionar todo"
+    if (value === '__ALL__') {
+        checkbox.addEventListener('change', function(e) {
+            e.stopPropagation();
+            const dropdown = this.closest('.filter-dropdown');
+            const allCheckboxes = dropdown.querySelectorAll('.filter-option:not(:first-child) input[type="checkbox"]');
+            allCheckboxes.forEach(cb => {
+                cb.checked = this.checked;
+                setOptionCheckedStyle(cb);
+            });
+            setOptionCheckedStyle(this);
+            applyColumnFilter(columnIndex, dropdown, false);
+        });
+    } else {
+        checkbox.addEventListener('change', function(e) {
+            e.stopPropagation();
+            const dropdown = this.closest('.filter-dropdown');
+            const selectAllCheckbox = dropdown.querySelector('.filter-option:first-child input[type="checkbox"]');
+            const allCheckboxes = dropdown.querySelectorAll('.filter-option:not(:first-child) input[type="checkbox"]');
+            const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+            selectAllCheckbox.checked = allChecked;
+            setOptionCheckedStyle(this);
+            setOptionCheckedStyle(selectAllCheckbox);
+            applyColumnFilter(columnIndex, dropdown, false);
+        });
+    }
+    
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = label;
+    
+    option.appendChild(checkbox);
+    option.appendChild(labelSpan);
+    setOptionCheckedStyle(checkbox);
+    
+    return option;
+}
+
+function applyColumnFilter(columnIndex, dropdown, closeDropdown = true) {
+    const checkboxes = dropdown.querySelectorAll('.filter-option:not(:first-child) input[type="checkbox"]');
+    const selectedValues = [];
+    
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedValues.push(checkbox.dataset.value);
+        }
+    });
+    
+    if (selectedValues.length === checkboxes.length) {
+        // Todos seleccionados = sin filtro
+        delete activeFilters[columnIndex];
+    } else if (selectedValues.length === 0) {
+        // Ninguno seleccionado = ocultar todo
+        activeFilters[columnIndex] = [];
+    } else {
+        activeFilters[columnIndex] = selectedValues;
+    }
+    
+    applyAllFilters();
+    updateFilterHeaderStates();
+
+    if (closeDropdown) {
+        dropdown.remove();
+        currentFilterDropdown = null;
+        currentFilterHeaderEl = null;
+        unbindFilterDropdownAutoPosition();
+        clearHeaderOpenState();
+    }
+
+}
+
+function clearColumnFilter(columnIndex) {
+    delete activeFilters[columnIndex];
+    applyAllFilters();
+    updateFilterHeaderStates();
+    
+    if (currentFilterDropdown) {
+        currentFilterDropdown.remove();
+        currentFilterDropdown = null;
+        currentFilterHeaderEl = null;
+        unbindFilterDropdownAutoPosition();
+    }
+    clearHeaderOpenState();
+}
+
+function applyAllFilters() {
+    const table = document.getElementById('informe-titulados-table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('td[colspan]'));
+    
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        let shouldShow = true;
+        
+        // Aplicar cada filtro activo
+        for (const [columnIndex, allowedValues] of Object.entries(activeFilters)) {
+            const cell = row.cells[parseInt(columnIndex)];
+            if (cell) {
+                const cellValue = cell.textContent.trim();
+                if (!allowedValues.includes(cellValue)) {
+                    shouldShow = false;
+                    break;
+                }
+            }
+        }
+        
+        row.style.display = shouldShow ? '' : 'none';
+        if (shouldShow) visibleCount++;
+    });
+
+    // Recalcular totales a partir de las filas visibles
+    let totalVisibleHombres = 0;
+    let totalVisibleMujeres = 0;
+    let totalVisibleGeneral = 0;
+
+    rows.forEach(row => {
+        if (row.style.display === 'none') return;
+        
+        // Preferir atributos data-hombres/data-mujeres si existen
+        const dh = row.dataset && row.dataset.hombres ? parseInt(row.dataset.hombres) : NaN;
+        const dm = row.dataset && row.dataset.mujeres ? parseInt(row.dataset.mujeres) : NaN;
+
+        let h = !isNaN(dh) ? dh : (parseInt(row.cells[6]?.textContent.trim()) || 0);
+        let m = !isNaN(dm) ? dm : (parseInt(row.cells[7]?.textContent.trim()) || 0);
+
+        totalVisibleHombres += h;
+        totalVisibleMujeres += m;
+        totalVisibleGeneral += (h + m); // Sumamos dinámicamente el total de esta fila
+    });
+
+    const totalRow = document.getElementById('informe-total-row');
+
+    if (totalRow) {
+        if (totalVisibleGeneral === 0) {
+            totalRow.style.display = 'none';
+        } else {
+            totalRow.style.display = '';
+            const th = totalRow.querySelector('.total-hombres');
+            const tm = totalRow.querySelector('.total-mujeres');
+            const tg = totalRow.querySelector('.total-general-egresados');
+            
+            if (th) th.textContent = totalVisibleHombres;
+            if (tm) tm.textContent = totalVisibleMujeres;
+            if (tg) tg.textContent = totalVisibleGeneral;
+        }
+    }
+
+    updateFilterHeaderStates();
+}
 
