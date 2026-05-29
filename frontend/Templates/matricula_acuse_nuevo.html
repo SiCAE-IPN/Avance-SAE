@@ -40,14 +40,6 @@
 
         <div class="header-info">
             <div class="header-item">
-                <span class="header-item-label">Usuario:</span>
-                <span class="header-item-value">{{ nombre_usuario }}</span>
-            </div>
-            <div class="header-item">
-                <span class="header-item-label">Rol:</span>
-                <span class="header-item-value">{{ nombre_rol }}</span>
-            </div>
-            <div class="header-item">
                 <span class="header-item-label">Fecha:</span>
                 <span class="header-item-value" id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
             </div>
@@ -317,7 +309,7 @@
             <div class="estado-validacion estado-rechazado">
                 ❌ MATRÍCULA RECHAZADA
             </div>
-        {% elif puede_validar %}
+        {% elif puede_validar or pendiente_validacion %}
             <div class="estado-validacion estado-pendiente">
                 ⏳ PENDIENTE DE VALIDAR
             </div>
@@ -330,11 +322,11 @@
         {% if not exportando_pdf %}
         <div class="acciones-validacion" id="acciones-validacion">
             {% if id_rol in [4, 5, 6, 7, 8, 9] %}
-                <button class="btn btn-success" id="btn-validar" onclick="validarEgresados()"
+                <button class="btn btn-success" id="btn-validar" onclick="validarMatricula()"
                         {% if not puede_validar or usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
                     ✅ Validar Matrícula
                 </button>
-                <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarEgresados()"
+                <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarMatricula()"
                         {% if not puede_validar or usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
                     ❌ Rechazar Matrícula
                 </button>

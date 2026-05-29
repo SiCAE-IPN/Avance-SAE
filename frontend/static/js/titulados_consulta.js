@@ -17,225 +17,237 @@ function actualizarContadorEdades() {
 }
 
 
-function agregarFilasEgresados() {
-    // Obtener valores de los filtros
+function agregarFilasTitulados() {
     const programa = document.getElementById('programa');
     const modalidad = document.getElementById('modalidad');
-    const turnoSelect = document.getElementById('filtro-turno');
     const boleta = document.getElementById('filtro-boleta');
-    const generacion = document.getElementById('filtro-generacion');
-    const nombreRama = datosFilas[0].Nombre_Rama || 'Rama Desconocida';
-    
-    // Validar que todos los campos estén llenos
-    if (!programa || !programa.value) {
-        alert('⚠️ Por favor seleccione un Programa');
-        return;
-    }
-    
-    if (!modalidad || !modalidad.value) {
-        alert('⚠️ Por favor seleccione una Modalidad');
-        return;
-    }
-    
-    if (!turnoSelect || !turnoSelect.value) {
-        alert('⚠️ Por favor seleccione un Turno');
-        return;
-    }
-    
-    if (!boleta || !boleta.value) {
-        alert('⚠️ Por favor seleccione una Boleta');
-        return;
-    }
-    
-    if (!generacion || !generacion.value) {
-        alert('⚠️ Por favor seleccione una Generación');
-        return;
-    }
-    
-    // Obtener edades seleccionadas
+    const tipoTitulacion = document.getElementById('filtro-generacion');
+    const nombreRama = datosFilas[0]?.Nombre_Rama || 'Rama Desconocida';
+
     const checkboxesSeleccionados = document.querySelectorAll('.checkbox-edad:checked');
-    
-    if (checkboxesSeleccionados.length === 0) {
-        alert('⚠️ Por favor seleccione al menos una edad');
-        return;
-    }
-    
-    // Obtener el turno seleccionado del selector
-    const turnoId = turnoSelect.value;
-    const turnoNombre = turnoSelect.options[turnoSelect.selectedIndex].text;
-    
+
     let filasAgregadas = 0;
     let filasDuplicadas = 0;
 
-    
-    // Crear una fila por cada edad seleccionada
     checkboxesSeleccionados.forEach(checkbox => {
         const edadValor = checkbox.value;
         const edadNombre = checkbox.dataset.nombre;
-        
-        // Verificar si ya existe una fila con la misma combinación
-        const existe = filasEgresados.some(fila => 
+
+        // 1. Evitar duplicados en las filas que ya están renderizadas en la pantalla de captura
+        const existeEnPantalla = filasTitulados.some(fila =>
             fila.programa === programa.value &&
             fila.modalidad === modalidad.value &&
-            fila.turno === turnoId &&
             fila.boleta === boleta.value &&
-            fila.generacion === generacion.value &&
+            fila.tipoTitulacion === tipoTitulacion.value &&
             fila.edad === edadValor
         );
-        
-        if (existe) {
+
+        if (existeEnPantalla) {
             filasDuplicadas++;
-            console.warn(`⚠️ Ya existe una fila para edad: ${edadNombre}`);
-            return; 
+            console.warn(`⚠️ Ya existe una fila en la tabla para edad: ${edadNombre}`);
+            return;
         }
+
+        // 2. BUSCAR DATOS PREVIOS EN LA VARIABLE GLOBAL (datosFilas)
+        const turnosObj = {};
         
-        
+        turnosDisponibles.forEach(turno => {
+            // Buscamos si existe registro guardado para este turno en versión HOMBRE
+            const registroHombre = datosFilas.find(d => 
+                d.Nombre_Programa === programa.options[programa.selectedIndex].text &&
+                d.Modalidad === modalidad.options[modalidad.selectedIndex].text &&
+                String(d.Boleta) === String(boleta.options[boleta.selectedIndex].text) &&
+                d.Tipo_Titulacion === tipoTitulacion.options[tipoTitulacion.selectedIndex].text &&
+                d.Grupo_Edad === edadNombre &&
+                d.Turno === turno &&
+                d.Sexo === 'Hombre'
+            );
+
+            // Buscamos si existe registro guardado para este turno en versión MUJER
+            const registroMujer = datosFilas.find(d => 
+                d.Nombre_Programa === programa.options[programa.selectedIndex].text &&
+                d.Modalidad === modalidad.options[modalidad.selectedIndex].text &&
+                String(d.Boleta) === String(boleta.options[boleta.selectedIndex].text) &&
+                d.Tipo_Titulacion === tipoTitulacion.options[tipoTitulacion.selectedIndex].text &&
+                d.Grupo_Edad === edadNombre &&
+                d.Turno === turno &&
+                d.Sexo === 'Mujer'
+            );
+
+            // Asignamos el valor encontrado en la BD, o un string vacío si no hay antecedentes
+            turnosObj[turno] = {
+                hombres: registroHombre ? registroHombre.Titulados : '',
+                mujeres: registroMujer ? registroMujer.Titulados : ''
+            };
+        });
+
+        // 3. Crear la estructura de la fila con los datos (vacíos o recuperados)
         const fila = {
-            id: Date.now() + Math.random(), // ID único
-            //programa: programa.value,
-
-            ramaNombre: nombreRama,
-
+            id: Date.now() + Math.random(),
+            programa: programa.value,
             programaNombre: programa.options[programa.selectedIndex].text,
-            //modalidad: modalidad.value,
+            modalidad: modalidad.value,
             modalidadNombre: modalidad.options[modalidad.selectedIndex].text,
-            //turno: turnoId,
-            turnoNombre: turnoNombre,
+            boleta: boleta.value,
             boletaNombre: boleta.options[boleta.selectedIndex].text,
-            //generacion: generacion.value,
-            generacionNombre: generacion.options[generacion.selectedIndex].text,
-            //edad: edadValor,
+            tipoTitulacion: tipoTitulacion.value,
+            tipoTitulacionNombre: tipoTitulacion.options[tipoTitulacion.selectedIndex].text,
+            edad: edadValor,
             edadNombre: edadNombre,
-            hombres: '',
-            mujeres: ''
+            ramaNombre: nombreRama,
+            turnos: turnosObj  
         };
-        
-        // Agregar al almacén
-        filasEgresados.push(fila);
-        
 
+        filasTitulados.push(fila);
         filasAgregadas++;
-        
-        console.log('✅ Fila agregada:', fila);
     });
 
-    filasEgresados.sort((a, b) => {
+    if (filasDuplicadas > 0) console.warn(`⚠️ ${filasDuplicadas} fila(s) duplicada(s) omitidas`);
 
-        if (a.programa !== b.programa)
-            return a.programaNombre.localeCompare(b.programaNombre);
-        
-        if (a.modalidad !== b.modalidad)
-            return a.modalidadNombre.localeCompare(b.modalidadNombre);
-        
-        if (a.turno !== b.turno)
-            return a.turnoNombre.localeCompare(b.turnoNombre);
-        
-        if (a.boleta !== b.boleta)
-            return String(b.boleta).localeCompare(String(a.boleta));
-    
-        if (a.generacion !== b.generacion)
-            return a.generacion.localeCompare(b.generacion);
-    
-        
-        return obtenerValorOrdenEdad(a.edad) - obtenerValorOrdenEdad(b.edad);
-    });
- 
-    // Renderizar tabla
-    renderizarTablaEgresados();
-    
-    // Mostrar mensaje de resultado
-    let mensaje = `✅ ${filasAgregadas} fila${filasAgregadas !== 1 ? 's' : ''} agregada${filasAgregadas !== 1 ? 's' : ''}`;
-    if (filasDuplicadas > 0) {
-        mensaje += `\n⚠️ ${filasDuplicadas} edad${filasDuplicadas !== 1 ? 'es' : ''} ya existía${filasDuplicadas !== 1 ? 'n' : ''} y no se agregó${filasDuplicadas !== 1 ? 'aron' : ''}`;
+    if (filasAgregadas > 0) {
+        generarCabeceraTabla();        
+        renderizarTablaTituladosCaptura(); 
+        console.log(`✅ ${filasAgregadas} fila(s) procesada(s)`);
     }
-    alert(mensaje);
-    
-    console.log(`📊 Resumen: ${filasAgregadas} agregadas, ${filasDuplicadas} duplicadas`);
 }
 
-function renderizarTablaEgresados() {
-    const tbody = document.getElementById('egresados-tbody');
-    
-    if (filasEgresados.length === 0) {
+function generarCabeceraTabla() {
+    const thead = document.getElementById('titulados-thead');
+    if (!thead) return;
+
+    // Fila 1: Boleta, Generación, Edad, por cada turno su nombre (colspan 2), Acciones
+    let fila1 = '<tr style="background: linear-gradient(135deg, #6e0343 0%, #8b2635 100%); color: white;">';
+    fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Boleta</th>';
+    fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Tipo de Titulación</th>';
+    fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Edad</th>';
+
+    const turnos = [...new Set(datosFilas.map(f => f.Turno))];
+
+    turnos.forEach(turno => {
+        fila1 += `<th colspan="2" style="padding:10px 15px; text-align:center; font-weight:700; font-size:13px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.15);">${turno}</th>`;
+    });
+
+    fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Acciones</th>';
+    fila1 += '</tr>';
+
+    // Fila 2: H y M por cada turno
+    let fila2 = '<tr style="background: rgba(110,3,67,0.85); color: white;">';
+    turnos.forEach(() => {
+        fila2 += '<th style="padding:8px 10px; text-align:center; font-size:12px; border:1px solid rgba(255,255,255,0.2); color:#b3e5fc;">H</th>';
+        fila2 += '<th style="padding:8px 10px; text-align:center; font-size:12px; border:1px solid rgba(255,255,255,0.2); color:#f8bbd0;">M</th>';
+    });
+    fila2 += '</tr>';
+
+    thead.innerHTML = fila1 + fila2;
+}
+
+function renderizarTablaTituladosCaptura() {
+    const tbody = document.getElementById('titulados-tbody');
+    if (!tbody) return;
+
+    const colspan = 3 + turnosDisponibles.length * 2 + 1;
+
+    if (filasTitulados.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
-                    <div style="font-size: 48px; margin-bottom: 15px;">📚</div>
-                    <p style="font-size: 16px; margin: 0;">No hay registros agregados. Use los filtros arriba para agregar filas.</p>
+                <td colspan="${colspan}" style="text-align:center; padding:40px; color:#666;">
+                    <div style="font-size:48px; margin-bottom:15px;">📚</div>
+                    <p style="font-size:16px; margin:0;">No hay registros. Use los filtros arriba para agregar filas.</p>
                 </td>
-            </tr>
-        `;
+            </tr>`;
+        ajustarScrollTablaTitulados();
         return;
     }
-    console.log('Total de filas a renderizar:', filasEgresados.length);
-    //filasEgresados.sort
+
     tbody.innerHTML = '';
-    filasEgresados.forEach((fila, index) => {
+
+    filasTitulados.forEach((fila, index) => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid #dee2e6';
-        tr.style.transition = 'background-color 0.2s';
-        tr.innerHTML = `
-            <td style="padding: 12px; text-align: center;">${fila.boletaNombre}</td>
-            <td style="padding: 12px; text-align: center;">${fila.generacionNombre}</td>
-            <td style="padding: 12px; text-align: center; font-weight: 600;">${fila.edadNombre}</td>
-            <td style="padding: 12px; text-align: center;">
-                <div style="display:inline-flex; align-items:center; gap:3px; padding:2px 4px; background:#e3f2fd; border-radius:4px; border:1px solid #90caf9; line-height:1;">
+        if (index % 2 === 0) tr.style.background = '#fafafa';
+
+        let celdas = `
+            <td style="padding:12px; text-align:center;">${fila.boletaNombre}</td>
+            <td style="padding:12px; text-align:center;">${fila.tipoTitulacionNombre}</td>
+            <td style="padding:12px; text-align:center; font-weight:600;">${fila.edadNombre}</td>`;
+
+        turnosDisponibles.forEach(turno => {
+            const vals = fila.turnos[turno] || { hombres: '', mujeres: '' };
+            celdas += `
+            <td style="padding:8px; text-align:center;">
+                <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 4px;background:#e3f2fd;border-radius:4px;border:1px solid #90caf9;line-height:1;">
                     <div style="font-weight:700;color:#1976d2;font-size:11px;min-width:14px;text-align:center;">H</div>
-                    <input type="number" 
-                           min="0" 
-                           value="${fila.hombres}" 
-                           onchange="actualizarValorFila(${fila.id}, 'hombres', this.value)"
-                           style="width:42px;padding:2px 3px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:11px;line-height:1.1;"
-                           placeholder="">
+                    <input type="number" min="0"
+                           value="${vals.hombres}"
+                           onchange="actualizarValorTitulado(${fila.id}, '${turno}', 'hombres', this.value)"
+                           style="width:42px;padding:2px 3px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:11px;">
                 </div>
             </td>
-            <td style="padding: 12px; text-align: center;">
-                <div style="display:inline-flex; align-items:center; gap:3px; padding:2px 4px; background:#fce4ec; border-radius:4px; border:1px solid #f48fb1; line-height:1;">
+            <td style="padding:8px; text-align:center;">
+                <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 4px;background:#fce4ec;border-radius:4px;border:1px solid #f48fb1;line-height:1;">
                     <div style="font-weight:700;color:#c2185b;font-size:11px;min-width:14px;text-align:center;">M</div>
-                    <input type="number" 
-                           min="0" 
-                           value="${fila.mujeres}" 
-                           onchange="actualizarValorFila(${fila.id}, 'mujeres', this.value)"
-                           style="width:42px;padding:2px 3px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#c2185b;font-weight:600;text-align:center;font-size:11px;line-height:1.1;"
-                           placeholder="">
+                    <input type="number" min="0"
+                           value="${vals.mujeres}"
+                           onchange="actualizarValorTitulado(${fila.id}, '${turno}', 'mujeres', this.value)"
+                           style="width:42px;padding:2px 3px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#c2185b;font-weight:600;text-align:center;font-size:11px;">
                 </div>
-            </td>
-            <td style="padding: 12px; text-align: center;">
-                <button type="button" 
-                        onclick="eliminarFilaEgresado(${fila.id})" 
-                        style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
-                        title="Eliminar fila">
-                    🗑️
-                </button>
-            </td>
-        `;
+            </td>`;
+        });
+
+        celdas += `
+            <td style="padding:12px; text-align:center;">
+                <button type="button"
+                        onclick="eliminarFilaTitulado(${fila.id})"
+                        style="padding:6px 12px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;"
+                        title="Eliminar fila">🗑️</button>
+            </td>`;
+
+        tr.innerHTML = celdas;
         tbody.appendChild(tr);
     });
-    
-    console.log(`Tabla renderizada con ${filasEgresados.length} filas`);
-    
-   
-   // actualizarInformeEgresados();
+
+    ajustarScrollTablaTitulados();
 }
 
-function limpiarTabla() {
-    if (filasEgresados.length === 0) {
-        alert('ℹ️ No hay registros para limpiar');
-        return;
+function ajustarScrollTablaTitulados() {
+    const tbody = document.getElementById('titulados-tbody');
+    if (!tbody) return;
+
+    if (filasTitulados.length > 5) {
+        const primeraFila = tbody.querySelector('tr');
+        const altoFila = primeraFila ? primeraFila.getBoundingClientRect().height : 58;
+        tbody.style.maxHeight = `${Math.ceil(altoFila * 5)}px`;
+        tbody.style.overflowY = 'auto';
+    } else {
+        tbody.style.maxHeight = 'none';
+        tbody.style.overflowY = 'visible';
     }
-    
-    if (confirm(`¿Está seguro de eliminar los ${filasEgresados.length} registros?`)) {
-        filasEgresados = [];
-        renderizarTablaEgresados();
-        console.log('Tabla limpiada completamente');
+}
+
+function actualizarValorTitulado(filaId, turno, sexo, valor) {
+    const fila = filasTitulados.find(f => f.id === filaId);
+    if (!fila) return;
+
+    if (!fila.turnos[turno]) {
+        fila.turnos[turno] = { hombres: '', mujeres: '' };
     }
+
+    fila.turnos[turno][sexo] = parseInt(valor) || 0;
 }
 
 function eliminarFilaEgresado(id) {
     if (confirm('¿Está seguro de eliminar este registro?')) {
-        filasEgresados = filasEgresados.filter(f => f.id !== id);
-        renderizarTablaEgresados();
+        filasTitulados = filasTitulados.filter(f => f.id !== id);
+        renderizarTablaTituladosCaptura();
        
     }
 }
 
+function limpiarTabla() {
+    
+    if (filasTitulados.length > 0  && confirm(`¿Está seguro de eliminar los ${filasTitulados.length} registros?`)) {
+        filasTitulados = [];
+        renderizarTablaTituladosCaptura();
+        console.log('Tabla limpiada completamente');
+    }
+}

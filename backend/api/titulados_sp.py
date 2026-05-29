@@ -87,7 +87,8 @@ async def consulta_titulados(
             return templates.TemplateResponse("error.html", {
                 "request": request,
                 "error_message": "No hay un periodo activo configurado en el sistema.",
-                "redirect_url": "/mod_principal/"
+                "redirect_url": "/mod_principal/",
+                "session": sess
             })
         
         periodo_default_literal = periodo_literal
@@ -97,7 +98,8 @@ async def consulta_titulados(
         return templates.TemplateResponse("error.html", {
             "request": request,
             "error_message": f"Error al cargar el periodo: {str(e)}",
-            "redirect_url": "/mod_principal/"
+            "redirect_url": "/mod_principal/",
+            "session": sess
         })
 
     roles_permitidos = [1, 3, 4, 5, 6, 7, 8, 9]  #1=Admin, 3=Capturista, 4-9=Roles de validación/rechazo
@@ -106,13 +108,15 @@ async def consulta_titulados(
             return templates.TemplateResponse("error.html", {
                 "request": request,
                 "error_message": f"Acceso denegado: Su rol ({nombre_rol}) no tiene permisos para acceder a esta funcionalidad.",
-                "redirect_url": "/mod_principal/"
+                "redirect_url": "/mod_principal/",
+                "session": sess
             })
         else:
             return templates.TemplateResponse("error.html", {
                 "request": request,
                 "error_message": "Acceso denegado: No se ha identificado un rol válido. Por favor, inicie sesión.",
-                "redirect_url": "/login/"
+                "redirect_url": "/login/",
+                "session": sess
             })
     
 
@@ -153,7 +157,7 @@ async def consulta_titulados(
 
         if boleta:
             boleta = int(boleta)
-            boletas = list(range(boleta + 1, boleta - 11, -1))
+            boletas = list(range(boleta + 12, boleta , -1))
 
         print(f"Boletas obtenidas: {boletas}")
 
@@ -193,7 +197,8 @@ async def consulta_titulados(
              "filas": filas,
              "edades" : edades_ordenadas,
              "es_capturista": es_capturista,
-             "acceso_restringido" : False}
+             "acceso_restringido" : False,
+             "session": sess}
              )
 
 @router.post("/guardar-avance-titulados", response_class=JSONResponse)
@@ -203,6 +208,7 @@ def guardar_titulados(
     datos: List[dict],
     sess = Depends(get_current_session),
     db: Session = Depends(get_db)):
+
     
     sigla_unidad_academica = sess.sigla_unidad_academica
     nivel = sess.nombre_nivel
@@ -246,3 +252,54 @@ def guardar_titulados(
         return JSONResponse(content={"status": "error", "message": f"Error preparando datos: {str(e)}"}, status_code=500)
     
     return {"status": "guardado", "total_registros": total}
+
+"""
+
+@router.post("/finalizar-captura-titulados", response_class=JSONResponse)
+def finalizar_captura_titulados(
+    request: Request,
+    datos: List[dict],
+    sess = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    
+    sigla_unidad_academica = sess.sigla_unidad_academica
+    nivel = sess.nombre_nivel
+
+    try:
+        id_p, periodo = get_periodo_anterior_al_ultimo(db)
+        id_p_actual, periodo_actual = get_periodo_activo(db)
+
+        if periodo is None:
+            return JSONResponse(
+                content={"status": "error", "message": "No se encontró un periodo activo."}, 
+                status_code=404
+            )
+    
+    except Exception as e:
+        print(f"Error al obtener periodo activo: {str(e)}")
+        return JSONResponse(content={"status": "error", "message": f"Error al obtener periodo activo: {str(e)}"}, status_code=500)
+
+    try:
+        registros = preparar_datos_temp_titulados(
+            datos=datos,
+            periodo = periodo,
+            sigla= sigla_unidad_academica,
+            nivel= nivel
+        )
+
+        #insertar en temp titulados con datos preparados
+        total = insertar_temp_titulados(db, registros)
+
+        #insertar en titulados
+
+        insertar_titulados_sp(db, sigla_unidad_academica, sess.usuario, host, periodo_actual, nivel)
+ 
+        # Verificar registros en 0 de titulados
+
+        insertar_titulados_sp(db, sigla_unidad_academica, sess.usuario, host, periodo_actual, nivel)
+    except Exception as e:
+        print(f"Error al finalizar captura de titulados: {str(e)}")
+        return JSONResponse(content={"status": "error", "message": f"Error al finalizar captura: {str(e)}"}, status_code=500)
+
+    return {"status": "finalizado"}"""

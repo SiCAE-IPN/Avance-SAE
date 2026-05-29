@@ -875,6 +875,7 @@
        ============================================== */
     
     const periodoLiteral = {{ periodo_default_literal | tojson }};
+    const datosPrecargados = {{ datos_precargados_json | safe }};
     const esCapturista = {{ 'true' if es_capturista else 'false' }};
     const idRol = {{ id_rol }};
     const idUnidadActual = {{ (unidad_actual.Id_Unidad_Academica if unidad_actual else None) | tojson }};
@@ -1340,20 +1341,43 @@
 
             if (existe) { filasDuplicadas++; return; }
 
-            // Inicializar turnos con valores vacíos
+            // === OPCIÓN 2: AUTOCOMPLETADO DE DATOS ===
+            const progNom = programa.options[programa.selectedIndex].text.trim();
+            const modNom = modalidad.options[modalidad.selectedIndex].text.trim();
+            const bolNom = boleta.options[boleta.selectedIndex].text.trim();
+            const genNom = generacion.options[generacion.selectedIndex].text.trim();
+            const edNom = edadNombre.trim();
+            
+            // Recreamos la llave que hicimos en Python
+            const keyFila = `${progNom}_${modNom}_${bolNom}_${genNom}_${edNom}`;
+            // Protegemos la variable por si acaso
+            const datosPrevios = (typeof datosPrecargados !== 'undefined' && datosPrecargados) ? datosPrecargados[keyFila] : null;
+
+            // Inicializar turnos precargando datos del SP si existen
             const turnosInit = {};
-            turnosDisponibles.forEach(t => { turnosInit[t.id] = { hombres: '', mujeres: '' }; });
+            turnosDisponibles.forEach(t => { 
+                let h = '', m = '';
+                const turnoNom = t.nombre.trim();
+                
+                if (datosPrevios && datosPrevios[turnoNom]) {
+                    h = datosPrevios[turnoNom].hombres !== '' ? datosPrevios[turnoNom].hombres : '';
+                    m = datosPrevios[turnoNom].mujeres !== '' ? datosPrevios[turnoNom].mujeres : '';
+                }
+                
+                turnosInit[t.id] = { hombres: h, mujeres: m }; 
+            });
+            // =========================================
 
             filasEgresados.push({
                 id: Date.now() + Math.random(),
                 programa: programa.value,
-                programaNombre: programa.options[programa.selectedIndex].text,
+                programaNombre: progNom,
                 modalidad: modalidad.value,
-                modalidadNombre: modalidad.options[modalidad.selectedIndex].text,
+                modalidadNombre: modNom,
                 boleta: boleta.value,
-                boletaNombre: boleta.options[boleta.selectedIndex].text,
+                boletaNombre: bolNom,
                 generacion: generacion.value,
-                generacionNombre: generacion.options[generacion.selectedIndex].text,
+                generacionNombre: genNom,
                 edad: edadValor,
                 edadNombre: edadNombre,
                 turnos: turnosInit

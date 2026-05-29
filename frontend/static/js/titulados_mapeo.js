@@ -2,13 +2,11 @@ const selectPrograma = document.getElementById('programa');
 const selectModalidad = document.getElementById('modalidad');
 const selectBoleta = document.getElementById('filtro-boleta');
 const selectTipoTitulacion = document.getElementById('filtro-generacion');
-const selectTurno = document.getElementById('filtro-turno');
 const contenedor = document.getElementById("tabla-edades-seleccion");
 
 selectModalidad.disabled = true;
 selectBoleta.disabled = true;
 selectTipoTitulacion.disabled = true;
-selectTurno.disabled = true;
 
 function resetSelect(select, placeholder) {
     select.innerHTML = `<option value="">${placeholder}</option>`;
@@ -26,14 +24,16 @@ function llenarSelect(select, opciones) {
 
 selectPrograma.addEventListener('change', function() {
     const programaSeleccionado = this.value;
-    
+    const filtrosSecundarios = document.getElementById('filtros-secundarios');
+
+    filtrosSecundarios.style.display = 'none';
+
     resetSelect(selectModalidad, '-- Seleccione una Modalidad --');
     resetSelect(selectBoleta, '-- Seleccione Boleta --');
     selectBoleta.disabled = true;
     selectTipoTitulacion.disabled = true;
-    selectTurno.disabled = true;
+
     resetSelect(selectTipoTitulacion, '-- Seleccione Tipo de Titulación --');
-    resetSelect(selectTurno, '-- Seleccione Turno --');
 
     if (!programaSeleccionado) return;
 
@@ -43,6 +43,15 @@ selectPrograma.addEventListener('change', function() {
             .map(f => f.Modalidad)
     )];
 
+    turnosDisponibles = [...new Set(
+        datosFilas
+            .filter(f => f.Nombre_Programa === programaSeleccionado)
+            .map(f => f.Turno)
+            .filter(t => t) 
+    )];
+
+    console.log('Turnos disponibles:', turnosDisponibles);
+
     llenarSelect(selectModalidad, modalidades);
     selectModalidad.disabled = false;
 
@@ -51,14 +60,29 @@ selectPrograma.addEventListener('change', function() {
     }
 });
 
-
 selectModalidad.addEventListener('change', function() {
+    console.log('Modalidad cambiada:', this.value);
+
+    if (typeof limpiarTabla === 'function') {
+        limpiarTabla(); 
+    } else {
+        
+        filasTitulados = [];
+        renderizarTablaTituladosCaptura();
+    }
+    
     resetSelect(selectBoleta, '-- Seleccione Boleta --');
     resetSelect(selectTipoTitulacion, '-- Seleccione Tipo de Titulación --');
-    resetSelect(selectTurno, '-- Seleccione Turno --');
 
-    if (!this.value) return;
-   
+    const filtrosSecundarios = document.getElementById('filtros-secundarios');
+
+    if (!this.value) {
+        filtrosSecundarios.style.display = 'none';
+        return;
+    }
+
+    filtrosSecundarios.style.display = 'block'; 
+
     llenarSelect(selectBoleta, boletas);
     selectBoleta.disabled = false;
 
@@ -71,14 +95,14 @@ selectBoleta.addEventListener('change', function() {
     //const boletaSeleccionada = this.value;
     
     resetSelect(selectTipoTitulacion, '-- Seleccione Tipo de Titulación --');
-    resetSelect(selectTurno, '-- Seleccione Turno --');
+
     
     if (!this.value) return;
     const tipoTitulacion = [...new Set(datosFilas.map(f => f.Tipo_Titulacion))];
     llenarSelect(selectTipoTitulacion, tipoTitulacion);
     selectTipoTitulacion.disabled = false;
 });
-
+/*
 selectTipoTitulacion.addEventListener('change', function() {
 
     resetSelect(selectTurno, '-- Seleccione Turno --');
@@ -88,7 +112,7 @@ selectTipoTitulacion.addEventListener('change', function() {
        
     llenarSelect(selectTurno, turno);
     selectTurno.disabled = false;
-});
+});*/
 
 function actualizarBarraTitulados() {
     const headers = document.querySelectorAll('.tabla-matricula-container .tabla-header');
@@ -139,3 +163,5 @@ function actualizarBarraTitulados() {
     
     console.log('Barra actualizada:', nombrePrograma, nombreModalidad);
 }
+
+

@@ -58,6 +58,7 @@ def programas_view(
         {
             "request": request, 
             "programas": data,
-            "rol": Rol
+            "rol": Rol,
+            "session": sess
             }
     )

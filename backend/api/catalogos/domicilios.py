@@ -65,7 +65,8 @@ def domicilios_view(
             "domicilios": data,
             "rol": Rol,
             "rama": Rama,
-            "entidad": Entidad
+            "entidad": Entidad,
+            "session": sess
         }
     )
 

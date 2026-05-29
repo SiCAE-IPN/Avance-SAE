@@ -11,17 +11,17 @@ def mod_principal_view(request: Request, sess=Depends(get_current_session)):
     apellidoP_usuario = sess.apellidoP_usuario
     apellidoM_usuario = sess.apellidoM_usuario
     nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
-    return templates.TemplateResponse("Mod_Principal.html", {"request": request, "nombre_usuario": nombre_completo})
+    return templates.TemplateResponse("Mod_Principal.html", {"request": request, "nombre_usuario": nombre_completo, "session": sess})
 
 
 @router.get("/dashboard_sae", response_class=HTMLResponse)
 def dashboard_sae_view(request: Request, sess=Depends(get_current_session)):
     """Página del dashboard SAE embebido de Power BI"""
-    return templates.TemplateResponse("dashboard_sae.html", {"request": request})
+    return templates.TemplateResponse("dashboard_sae.html", {"request": request, "session": sess})
 
 
 @router.get("/dashboard_matricula", response_class=HTMLResponse)
 def dashboard_matricula_view(request: Request, sess=Depends(get_current_session)):
     """Página del dashboard de Matrícula embebido de Power BI"""
-    return templates.TemplateResponse("dashboard_matricula.html", {"request": request})
+    return templates.TemplateResponse("dashboard_matricula.html", {"request": request, "session": sess})
 

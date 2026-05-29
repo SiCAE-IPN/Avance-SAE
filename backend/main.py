@@ -63,6 +63,19 @@ async def favicon():
         return FileResponse(favicon_path, media_type="image/x-icon")
     return RedirectResponse(url="/static/favicon.ico")
 
+
+@app.get("/sicae-logo.png")
+async def sicae_logo():
+    logo_path = os.path.join(os.path.dirname(__file__), "..", "SiCAE Logo.png")
+    if os.path.exists(logo_path):
+        return FileResponse(logo_path, media_type="image/png")
+    return JSONResponse(status_code=404, content={"detail": "Logo no encontrado"})
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return RedirectResponse(url="/login")
+
+
+@app.get("/logout")
+async def logout_legacy_redirect():
+    return RedirectResponse(url="/login/logout", status_code=303)

@@ -46,6 +46,7 @@ def obtener_titulados(
             "Grupo_Edad": row["Grupo_Edad"],
             "Tipo_Titulacion": row["Tipo_Titulacion"],
             "Turno": row["Turno"],
+            "Boleta": row["Boleta"],
             "Sexo": row["Sexo"],
             "Id_Semaforo": row["Id_Semaforo"],
             "Titulados": row["Titulados"],
@@ -58,10 +59,16 @@ def obtener_titulados(
 
     return contexto, filas
 
-def limpiar_numero(val):
-                if val == '' or val is None:
-                    return 0
-                return int(val)
+def limpiar_numero(valor: Any) -> int:
+    # Si es None, una cadena vacía o solo espacios, devolvemos 0
+    if valor is None or str(valor).strip() == "":
+        return 0
+    try:
+        return int(float(valor)) # Convierte de forma segura strings o floats a int
+    except (ValueError, TypeError):
+        return 0
+
+
 
 def preparar_datos_temp_titulados(
     datos: List[Dict[str, Any]],
@@ -73,7 +80,8 @@ def preparar_datos_temp_titulados(
     registros = []
 
     for fila in datos:
-        base = {
+        # 1. Extraemos la base común para este registro (sin Turno ni Sexo)
+        base_comun = {
             "Periodo": periodo,
             "Sigla": sigla,
             "Nombre_Programa": fila.get("programaNombre", ""),
@@ -82,24 +90,33 @@ def preparar_datos_temp_titulados(
             "Modalidad": fila.get("modalidadNombre", ""),
             "Grupo_Edad": fila.get("edadNombre", ""),
             "Boleta": int(fila["boletaNombre"]) if str(fila.get("boletaNombre", "")).isdigit() else 0,
-            "Tipo_Titulacion": fila.get("generacionNombre", ""),
-            "Turno": fila.get("turnoNombre", ""),
+            # Corregido de "generacionNombre" a "tipoTitulacionNombre" según tu JSON
+            "Tipo_Titulacion": fila.get("tipoTitulacionNombre", ""), 
         }
 
-        registros.append(Temp_Titulados(
-            **base,
-            Sexo="Hombre",
-            Titulados=limpiar_numero(fila.get("hombres")),
-        ))
+        # 2. Obtenemos el diccionario de turnos (si no existe, usamos uno vacío)
+        turnos_dict = fila.get("turnos", {})
 
-        registros.append(Temp_Titulados(
-            **base,
-            Sexo="Mujer",
-            Titulados=limpiar_numero(fila.get("mujeres")),
-        ))
+        # 3. Iteramos dinámicamente sobre cada turno (Matutino, Vespertino, etc.)
+        for nombre_turno, generos in turnos_dict.items():
+            
+            # Registro para Hombres en este turno específico
+            registros.append(Temp_Titulados(
+                **base_comun,
+                Turno=nombre_turno,
+                Sexo="Hombre",
+                Titulados=limpiar_numero(generos.get("hombres")),
+            ))
+
+            # Registro para Mujeres en este turno específico
+            registros.append(Temp_Titulados(
+                **base_comun,
+                Turno=nombre_turno,
+                Sexo="Mujer",
+                Titulados=limpiar_numero(generos.get("mujeres")),
+            ))
 
     return registros
-          
     
     
 if __name__ == "__main__":

@@ -55,7 +55,8 @@ def semaforo_view(
         {
             "request": request,
             "semaforo": data,
-            "rol": Rol
+            "rol": Rol,
+            "session": sess
         }
     )
 
