@@ -83,6 +83,7 @@ async def matricula_acuses_view(request: Request, sess=Depends(get_current_sessi
             "mostrar_header": False,
             "nombre_usuario": sess.nombre_completo,
             "usuario_login": sess.usuario,
+            "session": sess,
         },
     )
 
@@ -136,11 +137,15 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
         return templates.TemplateResponse("error.html", {
             "request": request,
             "error_message": f"Acceso denegado: Su rol ({nombre_rol}) no tiene permisos para acceder a esta funcionalidad.",
-            "redirect_url": "/mod_principal/"
+            "redirect_url": "/mod_principal/",
+            "session": sess
         })
     
-    # Determinar el modo de vista según el rol
-    es_capturista = (id_rol == 3)
+    # Determinar el modo de vista según el rol efectivo.
+    # En modo camaleón, algunos flujos pueden traer inconsistencias temporales en id_rol;
+    # usamos también el nombre de rol para conservar la experiencia de captura.
+    nombre_rol_normalizado = (nombre_rol or "").strip().lower()
+    es_capturista = (id_rol == 3) or (bool(getattr(sess, "is_impersonating", False)) and nombre_rol_normalizado == "capturista")
     es_validador = (id_rol in [4, 5, 6, 7, 8, 9])  # Roles de validación/rechazo
     es_rol_superior = (id_rol in [4, 5, 6, 7, 8, 9])  # Roles 4-9: pueden ver múltiples UAs con selector
     modo_vista = "captura" if es_capturista else "validacion"
@@ -236,7 +241,8 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
                 "rechazo_info": None,
                 "matricula_rechazada": False,
                 "usuario_ya_valido": False,
-                "usuario_ya_rechazo": False
+                "usuario_ya_rechazo": False,
+                "session": sess
             })
         
         # **DETERMINAR EL SIGUIENTE ROL QUE DEBE VALIDAR SEGÚN EL SEMÁFORO**
@@ -292,7 +298,8 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
                 "rechazo_info": None,
                 "matricula_rechazada": False,
                 "usuario_ya_valido": False,
-                "usuario_ya_rechazo": False
+                "usuario_ya_rechazo": False,
+                "session": sess
             })
         
         print(f"✅ ACCESO PERMITIDO - Semáforo en estado {semaforo.Id_Semaforo} (>= 3, Validado)")
@@ -397,7 +404,8 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
         return templates.TemplateResponse("error.html", {
             "request": request,
             "error_message": "No hay periodos configurados en el sistema.",
-            "redirect_url": "/mod_principal/"
+            "redirect_url": "/mod_principal/",
+            "session": sess
         })
     
     # Obtener SOLO período y unidad desde la base de datos (mínimo necesario)
@@ -479,6 +487,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
             "usuario_ya_valido": False,
             "usuario_ya_rechazo": False,
             "programa_a_modalidades_json": programa_a_modalidades_json,
+            "session": sess
         })
 
     # ROLES 3, 4, 5: Ejecutar SP con contexto fijo del usuario
@@ -648,14 +657,36 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
     print(f"   es_capturista = {es_capturista}")
     print(f"   tipo nota_rechazo_sp = {type(nota_rechazo_sp)}")
     
-    # VERIFICAR SI LA MATRÍCULA ESTÁ RECHAZADA (solo para capturistas)
+    # VERIFICAR SI LA MATRÍCULA ESTÁ RECHAZADA (solo si el último movimiento fue rechazo)
     rechazo_info = None
+    rechazo_vigente_ua = False
+    capturista_captura_completa = False
+
+    # Último movimiento de validación/rechazo para la UA/Periodo/Formato.
+    # Si el último movimiento es validación, no debe mostrarse rechazo histórico.
+    from backend.database.models.Usuario import Usuario
+    ultimo_movimiento_ua = (
+        db.query(Validacion)
+        .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
+        .filter(
+            Validacion.Id_Periodo == periodo_default_id,
+            Validacion.Id_Formato == 1,
+            Usuario.Id_Unidad_Academica == id_unidad_academica
+        )
+        .order_by(Validacion.Fecha.desc())
+        .first()
+    )
+    rechazo_vigente_ua = bool(ultimo_movimiento_ua and int(ultimo_movimiento_ua.Validado or 0) == 0)
+
+    if ultimo_movimiento_ua:
+        print(f"🔎 Último movimiento UA/Periodo/Formato: Validado={ultimo_movimiento_ua.Validado}, Fecha={ultimo_movimiento_ua.Fecha}")
+    else:
+        print("🔎 No hay movimientos de validación/rechazo para la UA/Periodo/Formato")
     if es_capturista:
         print(f"\n🔍 Usuario es CAPTURISTA - Verificando rechazo...")
         
         # Buscar el último rechazo en la base de datos, restringido a la UA actual
         # Si el SP trae la nota (scoped por UA+Periodo), se usará esa; este filtro es fallback seguro
-        from backend.database.models.Usuario import Usuario
         ultimo_rechazo = (
             db.query(Validacion)
             .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
@@ -669,7 +700,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
             .first()
         )
         
-        if ultimo_rechazo:
+        if ultimo_rechazo and rechazo_vigente_ua:
             print(f"✅ RECHAZO ENCONTRADO en tabla Validacion")
             
             # Obtener información del usuario que rechazó
@@ -697,7 +728,10 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
             print(f"   Rechazado por: {rechazo_info['rechazado_por']}")
             print(f"   Fecha: {rechazo_info['fecha']}")
         else:
-            print(f"✅ NO hay rechazo registrado en tabla Validacion para esta UA")
+            if ultimo_rechazo and not rechazo_vigente_ua:
+                print("✅ Existe rechazo histórico, pero ya NO vigente (último movimiento fue validación)")
+            else:
+                print(f"✅ NO hay rechazo registrado en tabla Validacion para esta UA")
             
             # Si el SP trajo nota pero no hay registro en Validacion, mostrar advertencia
             if nota_rechazo_sp:
@@ -771,6 +805,25 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
                 # Semáforo permite validar de nuevo; no bloqueamos por rechazos previos
                 print(f"ℹ️ Existe rechazo previo, pero semáforo={estado_semaforo} permite validar nuevamente.")
 
+    # Para capturista: si ya está validado a nivel UA y no hay rechazo vigente, bloquear acciones.
+    if es_capturista:
+        semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
+            SemaforoUnidadAcademica.Id_Periodo == periodo_default_id,
+            SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+            SemaforoUnidadAcademica.Id_Formato == 1,
+            SemaforoUnidadAcademica.Id_Nivel == id_nivel
+        ).first()
+
+        estado_captura = int(semaforo_captura.Id_Semaforo or 0) if semaforo_captura else 0
+        capturista_captura_completa = estado_captura >= 3
+        if capturista_captura_completa:
+            rechazo_info = None
+            print(f"🔒 Capturista con captura completa: se oculta rechazo histórico (estado={estado_captura}).")
+        if estado_captura >= 3 and not rechazo_vigente_ua:
+            usuario_ya_valido = True
+            usuario_ya_rechazo = False
+            print(f"🔒 Capturista bloqueado: semáforo UA en {estado_captura} y sin rechazo vigente.")
+
     # DEBUG FINAL: Verificar qué se va a pasar al template
     print(f"\n📤 DATOS A ENVIAR AL TEMPLATE:")
     print(f"   rechazo_info = {rechazo_info}")
@@ -783,26 +836,14 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
     # - Validadores: cuando el usuario actual registró rechazo o existe rechazo en la UA/Periodo
     matricula_rechazada = False
     if es_capturista:
-        matricula_rechazada = rechazo_info is not None
+        matricula_rechazada = (not capturista_captura_completa) and rechazo_vigente_ua and (rechazo_info is not None)
     else:
         # Si el usuario ya rechazó, entonces la matrícula está rechazada para su vista
         if usuario_ya_rechazo:
             matricula_rechazada = True
         else:
-            # Checar si existe cualquier rechazo activo en la UA/Periodo para el formato
-            from backend.database.models.Usuario import Usuario
-            any_rechazo = (
-                db.query(Validacion)
-                .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
-                .filter(
-                    Validacion.Id_Periodo == periodo_default_id,
-                    Validacion.Id_Formato == 1,
-                    Validacion.Validado == 0,
-                    Usuario.Id_Unidad_Academica == id_unidad_academica,
-                )
-                .first()
-            )
-            matricula_rechazada = any_rechazo is not None
+            # Solo considerar rechazo vigente (último movimiento = rechazo).
+            matricula_rechazada = rechazo_vigente_ua
     print(f"   matricula_rechazada = {matricula_rechazada}")
 
     return templates.TemplateResponse("matricula_consulta.html", {
@@ -840,6 +881,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
         "niveles_disponibles": niveles_disponibles,
         "nivel_a_uas_json": nivel_a_uas_json,  # Mapeo de Nivel -> UAs
         "programa_a_modalidades_json": programa_a_modalidades_json,
+        "session": sess
     })
 
 # Endpoint para obtener datos existentes usando SP
@@ -1175,36 +1217,38 @@ async def consultar_matricula_dinamica(
                 usuario_ya_rechazo = True
                 print(f"   ❌ Usuario YA rechazó esta matrícula")
         
-        # Verificar si existe algún rechazo activo en esta UA
+        # Verificar rechazo vigente en esta UA (solo si el último movimiento fue rechazo)
         from backend.database.models.Usuario import Usuario
-        ultimo_rechazo = (
+        ultimo_movimiento_ua = (
             db.query(Validacion)
             .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
             .filter(
                 Validacion.Id_Periodo == periodo_id,
                 Validacion.Id_Formato == 1,
-                Validacion.Validado == 0,
                 Usuario.Id_Unidad_Academica == int(id_unidad_academica_seleccionada)
             )
             .order_by(Validacion.Fecha.desc())
             .first()
         )
-        
-        if ultimo_rechazo:
+
+        rechazo_vigente_ua = bool(ultimo_movimiento_ua and int(ultimo_movimiento_ua.Validado or 0) == 0)
+
+        if rechazo_vigente_ua:
             matricula_rechazada = True
+            ultimo_rechazo = ultimo_movimiento_ua
             usuario_rechazo = db.query(Usuario).filter(
                 Usuario.Id_Usuario == ultimo_rechazo.Id_Usuario
             ).first()
-            
+
             nombre_rechazo = "Validador"
             if usuario_rechazo:
                 nombre_rechazo = f"{usuario_rechazo.Nombre} {usuario_rechazo.Paterno} {usuario_rechazo.Materno}".strip()
-            
+
             # Obtener info de UA
             ua_info = db.query(Unidad_Academica).filter(
                 Unidad_Academica.Id_Unidad_Academica == int(id_unidad_academica_seleccionada)
             ).first()
-            
+
             rechazo_info = {
                 'motivo': nota_rechazo if nota_rechazo else (ultimo_rechazo.Nota or "Sin especificar motivo"),
                 'rechazado_por': nombre_rechazo,
@@ -1212,7 +1256,14 @@ async def consultar_matricula_dinamica(
                 'periodo': periodo,
                 'unidad': ua_info.Nombre if ua_info else ""
             }
-            print(f"   📋 Matrícula rechazada - Motivo: {rechazo_info['motivo'][:50]}...")
+            print(f"   📋 Matrícula rechazada vigente - Motivo: {rechazo_info['motivo'][:50]}...")
+
+        # Capturista: si ya quedó validado y no hay rechazo vigente, desactivar acciones de validación.
+        if id_rol == 3 and semaforo_unidad:
+            if int(semaforo_unidad.Id_Semaforo or 0) >= 3 and not rechazo_vigente_ua:
+                usuario_ya_valido = True
+                puede_validar = False
+                usuario_ya_rechazo = False
         
         print(f"\n📤 Estado final:")
         print(f"   puede_validar: {puede_validar}")
@@ -1499,7 +1550,8 @@ async def resumen_matricula_roles_superiores(request: Request, sess=Depends(get_
                 "total_general_mujeres": total_general_mujeres,
                 "total_general": total_general_hombres + total_general_mujeres,
                 "usuario_ya_valido": usuario_ya_valido,
-                "usuario_ya_rechazo": usuario_ya_rechazo
+                "usuario_ya_rechazo": usuario_ya_rechazo,
+                "session": sess
             }
         )
         
@@ -3470,7 +3522,8 @@ async def resumen_matricula_seleccion_view(request: Request, sess=Depends(get_cu
         return templates.TemplateResponse("error.html", {
             "request": request,
             "error_message": f"Acceso denegado: Su rol ({nombre_rol}) no tiene permisos para acceder a esta funcionalidad.",
-            "redirect_url": "/mod_principal/"
+            "redirect_url": "/mod_principal/",
+            "session": sess
         })
 
     # Determinar tipo de rol para la vista diferenciada
@@ -3563,6 +3616,7 @@ async def resumen_matricula_seleccion_view(request: Request, sess=Depends(get_cu
         # Datos de la UA del usuario (usados solo para roles 4-5)
         "mi_unidad_sigla": sigla_unidad_academica_usuario,
         "mi_unidad_nombre": mi_unidad_nombre,
+        "session": sess
     })
 
 
@@ -3605,7 +3659,8 @@ async def resumen_matricula_dinamico_view(
         return templates.TemplateResponse("error.html", {
             "request": request,
             "error_message": f"Acceso denegado: Su rol ({nombre_rol}) no tiene permisos para acceder a esta funcionalidad.",
-            "redirect_url": "/mod_principal/"
+            "redirect_url": "/mod_principal/",
+            "session": sess
         })
 
     print(f"\n{'='*60}")
@@ -3655,7 +3710,8 @@ async def resumen_matricula_dinamico_view(
                 "subtotales_turno": [],
                 "id_unidad_academica": id_unidad_academica,
                 "id_nivel": id_nivel,
-                "error_message": "No hay datos disponibles para los filtros seleccionados"
+                "error_message": "No hay datos disponibles para los filtros seleccionados",
+                "session": sess
             })
 
         # === PROCESAR DATOS PARA EL RESUMEN DINÁMICO ===
@@ -4125,7 +4181,8 @@ async def resumen_matricula_dinamico_view(
             "puede_validar": puede_validar,
             "usuario_ya_valido": usuario_ya_valido,
             "usuario_ya_rechazo": usuario_ya_rechazo,
-            "esperando_por_rol": esperando_por_rol
+            "esperando_por_rol": esperando_por_rol,
+            "session": sess
         })
 
     except Exception as e:
@@ -4149,7 +4206,8 @@ async def resumen_matricula_dinamico_view(
             "subtotales_edad": [],
             "id_unidad_academica": 0,
             "id_nivel": 0,
-            "error_message": f"Error al procesar el resumen: {str(e)}"
+            "error_message": f"Error al procesar el resumen: {str(e)}",
+            "session": sess
         })
 
 # ============================================================================
@@ -4185,7 +4243,8 @@ async def acuse_validacion_view(
         return templates.TemplateResponse("error.html", {
             "request": request,
             "error_message": f"Acceso denegado: Su rol ({nombre_rol}) no tiene permisos para generar acuses.",
-            "redirect_url": "/mod_principal/"
+            "redirect_url": "/mod_principal/",
+            "session": sess
         })
 
     print(f"\n{'='*70}")
@@ -4225,7 +4284,8 @@ async def acuse_validacion_view(
                 "puede_validar": True, "usuario_ya_valido": False, "usuario_ya_rechazo": False,
                 "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
                 "fecha_hoy": datetime.now().strftime("%d/%m/%Y"),
-                "error_message": "No hay datos disponibles para este acuse"
+                "error_message": "No hay datos disponibles para este acuse",
+                "session": sess
             })
 
         from collections import defaultdict
@@ -4317,6 +4377,7 @@ async def acuse_validacion_view(
         usuario_ya_valido = False
         usuario_ya_rechazo = False
         estado_semaforo_actual = 0
+        pendiente_validacion = False
 
         if id_rol in [4, 5, 6, 7, 8, 9]:
             id_usuario_actual = int(getattr(sess, 'id_usuario', 0) or 0)
@@ -4348,6 +4409,11 @@ async def acuse_validacion_view(
                 if validacion_rechazo and not (semaforo and estado_semaforo == (id_rol - 1)):
                     usuario_ya_rechazo = True
                     puede_validar = False
+
+            # Si existe un estado previo pero ya no hay rechazo vigente ni es turno de validar,
+            # mostramos el estado como pendiente en lugar de "rechazado".
+            if not puede_validar and not usuario_ya_valido and not usuario_ya_rechazo and estado_semaforo_actual > 0:
+                pendiente_validacion = True
                 
         # Modificar el '9' para el semaforo en que se desee ya no mostrar la marca de agua en el acuse
         no_validado = estado_semaforo_actual < 9
@@ -4365,9 +4431,11 @@ async def acuse_validacion_view(
             "puede_validar": puede_validar, "usuario_ya_valido": usuario_ya_valido, "usuario_ya_rechazo": usuario_ya_rechazo,
             "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
             "estado_semaforo_actual": estado_semaforo_actual, # PASADO AL TEMPLATE
+            "pendiente_validacion": pendiente_validacion,
             "no_validado": no_validado, # PASADO AL TEMPLATE
             "fecha_hoy": datetime.now().strftime("%d/%m/%Y"), # FECHA DEL SISTEMA
-            "error_message": None
+            "error_message": None,
+            "session": sess
         })
 
     except Exception as e:
@@ -4385,7 +4453,8 @@ async def acuse_validacion_view(
             "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
             "no_validado": True, # PASADO AL TEMPLATE
             "fecha_hoy": datetime.now().strftime("%d/%m/%Y"),
-            "error_message": f"Error al procesar acuse: {str(e)}"
+            "error_message": f"Error al procesar acuse: {str(e)}",
+            "session": sess
         })
 
 @router.get('/acuse-validacion/pdf')

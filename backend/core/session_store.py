@@ -22,6 +22,15 @@ class SessionData:
     apellidoM_usuario: str
     requiere_cambio_password: bool = False
 
+# -- Campos requeridos para simular un rol siendo Administrador -- #
+    is_impersonating: bool = False
+    original_id_rol: Optional[int] = None
+    original_nombre_rol: Optional[str] = None
+    original_id_nivel: Optional[int] = None
+    original_nombre_nivel: Optional[str] = None
+    original_id_unidad_academica: Optional[int] = None
+    original_sigla_unidad_academica: Optional[str] = None
+
     @property
     def nombre_completo(self) -> str:
         parts = [self.nombre_usuario, self.apellidoP_usuario, self.apellidoM_usuario]
@@ -71,6 +80,19 @@ class InMemorySessionStore:
                 return
             data, _ = item
             self._store[session_id] = (data, time.time() + ttl_seconds)
+
+    def update_data(self, session_id: str, new_data: SessionData) -> bool:
+        """Sustituye la información de la sesión manteniendo el tiempo de expiración original."""
+        if not session_id:
+            return False
+        with self._lock:
+            item = self._store.get(session_id)
+            if not item:
+                return False
+            _, exp = item
+            # Mantenemos el mismo expiration time (exp) pero cambiamos la data
+            self._store[session_id] = (new_data, exp)
+            return True
 
 
 # Instancia Global de Memoria (simple setup)

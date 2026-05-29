@@ -226,9 +226,9 @@
                         {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
                     🧹 Limpiar Formulario
                 </button>
-                <button id="btn-validar-semestre" type="button" class="btn-success" onclick="validarSemestre()"
+                <button id="btn-finalizar-captura" type="button" class="btn-finalizar" onclick="validarCapturaSemestre()"
                         {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
-                    ✅ Validar Semestre
+                    🎯 Finalizar Captura
                 </button>
                 <!-- Botón de validación masiva (solo cuando hay rechazo) -->
                 {% if matricula_rechazada %}
@@ -375,6 +375,43 @@
                 </div>
             </div>
         </div>
+
+        <!-- Botones de acción según rol (vista normal) -->
+        {% if es_capturista %}
+        <div class="actions-section actions-after-table">
+            <button id="btn-guardar-matricula" type="button" class="btn-primary" onclick="guardarYActualizarMatricula()"
+                    {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
+                💾 Guardar Avance
+            </button>
+            <button id="btn-limpiar-formulario" type="button" class="btn-secondary" onclick="limpiarFormulario()"
+                    {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
+                🧹 Limpiar Formulario
+            </button>
+            <button id="btn-finalizar-captura" type="button" class="btn-finalizar" onclick="validarCapturaSemestre()"
+                    {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
+                🎯 Finalizar Captura
+            </button>
+            {% if matricula_rechazada %}
+            <button id="btn-validar-todos-semestres" type="button" class="btn-success btn-validacion-masiva" 
+                    onclick="validarTodosLosSemestres()" 
+                    {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}
+                    style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); margin-left: 10px;">
+                ✅✅ Validar Todos los Semestres
+            </button>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="acciones-validacion">
+            <button type="button" class="btn btn-success" onclick="validarSemestre()" 
+                    {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
+                ✅ Validar Semestre
+            </button>
+            <button type="button" class="btn btn-danger" onclick="rechazarSemestre()"
+                    {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
+                ❌ Rechazar Semestre
+            </button>
+        </div>
+        {% endif %}
         
         <!-- Panel de Rechazo (se despliega debajo de los botones) -->
         <div id="panel-rechazo" class="panel-rechazo" style="display: none;">

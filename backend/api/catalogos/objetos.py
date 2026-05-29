@@ -40,6 +40,7 @@ def objetos_view(
         {
             "request": request,
             "objetos": data,
-            "rol": Rol
+            "rol": Rol,
+            "session": sess
         }
     )

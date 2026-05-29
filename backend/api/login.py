@@ -5,7 +5,7 @@ from backend.services.usuario_service import validacion_usuario
 from backend.schemas.Usuario import UsuarioLogin, UsuarioResponse
 from backend.core.templates import templates, static
 from backend.core.session_store import SessionData, session_store
-from backend.core.auth import set_session_cookie, clear_session_cookie, SESSION_TTL_SECONDS
+from backend.core.auth import set_session_cookie, clear_session_cookie, SESSION_TTL_SECONDS, get_current_session
 
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -135,3 +135,122 @@ async def register_user_endpoint(user: UsuarioCreate, db: Session = Depends(get_
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))"""
 
+# --- MODO CAMALEÓN (SIMULACIÓN DE ROLES) ---
+ROLES_SICAE = {
+    3: "capturista",
+    4: "ceget",
+    5: "titular",
+    6: "analista",
+    7: "jefe de departamento",
+    8: "jefe de división",
+    9: "directora"
+}
+
+ID_ROL_ADMINISTRADOR = 1
+
+# Asegúrate de importar Form si no lo tienes: from fastapi import Form
+
+@router.post("/simular")
+async def simular_identidad(
+    request: Request,
+    target_id_rol: int = Form(...),
+    target_id_nivel: int = Form(...),
+    target_id_unidad: int = Form(...),
+    current_session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    session_id = request.cookies.get("session_id")
+
+    # 1. Validar que el usuario real sea el Administrador
+    rol_real_id = current_session.original_id_rol if current_session.is_impersonating else current_session.id_rol
+    if rol_real_id != ID_ROL_ADMINISTRADOR:
+        return RedirectResponse(url="/mod_principal", status_code=303)
+
+    # 2. Consultar la Base de Datos para obtener los nombres reales
+    from backend.database.models.CatRoles import CatRoles
+    from backend.database.models.CatNivel import CatNivel
+    from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+
+    rol_db = db.query(CatRoles).filter(CatRoles.Id_Rol == target_id_rol).first()
+    nivel_db = db.query(CatNivel).filter(CatNivel.Id_Nivel == target_id_nivel).first()
+    unidad_db = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Id_Unidad_Academica == target_id_unidad).first()
+
+    # Si por alguna razón mandan un ID que no existe, abortamos
+    if not rol_db or not nivel_db or not unidad_db:
+        return RedirectResponse(url="/mod_principal", status_code=303)
+
+    # 3. Respaldar la identidad original (solo si no estamos simulando ya)
+    orig_rol_id = current_session.original_id_rol if current_session.is_impersonating else current_session.id_rol
+    orig_rol_nom = current_session.original_nombre_rol if current_session.is_impersonating else current_session.nombre_rol
+    
+    orig_nivel_id = current_session.original_id_nivel if current_session.is_impersonating else current_session.id_nivel
+    orig_nivel_nom = current_session.original_nombre_nivel if current_session.is_impersonating else current_session.nombre_nivel
+    
+    orig_unidad_id = current_session.original_id_unidad_academica if current_session.is_impersonating else current_session.id_unidad_academica
+    orig_unidad_sigla = current_session.original_sigla_unidad_academica if current_session.is_impersonating else current_session.sigla_unidad_academica
+
+    # 4. Crear la nueva sesión clonada con los datos alterados
+    new_session_data = SessionData(
+        id_usuario=current_session.id_usuario,
+        usuario=current_session.usuario,
+        nombre_usuario=current_session.nombre_usuario,
+        apellidoP_usuario=current_session.apellidoP_usuario,
+        apellidoM_usuario=current_session.apellidoM_usuario,
+        requiere_cambio_password=current_session.requiere_cambio_password,
+        
+        # --- NUEVA IDENTIDAD SIMULADA ---
+        id_rol=target_id_rol,
+        nombre_rol=rol_db.Rol,
+        id_nivel=target_id_nivel,
+        nombre_nivel=nivel_db.Nivel,
+        id_unidad_academica=target_id_unidad,
+        sigla_unidad_academica=unidad_db.Sigla,
+        
+        # --- RESPALDOS ---
+        is_impersonating=True,
+        original_id_rol=orig_rol_id,
+        original_nombre_rol=orig_rol_nom,
+        original_id_nivel=orig_nivel_id,
+        original_nombre_nivel=orig_nivel_nom,
+        original_id_unidad_academica=orig_unidad_id,
+        original_sigla_unidad_academica=orig_unidad_sigla
+    )
+
+    session_store.update_data(session_id, new_session_data)
+    return RedirectResponse(url="/mod_principal", status_code=303)
+
+@router.get("/restaurar-rol")
+async def restaurar_rol(request: Request, current_session: SessionData = Depends(get_current_session)):
+    session_id = request.cookies.get("session_id")
+    
+    if not current_session.is_impersonating:
+        return RedirectResponse(url="/mod_principal", status_code=303)
+
+    restored_session_data = SessionData(
+        id_usuario=current_session.id_usuario,
+        usuario=current_session.usuario,
+        nombre_usuario=current_session.nombre_usuario,
+        apellidoP_usuario=current_session.apellidoP_usuario,
+        apellidoM_usuario=current_session.apellidoM_usuario,
+        requiere_cambio_password=current_session.requiere_cambio_password,
+        
+        # --- RESTAURAR VALORES DE FÁBRICA ---
+        id_rol=current_session.original_id_rol,
+        nombre_rol=current_session.original_nombre_rol,
+        id_nivel=current_session.original_id_nivel,
+        nombre_nivel=current_session.original_nombre_nivel,
+        id_unidad_academica=current_session.original_id_unidad_academica,
+        sigla_unidad_academica=current_session.original_sigla_unidad_academica,
+        
+        # --- APAGAR MODO ---
+        is_impersonating=False,
+        original_id_rol=None,
+        original_nombre_rol=None,
+        original_id_nivel=None,
+        original_nombre_nivel=None,
+        original_id_unidad_academica=None,
+        original_sigla_unidad_academica=None
+    )
+
+    session_store.update_data(session_id, restored_session_data)
+    return RedirectResponse(url="/mod_principal", status_code=303)

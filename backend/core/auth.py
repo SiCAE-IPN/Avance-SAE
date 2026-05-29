@@ -40,11 +40,24 @@ async def get_current_session(
     request: Request,
     session_id: Optional[str] = Cookie(default=None),
 ) -> SessionData:
+    # Debug: registrar si llega cookie
+    try:
+        print(f"[auth] Incoming request path={request.url.path} cookies={dict(request.cookies)}")
+    except Exception:
+        pass
+
     if not session_id:
+        print("[auth] No session_id cookie present -> 401")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     sess = session_store.get(session_id)
     if not sess:
+        print(f"[auth] session_id={session_id} not found or expired in session_store -> 401")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+    else:
+        try:
+            print(f"[auth] session found: session_id={session_id} id_usuario={getattr(sess,'id_usuario',None)} id_rol={getattr(sess,'id_rol',None)} is_impersonating={getattr(sess,'is_impersonating',False)}")
+        except Exception:
+            pass
     # Sliding TTL (optional). Comment out if you prefer fixed expiry.
     session_store.touch(session_id, SESSION_TTL_SECONDS)
     request.state.session = sess

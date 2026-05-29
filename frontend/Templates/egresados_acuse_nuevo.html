@@ -34,10 +34,6 @@
                     <span class="header-item-value">{{ unidad }}</span>
                 </div>
                 <div class="header-item">
-                    <span class="header-item-label">Rol:</span>
-                    <span class="header-item-value">{{ nombre_rol }}</span>
-                </div>
-                <div class="header-item">
                     <span class="header-item-label">Fecha:</span>
                     <span class="header-item-value" id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
                 </div>
@@ -73,7 +69,13 @@
                                             <tr><td class="label-izq">{{ boleta }}</td><td><strong>{{ boleta_h }}</strong></td><td><strong>{{ boleta_m }}</strong></td><td><strong>{{ boleta_t }}</strong></td></tr>
                                         {% endfor %}
                                     </tbody>
-                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td></tr></tfoot>
+                                    <tfoot>
+                                        <tr class="fila-total"><td class="label-izq">Total</td>
+                                            <td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td>
+                                            <td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td>
+                                            <td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                         </div>
@@ -85,10 +87,24 @@
                                     <thead><tr><th>Edad</th><th>H</th><th>M</th><th>T</th></tr></thead>
                                     <tbody>
                                         {% for fila in filas_edad_turno %}
-                                            <tr><td class="label-izq">{{ fila.edad }}</td><td><strong>{{ fila.total_h }}</strong></td><td><strong>{{ fila.total_m }}</strong></td><td><strong>{{ fila.total_t }}</strong></td></tr>
+                                            {% set edad_tot = totales_tabla2.edades[fila.edad] if totales_tabla2 is defined and totales_tabla2.edades is defined and fila.edad in totales_tabla2.edades else {'H': 0, 'M': 0, 'T': 0} %}
+                                            {% set fila.total_h = edad_tot.H %}
+                                            {% set fila.total_m = edad_tot.M %}
+                                            {% set fila.total_t = edad_tot.T %}
+                                            <tr><td class="label-izq">{{ fila.edad }}</td>
+                                                <td><strong>{{ fila.total_h }}</strong></td>
+                                                <td><strong>{{ fila.total_m }}</strong></td>
+                                                <td><strong>{{ fila.total_t }}</strong></td>
+                                            </tr>
                                         {% endfor %}
                                     </tbody>
-                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ totales_tabla2.total_h if totales_tabla2 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla2.total_m if totales_tabla2 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla2.total_t if totales_tabla2 is defined else 0 }}</strong></td></tr></tfoot>
+                                    <tfoot>
+                                        <tr class="fila-total"><td class="label-izq">Total</td>
+                                            <td><strong>{{ totales_tabla2.total_h if totales_tabla2 is defined else 0 }}</strong></td>
+                                            <td><strong>{{ totales_tabla2.total_m if totales_tabla2 is defined else 0 }}</strong></td>
+                                            <td><strong>{{ totales_tabla2.total_t if totales_tabla2 is defined else 0 }}</strong></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                         </div>

@@ -5071,6 +5071,16 @@ function updateInputsBySemestre(semestreNum) {
     
     // Función para validar el semestre (roles de validación)
     async function validarSemestre() {
+        // Evitar que un capturista (modo captura) invoque accidentalmente el endpoint
+        if (typeof esCapturista !== 'undefined' && esCapturista) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Acción no permitida',
+                text: 'Estás en modo captura. Usa el botón "Finalizar Semestre" para cerrar el semestre desde captura.',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
         // Verificar si el botón está deshabilitado
         const btnValidar = document.getElementById('btn-validar-semestre');
         if (btnValidar.disabled) {

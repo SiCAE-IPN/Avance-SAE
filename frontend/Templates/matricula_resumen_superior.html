@@ -639,6 +639,13 @@
         
         // Función para validar la matrícula
         async function validarMatricula() {
+            // Protegemos: si el render del servidor indicó que es capturista, bloquear esta acción
+            if ({{ 'true' if es_capturista else 'false' }}) {
+                try {
+                    await Swal.fire({ icon: 'warning', title: 'Acción no permitida', text: 'Solo roles de validación pueden ejecutar esta acción desde aquí.' });
+                } catch (_) { alert('Solo roles de validación pueden ejecutar esta acción desde aquí.'); }
+                return;
+            }
             const confirmar = confirm(
                 `¿Está seguro que desea VALIDAR la matrícula?\n\n` +
                 `Unidad Académica: {{unidad_academica.Unidad_Academica if unidad_academica else 'N/A'}}\n` +

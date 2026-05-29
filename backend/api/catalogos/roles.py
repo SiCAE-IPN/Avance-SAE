@@ -53,6 +53,7 @@ def roles_view(
         {
             "request": request,
             "roles": data,
-            "rol": Rol
+            "rol": Rol,
+            "session": sess
         }
     )

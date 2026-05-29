@@ -64,6 +64,7 @@ def estatus_view(
         {
             "request": request,
             "estatus": data,
-            "rol": Rol
+            "rol": Rol,
+            "session": sess
         }
     )

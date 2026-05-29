@@ -413,6 +413,7 @@ async def obtener_contexto_aprovechamiento(
 
     return {
         "request": request,
+        "session": sess,
         "periodo": periodo,
         "nivel": nivel,
         "unidad": unidad,
@@ -563,6 +564,7 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                 "periodo": periodo_aprovechamiento,
                 "unidad_academica": UUnidad_Academica,
                 "request": request,
+                "session": sess,
                 "aprovechamientos": aprovechamientos_limpios,
                 "inscritos": inscritos_final,
                 "reincorporados": reincorporados_detallados,
@@ -580,7 +582,8 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                 "periodo_activo_literal": PPeriodo,
                 "unidad_academica": UUnidad_Academica,
                 "niveles": niveles,
-                "request": request
+                "request": request,
+                "session": sess
             }
         )
     else:
@@ -599,7 +602,8 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                 "unidad_academica": UUnidad_Academica,
                 "unidades": unidades_con_niveles,
                 "niveles": niveles,
-                "request": request
+                "request": request,
+                "session": sess
             }
         )
 

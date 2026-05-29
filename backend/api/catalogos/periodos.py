@@ -27,7 +27,8 @@ def domicilios_view(
         return templates.TemplateResponse("error.html", {
             "request": request,
             "error_message": "No hay periodos configurados en el sistema.",
-            "redirect_url": "/mod_principal/"
+            "redirect_url": "/mod_principal/",
+            "session": sess
         })
     
     try:
@@ -58,7 +59,8 @@ def domicilios_view(
         {
             "request": request,
             "periodos": data,
-            "rol": Rol
+            "rol": Rol,
+            "session": sess
         }
     )
 

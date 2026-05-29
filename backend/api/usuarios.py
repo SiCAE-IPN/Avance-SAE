@@ -162,7 +162,8 @@ async def usuarios_view(
             "formatos": formatos,
             "es_super_admin": es_super_admin,
             "tiene_permisos_admin": tiene_permisos_admin,
-            "rol": Rol
+            "rol": Rol,
+            "session": sess,
         },
     )
 

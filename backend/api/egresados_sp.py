@@ -245,13 +245,15 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
             return templates.TemplateResponse("error.html", {
                 "request": request,
                 "error_message": f"Acceso denegado: Su rol ({nombre_rol}) no tiene permisos para acceder a esta funcionalidad.",
-                "redirect_url": "/mod_principal/"
+                "redirect_url": "/mod_principal/",
+                "session": sess
             })
         else:
             return templates.TemplateResponse("error.html", {
                 "request": request,
                 "error_message": "Acceso denegado: No se ha identificado un rol válido. Por favor, inicie sesión.",
-                "redirect_url": "/login/"
+                "redirect_url": "/login/",
+                "session": sess
             })
     
     # Determinar el modo de vista según el rol
@@ -287,7 +289,8 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
             return templates.TemplateResponse("error.html", {
                 "request": request,
                 "error_message": "No hay un periodo activo configurado en el sistema.",
-                "redirect_url": "/mod_principal/"
+                "redirect_url": "/mod_principal/",
+                "session": sess
             })
         
         periodo_default_id = periodo_id
@@ -298,7 +301,8 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
         return templates.TemplateResponse("error.html", {
             "request": request,
             "error_message": f"Error al cargar el periodo: {str(e)}",
-            "redirect_url": "/mod_principal/"
+            "redirect_url": "/mod_principal/",
+            "session": sess
         })
 
     # === OBTENER INFORMACIÓN DE UNIDAD ACADÉMICA ===
@@ -385,6 +389,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
     edades_formatted = []
     sexos_formatted = []
     programa_a_modalidades_json = "{}"  # Mapeo programa->modalidades para filtrado dinámico
+    datos_precargados_json = "{}"  # Para precargar datos en el frontend (opcional, puede venir vacío y llenarse al consultar)
     
     # Para roles 4-9 (directores y superiores): cargar TODAS las modalidades y programas sin ejecutar SP
     if es_rol_director or es_rol_superior:
@@ -567,6 +572,40 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                 
                 programa_a_modalidades_json = json.dumps(programa_a_modalidades)
                 print(f"Mapeo ID_Programa -> IDs_Modalidad: {programa_a_modalidades_json}")
+
+                datos_precargados = {}
+                for reg in resultados_sp:
+                    # Extraer textos limpios
+                    prog_val = str(reg.get('Nombre_Programa') or '').strip()
+                    mod_val = str(reg.get('Modalidad') or '').strip()
+                    bol_val = str(reg.get('Boleta') or '').strip()
+                    gen_val = str(reg.get('Generacion') or '').strip()
+                    edad_val = str(reg.get('Grupo_Edad') or reg.get('Edad') or '').strip()
+                    
+                    # Llave única idéntica a la del Frontend
+                    key = f"{prog_val}_{mod_val}_{bol_val}_{gen_val}_{edad_val}"
+                    if key not in datos_precargados:
+                        datos_precargados[key] = {}
+                    
+                    turno_nombre = str(reg.get('Turno') or '').strip()
+                    if turno_nombre not in datos_precargados[key]:
+                        datos_precargados[key][turno_nombre] = {'hombres': '', 'mujeres': ''}
+                    
+                    sexo_str = str(reg.get('Sexo') or '').lower()
+                    try:
+                        # Si hay un número de egresados, lo guardamos
+                        egresados_val = reg.get('Egresados')
+                        if egresados_val is not None and str(egresados_val).strip() != '':
+                            egresados_val = int(float(egresados_val))
+                            if 'hombre' in sexo_str or sexo_str == 'h':
+                                datos_precargados[key][turno_nombre]['hombres'] = egresados_val
+                            else:
+                                datos_precargados[key][turno_nombre]['mujeres'] = egresados_val
+                    except Exception:
+                        pass # Si no es un número válido, se ignora
+                        
+                datos_precargados_json = json.dumps(datos_precargados)
+
             else:
                 # Si el SP no retorna datos, dejar todo vacío
                 print(f"   El SP no retornó datos para esta UA/Nivel/Periodo")
@@ -714,7 +753,9 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
         "acceso_restringido": False,
         "puede_validar": puede_validar,
         "usuario_ya_valido": usuario_ya_valido,
-        "usuario_ya_rechazo": usuario_ya_rechazo
+        "usuario_ya_rechazo": usuario_ya_rechazo,
+        "datos_precargados_json": datos_precargados_json,
+        "session": sess
     })
 
 
@@ -2029,7 +2070,8 @@ async def resumen_egresados_dinamico_view(
         return templates.TemplateResponse("error.html", {
             "request": request,
             "error_message": f"Acceso denegado: Su rol ({nombre_rol}) no tiene permisos para acceder a esta funcionalidad.",
-            "redirect_url": "/mod_principal/"
+            "redirect_url": "/mod_principal/",
+            "session": sess
         })
 
     print(f"\n{'='*60}")
@@ -2159,7 +2201,8 @@ async def resumen_egresados_dinamico_view(
                 "usuario_ya_valido": usuario_ya_valido,
                 "usuario_ya_rechazo": usuario_ya_rechazo,
                 "esperando_por_rol": esperando_por_rol,
-                "error_message": "No hay datos disponibles para los filtros seleccionados"
+                "error_message": "No hay datos disponibles para los filtros seleccionados",
+                "session": sess
             })
 
         print(f"📊 Total de registros del SP: {len(egresados_data)}")
@@ -2535,7 +2578,8 @@ async def resumen_egresados_dinamico_view(
             programa_counts[programa] = {
                 'regular': len(reg_boletas),
                 'extemporaneo': len(ext_boletas),
-                'total': len(reg_boletas) + len(ext_boletas)
+                "error_message": "No hay datos disponibles para este acuse",
+                "session": sess,
             }
 
             for tipo, boletas_lista in (('regular', reg_boletas), ('extemporaneo', ext_boletas)):
@@ -2697,7 +2741,8 @@ async def resumen_egresados_dinamico_view(
             "subtotales_generacion_tabla1": subtotales_generacion_tabla1,
             "subtotales_generacion_tabla2": subtotales_generacion_tabla2,
             "estado_semaforo_actual": estado_semaforo if ('estado_semaforo' in locals() and estado_semaforo is not None) else 0,
-            "error_message": None
+            "error_message": None,
+            "session": sess
         })
         
     except Exception as e:
@@ -2730,6 +2775,7 @@ async def resumen_egresados_dinamico_view(
             "usuario_ya_rechazo": False,
             "esperando_por_rol": None,
             "tablas_filas": [],
-            "error_message": f"Error al procesar datos: {str(e)}"
+            "error_message": f"Error al procesar datos: {str(e)}",
+            "session": sess
         })
 

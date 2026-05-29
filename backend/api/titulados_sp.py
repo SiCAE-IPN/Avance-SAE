@@ -87,7 +87,8 @@ async def consulta_titulados(
             return templates.TemplateResponse("error.html", {
                 "request": request,
                 "error_message": "No hay un periodo activo configurado en el sistema.",
-                "redirect_url": "/mod_principal/"
+                "redirect_url": "/mod_principal/",
+                "session": sess
             })
         
         periodo_default_literal = periodo_literal
@@ -97,7 +98,8 @@ async def consulta_titulados(
         return templates.TemplateResponse("error.html", {
             "request": request,
             "error_message": f"Error al cargar el periodo: {str(e)}",
-            "redirect_url": "/mod_principal/"
+            "redirect_url": "/mod_principal/",
+            "session": sess
         })
 
     roles_permitidos = [1, 3, 4, 5, 6, 7, 8, 9]  #1=Admin, 3=Capturista, 4-9=Roles de validación/rechazo
@@ -106,13 +108,15 @@ async def consulta_titulados(
             return templates.TemplateResponse("error.html", {
                 "request": request,
                 "error_message": f"Acceso denegado: Su rol ({nombre_rol}) no tiene permisos para acceder a esta funcionalidad.",
-                "redirect_url": "/mod_principal/"
+                "redirect_url": "/mod_principal/",
+                "session": sess
             })
         else:
             return templates.TemplateResponse("error.html", {
                 "request": request,
                 "error_message": "Acceso denegado: No se ha identificado un rol válido. Por favor, inicie sesión.",
-                "redirect_url": "/login/"
+                "redirect_url": "/login/",
+                "session": sess
             })
     
 
@@ -193,7 +197,8 @@ async def consulta_titulados(
              "filas": filas,
              "edades" : edades_ordenadas,
              "es_capturista": es_capturista,
-             "acceso_restringido" : False}
+             "acceso_restringido" : False,
+             "session": sess}
              )
 
 @router.post("/guardar-avance-titulados", response_class=JSONResponse)

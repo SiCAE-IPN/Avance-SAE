@@ -39,6 +39,7 @@ def modulos_view(
         {
             "request": request,
             "modulos": data,
-            "rol": Rol
+            "rol": Rol,
+            "session": sess
         }
     )
