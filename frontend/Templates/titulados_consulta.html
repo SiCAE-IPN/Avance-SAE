@@ -293,7 +293,7 @@
                 {% else %}
                 <h3 style="color: #6e0343; margin: 0 0 15px 0; font-size: 20px;">📋 Agregar Registro de Titulados</h3>
                 {% endif %} 
-                <div class="filtros-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
+                <div class="filtros-row" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
                     <div class="filtro-item">
                         <label for="filtro-boleta"><strong>Boleta:</strong></label>
                         <select id="filtro-boleta" name="filtro_boleta">
@@ -308,12 +308,6 @@
                         </select>
                     </div>
                     
-                    <div class="filtro-item">
-                        <label for="filtro-turno"><strong>Turno:</strong></label>
-                        <select id="filtro-turno" name="filtro_turno">
-                            <option value="">-- Seleccione Turno --</option>
-                        </select>
-                    </div>
                 </div>
                 
                 <!-- Tabla de selección de edades -->
@@ -350,7 +344,7 @@
                 </div>
                 
                 <div class="filtros-row" style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                    <button type="button" id="btn-agregar-fila" class="btn-primary" onclick="agregarFilasEgresados()" style="padding: 12px 30px; background: #6e0343; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                    <button type="button" id="btn-agregar-fila" class="btn-primary" onclick="agregarFilasTitulados()" style="padding: 12px 30px; background: #6e0343; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
                         ➕ Agregar Filas
                     </button>
                 </div>
@@ -366,21 +360,14 @@
                 
                 <div style="overflow-x: auto;">
                     <table class="tabla-egresados-dinamica" id="tabla-egresados" style="width: 100%; border-collapse: collapse; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
-                        <thead>
-                            <tr style="background: linear-gradient(135deg, #6e0343 0%, #8b2635 100%); color: white;">
-                                <th style="padding: 15px; text-align: center; font-weight: 600; font-size: 14px;">Boleta</th>
-                                <th style="padding: 15px; text-align: center; font-weight: 600; font-size: 14px;">Tipo de Titulación</th>
-                                <th style="padding: 15px; text-align: center; font-weight: 600; font-size: 14px;">Edad</th>
-                                <th style="padding: 15px; text-align: center; font-weight: 600; font-size: 14px;">Hombres</th>
-                                <th style="padding: 15px; text-align: center; font-weight: 600; font-size: 14px;">Mujeres</th>
-                                <th style="padding: 15px; text-align: center; font-weight: 600; font-size: 14px;">Acciones</th>
-                            </tr>
+                        <thead id = "titulados-thead">
+    
                         </thead>
-                        <tbody id="egresados-tbody">
+                        <tbody id="titulados-tbody">
                             <tr>
-                                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
+                                <td colspan="10" style="text-align: center; padding: 40px; color: #666;">
                                     <div style="font-size: 48px; margin-bottom: 15px;">📚</div>
-                                    <p style="font-size: 16px; margin: 0;">No hay registros agregados. Use los filtros arriba para agregar filas.</p>
+                                    <p style="font-size: 16px; margin: 0;">Seleccione Programa y Modalidad, luego agregue filas.</p>
                                 </td>
                             </tr>
                         </tbody>
@@ -503,7 +490,8 @@
     return parseInt(str) || 0; 
     }
 
-    let filasEgresados = [];
+    let filasTitulados = [];
+    let turnosDisponibles = [];
 
     let activeFilters = {};
     let currentFilterDropdown = null;
@@ -519,6 +507,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (datosFilas && datosFilas.length > 0) {
+            generarCabeceraTabla();
             renderizarTablaTitulados(datosFilas);
             initTableFilters();
         }

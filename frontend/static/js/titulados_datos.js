@@ -3,13 +3,13 @@ function actualizarValorFila(idFila, campo, valor) {
 
     const numero = valor === "" ? 0 : Math.max(0, Number(valor));
 
-    const fila = filasEgresados.find(f => f.id === idFila);
+    const fila = filasTitulados.find(f => f.id === idFila);
 
     if (fila) {
         fila[campo] = numero;
     }
 
-    console.log("Filas actualizadas:", filasEgresados);
+    console.log("Filas actualizadas:", filasTitulados);
 }
 
 function guardarAvance() {
@@ -18,17 +18,25 @@ function guardarAvance() {
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(filasEgresados)
+        body: JSON.stringify(filasTitulados)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+        }
+        return response.json();
+    })
     .then(data => {
         console.log('Respuesta del servidor:', data);
         alert('Avance guardado correctamente');
+        
+        window.location.reload();  
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error al guardar');
+        alert('Error al guardar el avance, por favor intente de nuevo.');
     });
+    
 }
 
 function agruparPorSexo(datosFilas) {
@@ -92,12 +100,15 @@ function renderizarTablaTitulados(datosFilas) {
     }
 
     let html = '';
-    let totalH = 0, totalM = 0;
+    let totalGeneralH = 0, totalGeneralM = 0;
 
     filas.forEach((fila, i) => {
         const total = fila.Hombres + fila.Mujeres;
-        totalH += fila.Hombres;
-        totalM += fila.Mujeres;
+        const totalH = fila.Hombres;
+        const totalM = fila.Mujeres;
+
+        totalGeneralH += totalH;
+        totalGeneralM += totalM;
         html += `<tr style="background: ${i % 2 === 0 ? '#f9f9f9' : 'white'}">
             <td style="padding:10px; border:1px solid #ddd;">${fila.Nombre_Programa}</td>
             <td style="padding:10px; border:1px solid #ddd;">${fila.Modalidad}</td>
@@ -111,11 +122,11 @@ function renderizarTablaTitulados(datosFilas) {
         </tr>`;
     });
 
-    html += `<tr style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color:white; font-weight:700;">
+    html += `<tr id="informe-total-row-titulados" style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color:white; font-weight:700;">
         <td colspan="6" style="padding:12px; border:1px solid #ddd; text-align:right;">TOTAL GENERAL:</td>
-        <td style="padding:12px; text-align:center; border:1px solid #ddd;">${totalH}</td>
-        <td style="padding:12px; text-align:center; border:1px solid #ddd;">${totalM}</td>
-        <td style="padding:12px; text-align:center; font-size:18px;">${totalH + totalM}</td>
+        <td class="total-h" style="padding:12px; text-align:center; border:1px solid #ddd;">${totalGeneralH}</td>
+        <td class="total-m" style="padding:12px; text-align:center; border:1px solid #ddd;">${totalGeneralM}</td>
+        <td class="total-g" style="padding:12px; text-align:center; font-size:18px;">${totalGeneralH + totalGeneralM}</td>
     </tr>`;
 
     tbody.innerHTML = html;
@@ -123,7 +134,6 @@ function renderizarTablaTitulados(datosFilas) {
 
 
 // Filtros de resumen
-
 
 
 function initTableFilters() {
@@ -475,13 +485,10 @@ function applyAllFilters() {
     const table = document.getElementById('informe-titulados-table');
     const tbody = table.querySelector('tbody');
     const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('td[colspan]'));
-    
-    let visibleCount = 0;
-    
+
     rows.forEach(row => {
         let shouldShow = true;
-        
-        // Aplicar cada filtro activo
+
         for (const [columnIndex, allowedValues] of Object.entries(activeFilters)) {
             const cell = row.cells[parseInt(columnIndex)];
             if (cell) {
@@ -492,48 +499,30 @@ function applyAllFilters() {
                 }
             }
         }
-        
+
         row.style.display = shouldShow ? '' : 'none';
-        if (shouldShow) visibleCount++;
     });
 
-    // Recalcular totales a partir de las filas visibles
-    let totalVisibleHombres = 0;
-    let totalVisibleMujeres = 0;
-    let totalVisibleGeneral = 0;
+    let totalH = 0, totalM = 0;
 
     rows.forEach(row => {
         if (row.style.display === 'none') return;
-        
-        // Preferir atributos data-hombres/data-mujeres si existen
-        const dh = row.dataset && row.dataset.hombres ? parseInt(row.dataset.hombres) : NaN;
-        const dm = row.dataset && row.dataset.mujeres ? parseInt(row.dataset.mujeres) : NaN;
-
-        let h = !isNaN(dh) ? dh : (parseInt(row.cells[6]?.textContent.trim()) || 0);
-        let m = !isNaN(dm) ? dm : (parseInt(row.cells[7]?.textContent.trim()) || 0);
-
-        totalVisibleHombres += h;
-        totalVisibleMujeres += m;
-        totalVisibleGeneral += (h + m); // Sumamos dinámicamente el total de esta fila
+        totalH += parseInt(row.cells[6]?.textContent.trim()) || 0;
+        totalM += parseInt(row.cells[7]?.textContent.trim()) || 0;
     });
 
-    const totalRow = document.getElementById('informe-total-row');
-
+    // Actualizar fila de totales
+    const totalRow = document.getElementById('informe-total-row-titulados');
     if (totalRow) {
-        if (totalVisibleGeneral === 0) {
+        if (totalH + totalM === 0) {
             totalRow.style.display = 'none';
         } else {
             totalRow.style.display = '';
-            const th = totalRow.querySelector('.total-hombres');
-            const tm = totalRow.querySelector('.total-mujeres');
-            const tg = totalRow.querySelector('.total-general-egresados');
-            
-            if (th) th.textContent = totalVisibleHombres;
-            if (tm) tm.textContent = totalVisibleMujeres;
-            if (tg) tg.textContent = totalVisibleGeneral;
+            totalRow.querySelector('.total-h').textContent = totalH;
+            totalRow.querySelector('.total-m').textContent = totalM;
+            totalRow.querySelector('.total-g').textContent = totalH + totalM;
         }
     }
 
     updateFilterHeaderStates();
 }
-

@@ -153,7 +153,7 @@ async def consulta_titulados(
 
         if boleta:
             boleta = int(boleta)
-            boletas = list(range(boleta + 1, boleta - 11, -1))
+            boletas = list(range(boleta + 12, boleta , -1))
 
         print(f"Boletas obtenidas: {boletas}")
 
@@ -203,6 +203,7 @@ def guardar_titulados(
     datos: List[dict],
     sess = Depends(get_current_session),
     db: Session = Depends(get_db)):
+
     
     sigla_unidad_academica = sess.sigla_unidad_academica
     nivel = sess.nombre_nivel
