@@ -5,9 +5,39 @@
 {% block styles %}
     {# En el PDF, el CSS se inyecta desde Python. En la web, se carga normal. #}
     {% if not exportando_pdf %}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
+    {% else %}
+        <style>
+            /* === TRUCO PARA REPETIR FIRMAS EN CADA HOJA DEL PDF === */
+            .firmas-container {
+                position: fixed !important;
+                bottom: -2.8cm !important;
+                left: 0;
+                right: 0;
+                margin: 0 !important;
+            }
+
+            /* === TRUCO PARA MANTENER LAS 2 COLUMNAS SIN ROMPER EL PDF === */
+            .contenedor-columnas {
+                display: table;
+                width: 100%;
+                table-layout: fixed;
+            }
+            .columna-izq, .columna-der {
+                display: table-cell;
+                width: 50%;
+                vertical-align: top;
+            }
+            .columna-izq { padding-right: 15px; }
+            .columna-der { padding-left: 15px; }
+
+            .tabla-seccion {
+                page-break-inside: avoid; /* Evita que una tabla se parta a la mitad */
+                margin-bottom: 20px;
+            }
+        </style>
     {% endif %}
 {% endblock %}
 
@@ -17,35 +47,24 @@
         <div class="marca-agua"> Sin Validez Oficial </div>
     {% endif %}
 
+    {% if estado_semaforo is defined and estado_semaforo >= 1 and estado_semaforo <= 8 %}
+        <div class="marca-agua">DOCUMENTO EN REVISIÓN</div>
+    {% endif %}
+
 
 <div class="contenedor-acuse">
 
     <div class="acuse-header">
         <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - MATRÍCULA</h1>  
               
-        <div class="header-info">
-            <div class="header-item">
-                <span class="header-item-label">Período:</span>
-                <span class="header-item-value">{{ periodo }}</span>
-            </div>
-            <div class="header-item">
-                <span class="header-item-label">Nivel:</span>
-                <span class="header-item-value">{{ nivel }}</span>
-            </div>
-            <div class="header-item">
-                <span class="header-item-label">Unidad:</span>
-                <span class="header-item-value">{{ unidad }}</span>
-            </div>
+        <div style="text-align: center; font-size: 13px; margin-top: 12px; margin-bottom: 25px; color: #333;">
+            <strong>Período:</strong> {{ periodo }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+            <strong>Nivel:</strong> {{ nivel }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+            <strong>Unidad:</strong> {{ unidad }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+            <strong>Fecha:</strong> <span id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
         </div>
 
-        <div class="header-info">
-            <div class="header-item">
-                <span class="header-item-label">Fecha:</span>
-                <span class="header-item-value" id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
-            </div>
-        </div>
-
-        <div class="total-resumen">
+        <div class="total-resumen" style="margin-top: 15px;">
             <div class="total-resumen-numero">{{ total_t }}</div>
             <div>Estudiantes en Matrícula</div>
         </div>
@@ -299,6 +318,24 @@
         
     </div>
 
+    <div class="firmas-container">
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-nombre">{{ nombre_capturista | default('No asignado', true) }}</div>
+            <div class="firma-rol">Capturista</div>
+        </div>
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-nombre">{{ nombre_ceget | default('No asignado', true) }}</div>
+            <div class="firma-rol">CEGET</div>
+        </div>
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-nombre">{{ nombre_titular | default('No asignado', true) }}</div>
+            <div class="firma-rol">Titular de la Unidad Académica</div>
+        </div>
+    </div>
+
     <div class="acuse-footer">
         
         {% if usuario_ya_valido %}
@@ -375,7 +412,6 @@
 {% if not exportando_pdf %}
 <script src="/static/js/validacion_rechazo.js"></script>
 <script>
-    // Establecer fecha actual
     document.getElementById('fecha-actual').textContent = new Date().toLocaleDateString('es-ES');
 
     const idRol = Number("{{ id_rol }}") || 0;

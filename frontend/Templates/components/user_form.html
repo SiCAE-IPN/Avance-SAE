@@ -91,3 +91,41 @@
     <div id="mensaje"></div>
 </div>
 {% endif %}
+
+<script>
+// Limpiar Rol y Nivel cuando cambie la Unidad Académica
+(function(){
+    const ua = document.getElementById('id_unidad_academica');
+    const rol = document.getElementById('id_rol');
+    const nivel = document.getElementById('id_nivel');
+
+    if(!ua) return;
+
+    function limpiarRolNivel(){
+        if(rol){
+            rol.value = '';
+            // permitir selección cuando el usuario cambie UA
+            rol.disabled = false;
+            // disparar evento change en rol por si hay listeners que habilitan niveles
+            rol.dispatchEvent(new Event('change'));
+        }
+        if(nivel){
+            nivel.value = '';
+            nivel.disabled = true; // nivel depende del rol
+        }
+    }
+
+    // Limpiar al cambiar la UA
+    ua.addEventListener('change', function(e){
+        limpiarRolNivel();
+    });
+
+    // Estado inicial: si UA no está seleccionada, deshabilitar rol y nivel
+    document.addEventListener('DOMContentLoaded', function(){
+        if(ua && !ua.value){
+            if(rol) { rol.value = ''; rol.disabled = true; }
+            if(nivel) { nivel.value = ''; nivel.disabled = true; }
+        }
+    });
+})();
+</script>

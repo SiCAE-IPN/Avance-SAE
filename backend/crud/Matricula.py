@@ -105,6 +105,52 @@ def safe_row_to_dict(row, cols=None) -> Dict[str, Any]:
         return rd
 
 
+def _normalizar_texto_nota(valor: Any) -> Optional[str]:
+    if valor is None:
+        return None
+    texto = str(valor).strip()
+    if not texto or texto.lower() in {'none', 'null'}:
+        return None
+    return texto
+
+
+def _extraer_nota_rechazo_de_resultset(rows: List[Any], columns: Optional[List[str]] = None) -> Optional[str]:
+    columnas_candidatas = {
+        'nota',
+        'nnota',
+        'motivo',
+        'motivo_rechazo',
+        'nota_rechazo',
+        'rechazo',
+        'observacion',
+        'observaciones',
+        'comentario',
+    }
+
+    if not rows:
+        return None
+
+    if isinstance(rows[0], dict):
+        for row in rows:
+            for key, value in row.items():
+                if key and str(key).strip().lower() in columnas_candidatas:
+                    nota = _normalizar_texto_nota(value)
+                    if nota:
+                        return nota
+
+    if columns and len(columns) == 1:
+        return _normalizar_texto_nota(rows[0][0] if isinstance(rows[0], (list, tuple)) and rows[0] else rows[0])
+
+    if rows and isinstance(rows[0], (list, tuple)) and columns:
+        for index, column_name in enumerate(columns):
+            if str(column_name).strip().lower() in columnas_candidatas and index < len(rows[0]):
+                nota = _normalizar_texto_nota(rows[0][index])
+                if nota:
+                    return nota
+
+    return None
+
+
 def execute_sp_consulta_matricula(
     db: Session,
     unidad_sigla: str,
@@ -181,15 +227,25 @@ def execute_sp_consulta_matricula(
         # SEGUNDO RESULT SET: Nota de rechazo (si existe)
         nota_rechazo = None
         try:
-            # Usar nextset() en el cursor subyacente
+            # Primero intentar deducirla del propio set actual, por si el SP la expone como columna.
+            nota_rechazo = _extraer_nota_rechazo_de_resultset(rows_list, columns)
+
+            # Luego intentar leer sets adicionales usando nextset() en el cursor subyacente.
             if hasattr(result, 'cursor') and hasattr(result.cursor, 'nextset'):
-                if result.cursor.nextset():
+                while result.cursor.nextset():
                     nota_rows = result.cursor.fetchall()
-                    if nota_rows and len(nota_rows) > 0:
-                        # El SP devuelve una sola columna 'Nota'
-                        nota_rechazo = nota_rows[0][0] if nota_rows[0][0] else None
-                        if nota_rechazo:
-                            print(f"📋 Nota de rechazo capturada del SP: {nota_rechazo[:100]}...")
+                    nota_columns = []
+                    try:
+                        if hasattr(result.cursor, 'description') and result.cursor.description:
+                            nota_columns = [col[0] for col in result.cursor.description]
+                    except Exception:
+                        nota_columns = []
+
+                    nota_encontrada = _extraer_nota_rechazo_de_resultset(nota_rows, nota_columns)
+                    if nota_encontrada:
+                        nota_rechazo = nota_encontrada
+                        print(f"📋 Nota de rechazo capturada del SP: {nota_rechazo[:100]}...")
+                        break
         except Exception as e:
             print(f"⚠️ No se pudo capturar segundo result set (Nota): {e}")
 

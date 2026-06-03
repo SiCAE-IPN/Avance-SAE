@@ -1660,8 +1660,9 @@ let semaforoEstados = __MAT.semaforoEstados ?? [];
                     return;
                 }
                 
-                // Generar las pestañas
+                // Generar las pestañas y fijar como semestres activos solo los que realmente se validan
                 generarPestanasSemestres(semestresAMostrar);
+                semestresDisponiblesSP = [...semestresAMostrar];
                 
                 // **IMPORTANTE**: Actualizar colores de las pestañas después de regenerarlas
                 actualizarColoresPestanas();
@@ -2856,6 +2857,27 @@ let semaforoEstados = __MAT.semaforoEstados ?? [];
         return [1];
     }
 
+    function todosLosSemestresVisiblesFinalizados() {
+        const tabs = Array.from(document.querySelectorAll('.semestre-tab'));
+        if (tabs.length === 0) return false;
+
+        return tabs.every(tab => {
+            const semestreNum = parseInt(tab.getAttribute('data-semestre'), 10);
+            if (isNaN(semestreNum)) {
+                return false;
+            }
+
+            // La verdad visual debe mandar: si la pestaña no está pintada como finalizada,
+            // todavía no debe mostrarse el banner de cierre global.
+            if (tab.classList.contains('semaforo-estado-3')) {
+                return true;
+            }
+
+            const estadoVisible = parseInt(estadosSemaforoPorSemestre[semestreNum], 10);
+            return estadoVisible === 3;
+        });
+    }
+
 
     // ✅ Auto-selección robusta del primer semestre REAL (solo 1 vez por contexto Programa+Modalidad+Periodo)
     // Evita el bug donde la tabla queda vacía hasta que el usuario hace clic manual en una pestaña.
@@ -3410,8 +3432,16 @@ function updateInputsBySemestre(semestreNum) {
         const btnLimpiar = document.getElementById('btn-limpiar-formulario');
         const btnValidar = document.getElementById('btn-validar-matricula');
         const btnFinalizar = document.getElementById('btn-finalizar-captura');
+        const semestreFinalizado = parseInt(estado) === 3;
         
-        if (parseInt(estado) === 3) {
+        if (btnFinalizar) {
+            btnFinalizar.textContent = semestreFinalizado ? '✅ Semestre Finalizado' : '🎯 Finalizar Semestre';
+            btnFinalizar.title = semestreFinalizado
+                ? 'Este semestre ya fue finalizado'
+                : 'Finalizar captura del semestre actual';
+        }
+
+        if (semestreFinalizado) {
             // Bloquear todos los inputs de matrícula (incluye ambos turnos conceptualmente porque se recrean por turno)
             deshabilitarTodaLaVista();
             // Bloquear también el Total Grupos de este semestre-turno
@@ -4358,11 +4388,15 @@ function updateInputsBySemestre(semestreNum) {
                 // AUTO-AVANCE: Pasar al siguiente semestre automáticamente (solo modo normal)
                 if (!esSilencioso) {
                 console.log('🔄 Auto-avance: Verificando si hay más semestres disponibles...');
-                const semestreActualIdx = semestresDisponiblesSP.indexOf(semestreActual);
-                console.log(`📍 Índice del semestre actual: ${semestreActualIdx}, Total semestres: ${semestresDisponiblesSP.length}`);
+                const semestresActivos = obtenerSemestresDisponibles();
+                const semestreActualIdx = semestresActivos.indexOf(semestreActual);
+                const todosLosSemestresFinalizados = todosLosSemestresVisiblesFinalizados();
+                console.log(`📍 Índice del semestre actual: ${semestreActualIdx}, Total semestres: ${semestresActivos.length}`);
+                console.log(`📍 Todos los semestres finalizados: ${todosLosSemestresFinalizados}`);
+                console.log(`📍 Estados visibles actuales:`, semestresActivos.map(sem => ({ sem, estado: estadosSemaforoPorSemestre[sem] })));
                 
-                if (semestreActualIdx !== -1 && semestreActualIdx < semestresDisponiblesSP.length - 1) {
-                    const siguienteSemestre = semestresDisponiblesSP[semestreActualIdx + 1];
+                if (semestreActualIdx !== -1 && semestreActualIdx < semestresActivos.length - 1) {
+                    const siguienteSemestre = semestresActivos[semestreActualIdx + 1];
                     const siguienteSemestreNombre = semestresMap[siguienteSemestre] || `Semestre ${siguienteSemestre}`;
                     console.log(`✨ Avanzando al ${siguienteSemestreNombre}...`);
                     
@@ -4370,24 +4404,36 @@ function updateInputsBySemestre(semestreNum) {
                         seleccionarSemestre(siguienteSemestre);
                         console.log(`✅ Auto-avance completado al ${siguienteSemestreNombre}`);
                     }, 1000); // Delay más largo para que el usuario vea el mensaje de éxito del semestre
-                } else if (semestreActualIdx === semestresDisponiblesSP.length - 1) {
-                    console.log('🏁 Ya completaste el último semestre disponible');
+                } else if (semestreActualIdx === semestresActivos.length - 1) {
+                    console.log('🏁 Cierre alcanzado en el último semestre visible del programa/modalidad');
+
+                    if (!todosLosSemestresFinalizados) {
+                        console.log('🏁 Aún existen semestres pendientes en el programa/modalidad. No se muestra banner de cierre.');
+                        return;
+                    }
                     
                     // Obtener información del programa y modalidad actuales
                     const programaSelect = document.getElementById('programa');
                     const modalidadSelect = document.getElementById('modalidad');
                     const programaNombre = programaSelect?.selectedOptions[0]?.text || 'Programa actual';
                     const modalidadNombre = modalidadSelect?.selectedOptions[0]?.text || 'Modalidad actual';
+                    const tituloBanner = todosLosSemestresFinalizados
+                        ? '¡Has concluido la captura del programa!'
+                        : '¡Has finalizado el último semestre del programa!';
+                    const subtituloBanner = todosLosSemestresFinalizados
+                        ? 'Todos los semestres visibles de esta combinación ya quedaron completados.'
+                        : 'Este programa y modalidad ya no tienen más semestres visibles por validar.';
                     
                     setTimeout(() => {
                         Swal.fire({
                             icon: 'success',
+                            title: tituloBanner,
                             html: '<div style="text-align: center;">' +
-                                  '<p style="font-size: 18px; font-weight: bold; margin: 20px 0;">¡Has concluido la captura del...!</p>' +
+                                  `<p style="font-size: 18px; font-weight: bold; margin: 20px 0;">${subtituloBanner}</p>` +
                                   '<hr style="margin: 15px 0; border-color: #28a745;">' +
                                   `<p><strong>📚 Programa:</strong> ${programaNombre}</p>` +
                                   `<p><strong>🎓 Modalidad:</strong> ${modalidadNombre}</p>` +
-                                  `<p><strong>✅ Semestres completados:</strong> ${semestresDisponiblesSP.length} semestre(s)</p>` +
+                                  `<p><strong>✅ Semestres completados:</strong> ${semestresActivos.length} semestre(s)</p>` +
                                   '<hr style="margin: 15px 0; border-color: #28a745;">' +
                                   '</div>',
                             confirmButtonText: 'Entendido',
@@ -4744,12 +4790,15 @@ function updateInputsBySemestre(semestreNum) {
 
             await Swal.fire({
                 icon: semestresConError === 0 ? 'success' : 'warning',
-                title: 'Resumen de Validacion de Semestres',
+                title: semestresConError === 0 && paresCompletos === paresTotales
+                    ? '¡Has concluido la captura de la UA!'
+                    : 'Resumen de Validacion de Semestres',
                 html:
                     `<div style="text-align:left;">` +
                     `<p><strong>Semestres exitosos:</strong> ${semestresExitosos} / ${totalSemestresPlan} (${eficienciaSemestres}%)</p>` +
                     `<p><strong>Turnos exitosos:</strong> ${turnosExitosos} | <strong>Turnos con error:</strong> ${turnosConError}</p>` +
                     `<p><strong>Programas/modalidades completos:</strong> ${paresCompletos} / ${paresTotales}</p>` +
+                    `${semestresConError === 0 && paresCompletos === paresTotales ? '<p><strong>✅ Toda la UA quedó finalizada correctamente.</strong></p>' : ''}` +
                     `<div style="max-height:260px;overflow:auto;border:1px solid #ddd;border-radius:8px;">` +
                     `<table style="width:100%;border-collapse:collapse;font-size:12px;">` +
                     `<thead style="position:sticky;top:0;background:#f8f9fa;">` +
@@ -4981,6 +5030,7 @@ function updateInputsBySemestre(semestreNum) {
                 btnValidar.disabled = true;
                 btnValidar.classList.add('input-disabled');
                 btnValidar.textContent = '✅ Semestre Finalizado';
+                btnValidar.title = 'Este semestre ya fue finalizado';
             }
             
         } catch (error) {

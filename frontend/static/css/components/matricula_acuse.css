@@ -687,3 +687,66 @@ table tfoot td:last-child {
         flex: 1;
     }
 }
+
+/* ===============================================
+   ALINEACIÓN EN LÍNEA PARA HEADER (PDF WEASYPRINT)
+   =============================================== */
+.info-en-linea {
+    display: table;
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 25px;
+    font-size: 13px;
+}
+
+.info-item {
+    display: table-cell;
+    padding: 5px 10px;
+    text-align: center;
+}
+
+.info-item:last-child {
+    border-right: none;
+}
+
+.info-item strong {
+    color: #2c3e50;
+    margin-right: 4px;
+}
+
+/* ===============================================
+   SECCIÓN DE FIRMAS PARA PDF
+   =============================================== */
+.firmas-container {
+    display: table;
+    width: 100%;
+    margin-top: 50px;
+    margin-bottom: 30px;
+    page-break-inside: avoid; /* Evita que las firmas se partan entre dos páginas */
+}
+
+.firma-box {
+    display: table-cell;
+    width: 33.33%;
+    text-align: center;
+    padding: 0 15px;
+    vertical-align: bottom;
+}
+
+.firma-linea {
+    border-bottom: 1px solid #333;
+    height: 40px;
+    margin-bottom: 8px;
+}
+
+.firma-nombre {
+    font-weight: bold;
+    font-size: 12px;
+    color: #333;
+}
+
+.firma-rol {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+}

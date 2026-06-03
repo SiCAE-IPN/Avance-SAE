@@ -665,17 +665,15 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
     # Último movimiento de validación/rechazo para la UA/Periodo/Formato.
     # Si el último movimiento es validación, no debe mostrarse rechazo histórico.
     from backend.database.models.Usuario import Usuario
-    ultimo_movimiento_ua = (
-        db.query(Validacion)
-        .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
-        .filter(
-            Validacion.Id_Periodo == periodo_default_id,
-            Validacion.Id_Formato == 1,
-            Usuario.Id_Unidad_Academica == id_unidad_academica
-        )
-        .order_by(Validacion.Fecha.desc())
-        .first()
+    ultimo_movimiento_query = db.query(Validacion).filter(
+        Validacion.Id_Periodo == periodo_default_id,
+        Validacion.Id_Formato == 1,
+        Validacion.Id_Unidad_Academica == id_unidad_academica,
     )
+    if id_nivel:
+        ultimo_movimiento_query = ultimo_movimiento_query.filter(Validacion.Id_Nivel == id_nivel)
+
+    ultimo_movimiento_ua = ultimo_movimiento_query.order_by(Validacion.Fecha.desc()).first()
     rechazo_vigente_ua = bool(ultimo_movimiento_ua and int(ultimo_movimiento_ua.Validado or 0) == 0)
 
     if ultimo_movimiento_ua:
@@ -685,20 +683,18 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
     if es_capturista:
         print(f"\n🔍 Usuario es CAPTURISTA - Verificando rechazo...")
         
-        # Buscar el último rechazo en la base de datos, restringido a la UA actual
-        # Si el SP trae la nota (scoped por UA+Periodo), se usará esa; este filtro es fallback seguro
-        ultimo_rechazo = (
-            db.query(Validacion)
-            .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
-            .filter(
-                Validacion.Id_Periodo == periodo_default_id,
-                Validacion.Id_Formato == 1,  # Formato de matrícula
-                Validacion.Validado == 0,    # 0 = Rechazo
-                Usuario.Id_Unidad_Academica == id_unidad_academica
-            )
-            .order_by(Validacion.Fecha.desc())
-            .first()
+        # Buscar el último rechazo en la base de datos, restringido a la UA/Nivel/Periodo actuales.
+        # Si el SP trae la nota, se prioriza; si no, se toma la nota persistida en Validacion.
+        ultimo_rechazo_query = db.query(Validacion).filter(
+            Validacion.Id_Periodo == periodo_default_id,
+            Validacion.Id_Formato == 1,  # Formato de matrícula
+            Validacion.Validado == 0,    # 0 = Rechazo
+            Validacion.Id_Unidad_Academica == id_unidad_academica,
         )
+        if id_nivel:
+            ultimo_rechazo_query = ultimo_rechazo_query.filter(Validacion.Id_Nivel == id_nivel)
+
+        ultimo_rechazo = ultimo_rechazo_query.order_by(Validacion.Fecha.desc()).first()
         
         if ultimo_rechazo and rechazo_vigente_ua:
             print(f"✅ RECHAZO ENCONTRADO en tabla Validacion")
@@ -713,7 +709,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
                 nombre_rechazo = f"{usuario_rechazo.Nombre} {usuario_rechazo.Paterno} {usuario_rechazo.Materno}".strip()
             
             # Prioridad: usar nota del SP, si no está, usar la nota de la tabla Validacion
-            motivo_rechazo = nota_rechazo_sp if nota_rechazo_sp else (ultimo_rechazo.Nota or "Sin especificar motivo")
+            motivo_rechazo = (nota_rechazo_sp or ultimo_rechazo.Nota or "Sin especificar motivo")
             
             rechazo_info = {
                 'motivo': motivo_rechazo,
@@ -737,6 +733,17 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
             if nota_rechazo_sp:
                 print(f"⚠️  ANOMALÍA: SP retornó nota pero no hay registro en Validacion:")
                 print(f"   Nota del SP: {nota_rechazo_sp[:100]}...")
+
+        # Si el SP sí trajo una nota y todavía no hay rechazo_info, construirla de forma conservadora.
+        if nota_rechazo_sp and rechazo_info is None and rechazo_vigente_ua:
+            rechazo_info = {
+                'motivo': nota_rechazo_sp,
+                'rechazado_por': 'Sistema',
+                'fecha': ultimo_movimiento_ua.Fecha.strftime("%d/%m/%Y %H:%M") if ultimo_movimiento_ua and ultimo_movimiento_ua.Fecha else "",
+                'periodo': periodo_default_literal,
+                'unidad': unidad_actual.Nombre if unidad_actual else ""
+            }
+            print("ℹ️ Rechazo reconstruido desde la nota del SP porque no había detalle completo en Validacion.")
     else:
         print(f"✅ Usuario NO es capturista - No se verifica rechazo")
 
@@ -4265,6 +4272,30 @@ async def acuse_validacion_view(
         id_unidad_academica = ua_obj.Id_Unidad_Academica if ua_obj else 0
         id_nivel = nivel_obj.Id_Nivel if nivel_obj else 0
 
+        # === NUEVO: OBTENER RESPONSABLES DE LA UNIDAD PARA LAS FIRMAS ===        
+        # Buscamos usuarios de la unidad, con el rol específico y que estén ACTIVOS (Id_Estatus == 1)
+        capturista_obj = db.query(Usuario).filter(Usuario.Id_Unidad_Academica == id_unidad_academica, Usuario.Id_Rol == 3, Usuario.Id_Estatus == 1).first()
+        ceget_obj = db.query(Usuario).filter(Usuario.Id_Unidad_Academica == id_unidad_academica, Usuario.Id_Rol == 4, Usuario.Id_Estatus == 1).first()
+        titular_obj = db.query(Usuario).filter(Usuario.Id_Unidad_Academica == id_unidad_academica, Usuario.Id_Rol == 5, Usuario.Id_Estatus == 1).first()
+
+        def formatear_nombre(u):
+            if not u: 
+                return "No asignado"
+            # Extraemos los datos de forma segura (por si alguno es null en la base de datos)
+            nombre = getattr(u, 'Nombre', '') or ''
+            paterno = getattr(u, 'Paterno', '') or ''
+            materno = getattr(u, 'Materno', '') or ''
+            
+            # Unimos los nombres quitando los espacios vacíos
+            nombre_completo = " ".join(filter(None, [nombre.strip(), paterno.strip(), materno.strip()]))
+            
+            return nombre_completo if nombre_completo else "No asignado"
+
+        nombre_capturista = formatear_nombre(capturista_obj)
+        nombre_ceget = formatear_nombre(ceget_obj)
+        nombre_titular = formatear_nombre(titular_obj)
+        # ================================================================
+
         host = get_request_host(request)
         usuario_login = sess.usuario
         
@@ -4284,6 +4315,9 @@ async def acuse_validacion_view(
                 "puede_validar": True, "usuario_ya_valido": False, "usuario_ya_rechazo": False,
                 "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
                 "fecha_hoy": datetime.now().strftime("%d/%m/%Y"),
+                "nombre_capturista": nombre_capturista,
+                "nombre_ceget": nombre_ceget,
+                "nombre_titular": nombre_titular,
                 "error_message": "No hay datos disponibles para este acuse",
                 "session": sess
             })
@@ -4497,7 +4531,7 @@ async def acuse_validacion_pdf(
         pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
             stylesheets=[
                 weasyprint.CSS(filename=str(ruta_css)),
-                weasyprint.CSS(string='@page { size: Letter; margin: 1cm }')
+                weasyprint.CSS(string='@page { size: Letter; margin: 1cm 1cm 3.5cm 1cm }')
             ]
         )
     except Exception as e:
