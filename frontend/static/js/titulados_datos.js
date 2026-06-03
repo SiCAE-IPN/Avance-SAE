@@ -39,6 +39,36 @@ function guardarAvance() {
     
 }
 
+//Finalizar Captura
+
+function finalizarCapturaTitulados(){
+    fetch('/titulados/finalizar-titulados', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(filasTitulados)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Respuesta del servidor:', data);
+        alert('Finalizado programa modalidad correctamente');
+        
+        window.location.reload();  
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al guardar el avance, por favor intente de nuevo.');
+    });
+
+
+}
+
 function agruparPorSexo(datosFilas) {
     const grupos = {};
 

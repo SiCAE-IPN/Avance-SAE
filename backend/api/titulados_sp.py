@@ -11,6 +11,7 @@ from backend.services.titulados_service import obtener_titulados, preparar_datos
 from backend.crud.ConsultaTitulados import insertar_temp_titulados, insertar_titulados_sp
 from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo, get_ultimo_periodo
 from backend.core.auth import get_current_session
+from backend.database.models.CatPeriodo import CatPeriodo as Periodo
 from backend.database.models.Temp_Titulados import Temp_Titulados as TituladosModel
 from backend.database.models.CatUnidadAcademica import CatUnidadAcademica as Unidad_Academica
 
@@ -40,8 +41,6 @@ def valor_orden_edad(edad: str):
 router = APIRouter()
 
 @router.get("/consulta", response_class=HTMLResponse)
-
-@router.get("/consulta", response_class=HTMLResponse)
 async def consulta_titulados(
     request: Request,
     sess = Depends(get_current_session),
@@ -58,7 +57,7 @@ async def consulta_titulados(
     apellidoP_usuario = sess.apellidoP_usuario
     apellidoM_usuario = sess.apellidoM_usuario
     
-    nombre_usuario = " ".join(filter(None, [nombre, apellidoP_usuario, apellidoM_usuario]))
+    nombre_usuario = sess.usuario
     sigla_unidad_academica = sess.sigla_unidad_academica
     id_unidad_academica = int(sess.id_unidad_academica)
     nombre_nivel = sess.nombre_nivel
@@ -82,7 +81,8 @@ async def consulta_titulados(
 
     print(f"Usuario: {nombre_usuario}, Rol: {nombre_rol} (ID: {id_rol}), Unidad Académica: {unidad_academica} ({sigla_unidad_academica}), Nivel: {nombre_nivel}, Host: {host}")
     try:
-        periodo_id, periodo_literal = get_periodo_activo(db)
+        periodo_id, periodo_literal = get_periodo_anterior_al_ultimo(db)
+        periodo_id_actual, periodo_literal_actual = get_periodo_activo(db)
         if not periodo_id or not periodo_literal:
             return templates.TemplateResponse("error.html", {
                 "request": request,
@@ -92,7 +92,10 @@ async def consulta_titulados(
             })
         
         periodo_default_literal = periodo_literal
+
         print(f" Periodo por defecto: {periodo_default_literal}")
+
+
     except Exception as e:
         print(f" Error al obtener periodo: {str(e)}")
         return templates.TemplateResponse("error.html", {
@@ -126,6 +129,10 @@ async def consulta_titulados(
     es_rol_superior = (id_rol in [6, 7, 8, 9])  
     modo_vista = "captura" if es_capturista else "validacion"
 
+    periodos = []
+
+    periodos = db.query(Periodo).filter(Periodo.Id_Estatus == 1).order_by(Periodo.Id_Periodo.desc()).all()
+
     try:
         print(
             f"Obteniendo titulados para UA: {sigla_unidad_academica}, "
@@ -137,7 +144,7 @@ async def consulta_titulados(
         contexto, filas = obtener_titulados(
             db=db,
             unidad_academica=sigla_unidad_academica,
-            periodo=periodo_default_literal,
+            periodo=periodo_literal_actual,
             nivel=nombre_nivel,
             usuario=nombre_usuario,
             host=host,
@@ -189,16 +196,20 @@ async def consulta_titulados(
             {"request": request,
              "nombre_usuario": nombre_usuario,
              "periodo_default_literal": periodo_default_literal,
+             "periodos" : periodos,
              "unidad_academica" : unidad_academica_usuario,
              "nombre_rol": nombre_rol,
              "nivel_acceso" : nivel,
+             "nombre_nivel" : nombre_nivel,
              "contexto": contexto,
              "boletas": boletas,
              "filas": filas,
              "edades" : edades_ordenadas,
              "es_capturista": es_capturista,
-             "acceso_restringido" : False,
-             "session": sess}
+             "es_validador": es_validador,
+             "es_rol_superior": es_rol_superior,
+             "es_rol_director": es_rol_director,
+             "acceso_restringido" : False}
              )
 
 @router.post("/guardar-avance-titulados", response_class=JSONResponse)
@@ -253,9 +264,8 @@ def guardar_titulados(
     
     return {"status": "guardado", "total_registros": total}
 
-"""
 
-@router.post("/finalizar-captura-titulados", response_class=JSONResponse)
+"""@router.post("/finalizar-titulados", response_class=JSONResponse)
 def finalizar_captura_titulados(
     request: Request,
     datos: List[dict],
@@ -291,13 +301,10 @@ def finalizar_captura_titulados(
         #insertar en temp titulados con datos preparados
         total = insertar_temp_titulados(db, registros)
 
-        #insertar en titulados
+        # Finalizar titulados
 
-        insertar_titulados_sp(db, sigla_unidad_academica, sess.usuario, host, periodo_actual, nivel)
- 
-        # Verificar registros en 0 de titulados
+        finalizar_captura_titulados(db, periodo_actual, sigla_unidad_academica, )
 
-        insertar_titulados_sp(db, sigla_unidad_academica, sess.usuario, host, periodo_actual, nivel)
     except Exception as e:
         print(f"Error al finalizar captura de titulados: {str(e)}")
         return JSONResponse(content={"status": "error", "message": f"Error al finalizar captura: {str(e)}"}, status_code=500)
