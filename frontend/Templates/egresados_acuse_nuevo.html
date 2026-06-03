@@ -88,9 +88,9 @@
                                     <tbody>
                                         {% for fila in filas_edad_turno %}
                                             {% set edad_tot = totales_tabla2.edades[fila.edad] if totales_tabla2 is defined and totales_tabla2.edades is defined and fila.edad in totales_tabla2.edades else {'H': 0, 'M': 0, 'T': 0} %}
-                                            {% set fila.total_h = edad_tot.H %}
-                                            {% set fila.total_m = edad_tot.M %}
-                                            {% set fila.total_t = edad_tot.T %}
+                                            {% set _ = fila.update({'total_h': edad_tot.H}) %}
+                                            {% set _ = fila.update({'total_m': edad_tot.M}) %}
+                                            {% set _ = fila.update({'total_t': edad_tot.T}) %}
                                             <tr><td class="label-izq">{{ fila.edad }}</td>
                                                 <td><strong>{{ fila.total_h }}</strong></td>
                                                 <td><strong>{{ fila.total_m }}</strong></td>
