@@ -251,3 +251,36 @@ function limpiarTabla() {
         console.log('Tabla limpiada completamente');
     }
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const btnConsultar = document.getElementById('btn-ver-resumen-director');
+    const selectPeriodo = document.getElementById('select-periodo-director');
+    const selectNivel   = document.getElementById('select-nivel-director');
+
+    // Habilitar botón solo cuando ambos selects tienen valor
+    function verificarFiltros() {
+        const listo = selectPeriodo.value !== '' && selectNivel.value !== '';
+        btnConsultar.disabled = !listo;
+    }
+
+    selectPeriodo.addEventListener('change', verificarFiltros);
+    selectNivel.addEventListener('change', verificarFiltros);
+
+    // Al hacer clic, navegar al acuse de titulados
+    btnConsultar.addEventListener('click', function () {
+        const periodo = selectPeriodo.value;
+        const nivel   = selectNivel.value;
+        const unidad = document.getElementById('datos-sesion').dataset.unidad; // viene del contexto Jinja2
+
+        if (!periodo || !nivel) return;
+
+        const url = `/titulados/acuse-validacion`
+            + `?periodo=${encodeURIComponent(periodo)}`
+            + `&nivel=${encodeURIComponent(nivel)}`
+            + `&unidad=${encodeURIComponent(unidad)}`;
+
+        window.location.href = url;
+    });
+
+});

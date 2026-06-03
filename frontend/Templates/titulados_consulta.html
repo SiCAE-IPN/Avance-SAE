@@ -255,12 +255,20 @@
     <h2>Consulta de titulados</h2>
     {% endif %}
 
+    <div id="datos-sesion"
+        data-unidad="{{ sigla_unidad_academica }}"
+        data-periodo="{{ periodo_default_literal }}"
+        style="display:none;">
+    </div>
+
     {% if es_rol_director %}
     <div class="panel-filtros-superiores" id="panel-filtros-director">
         <div class="panel-header">
             <h3>🔍 Selección de Periodo y Nivel</h3>
             <p>Seleccione el <strong>Periodo</strong> y el <strong>Nivel</strong> para consultar todos los programas de su <strong>Unidad Académica</strong>.</p>
         </div>
+
+        
         
         <div class="filtros-superiores-container" style="grid-template-columns: 1fr 1fr 300px;">
             <div class="filtro-superior-item">

@@ -5,6 +5,7 @@ from backend.crud.ConsultaTitulados import get_titulados
 from typing import List, Dict, Any
 from backend.database.connection import get_db
 from backend.database.models.Temp_Titulados import Temp_Titulados
+from collections import defaultdict
 
 def obtener_titulados(
     db: Session,
@@ -117,7 +118,55 @@ def preparar_datos_temp_titulados(
             ))
 
     return registros
+
+#Acuse
+
+def _nueva_tabla() -> Dict[str, int]:
+    return {'H': 0, 'M': 0, 'T': 0}
+
+def a_lista(d: dict, orden=None) -> list[dict]:
+        items = sorted(d.items(), key=orden or (lambda x: str(x[0]).lower()))
+        return [
+            {'nombre': k, 'hombres': v['H'], 'mujeres': v['M'], 'total': v['T']}
+            for k, v in items
+        ]
+
+def procesar_titulados(filas: list[dict]) -> dict:
     
+    programa  : Dict[str, Dict[str, int]] = defaultdict(_nueva_tabla)
+    modalidad : Dict[str, Dict[str, int]] = defaultdict(_nueva_tabla)
+    boleta    : Dict[str, Dict[str, int]] = defaultdict(_nueva_tabla)
+    tipo_tit  : Dict[str, Dict[str, int]] = defaultdict(_nueva_tabla)
+    edad      : Dict[str, Dict[str, int]] = defaultdict(_nueva_tabla)
+    turno     : Dict[str, Dict[str, int]] = defaultdict(_nueva_tabla)
+
+    for row in filas:
+        sexo      = row.get('Sexo', '')
+        cantidad  = int(row.get('Titulados', 0) or 0)
+
+        grupos = [
+            (programa,  row.get('Nombre_Programa', 'Sin Programa')),
+            (modalidad, row.get('Modalidad',       'Sin Modalidad')),
+            (boleta,    str(row.get('Boleta',      'N/A'))),
+            (tipo_tit,  row.get('Tipo_Titulacion', 'Otro')),
+            (edad,      row.get('Grupo_Edad',      'N/A')),
+            (turno,     row.get('Turno',           'N/A')),
+        ]
+
+        for tabla, clave in grupos:
+            if sexo == 'Hombre': tabla[clave]['H'] += cantidad
+            elif sexo == 'Mujer': tabla[clave]['M'] += cantidad
+           
+            tabla[clave]['T'] = tabla[clave]['H'] + tabla[clave]['M']
+
+    return {
+        'tabla_programas'  : a_lista(programa),
+        'tabla_modalidades': a_lista(modalidad),
+        'tabla_boletas'    : a_lista(boleta),
+        'tabla_tipo_tit'   : a_lista(tipo_tit),
+        'tabla_edades'     : a_lista(edad),
+        'tabla_turnos'     : a_lista(turno),
+    }
     
 if __name__ == "__main__":
     with next(get_db()) as db:

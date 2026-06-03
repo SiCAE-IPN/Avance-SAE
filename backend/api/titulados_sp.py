@@ -7,7 +7,7 @@ from backend.api import unidad_academica
 from backend.database.connection import get_db
 from backend.core.templates import templates
 from backend.schemas import Nivel
-from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados
+from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados, procesar_titulados
 from backend.crud.ConsultaTitulados import insertar_temp_titulados, insertar_titulados_sp
 from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo, get_ultimo_periodo
 from backend.core.auth import get_current_session
@@ -198,6 +198,7 @@ async def consulta_titulados(
              "periodo_default_literal": periodo_default_literal,
              "periodos" : periodos,
              "unidad_academica" : unidad_academica_usuario,
+             "sigla_unidad_academica" : sigla_unidad_academica,
              "nombre_rol": nombre_rol,
              "nivel_acceso" : nivel,
              "nombre_nivel" : nombre_nivel,
@@ -310,3 +311,24 @@ def finalizar_captura_titulados(
         return JSONResponse(content={"status": "error", "message": f"Error al finalizar captura: {str(e)}"}, status_code=500)
 
     return {"status": "finalizado"}"""
+
+@router.get('/acuse-validacion')
+async def acuse_titulados_view(
+    request: Request,
+    periodo: str,
+    nivel: str,
+    unidad: str,
+    sess = Depends(get_current_session),
+    db: Session = Depends(get_db),
+    exportando_pdf: bool = False
+):
+    contexto_sp, filas = obtener_titulados(db, unidad, periodo, nivel, sess.usuario, host)
+    tablas = procesar_titulados(filas)
+
+    return templates.TemplateResponse("titulados_acuse.html", {
+        "request"       : request,
+        "periodo"       : contexto_sp.get("Periodo"),
+        "unidad"        : contexto_sp.get("Sigla"),
+        "exportando_pdf": exportando_pdf,
+        **tablas   # desempaca todas las tablas directamente
+    })
