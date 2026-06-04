@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <!-- MISMO CSS que matrícula — un solo archivo para los dos -->
+    <!-- CSS común -->
     <link rel="stylesheet" href="/static/css/components/header.css">
     <link rel="stylesheet" href="/static/css/components/tables.css">
     <link rel="stylesheet" href="/static/css/components/matricula_consulta.css">
@@ -27,37 +27,29 @@
             cursor: not-allowed !important;
         }
 
-        /* ── Scrollbar invisible en reposo, aparece al hacer hover ── */
+        /* Scrollbar invisible, aparece al hover */
         .tabla-scroll {
             overflow-x: auto;
             overflow-y: auto;
             max-height: 600px;
         }
-
-        /* La tabla se expande al contenido sin comprimirse */
         .tabla-scroll .tabla-matricula-completa {
             width: auto;
             min-width: 100%;
             table-layout: auto;
             border-collapse: collapse;
-            white-space: nowrap; /* Toda la tabla en nowrap para evitar quiebres */
+            white-space: nowrap;
         }
-
-        /* thead fijo al hacer scroll vertical */
         .tabla-scroll .tabla-matricula-completa thead {
             position: sticky;
             top: 0;
             z-index: 10;
         }
-
-        /* Scrollbar oculto por defecto — Chrome/Edge/Safari */
         .tabla-scroll::-webkit-scrollbar {
             width: 0px;
             height: 0px;
             background: transparent;
         }
-
-        /* Aparece delgado al hacer hover sobre la tabla */
         .tabla-scroll:hover::-webkit-scrollbar {
             width: 5px;
             height: 5px;
@@ -75,8 +67,6 @@
         .tabla-scroll::-webkit-scrollbar-corner {
             background: transparent;
         }
-
-        /* Firefox — oculto por defecto */
         .tabla-scroll {
             scrollbar-width: none;
         }
@@ -84,41 +74,42 @@
             scrollbar-width: thin;
             scrollbar-color: rgba(110,3,67,0.35) transparent;
         }
+
+        /* Banner de rechazo - MISMO ESTILO QUE MATRÍCULA (relativo, no fixed) */
+        #banner-rechazo {
+            position: relative;
+            top: auto;
+            left: auto;
+            right: auto;
+            margin: 0 0 20px 0;
+            z-index: 100;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        /* Ajuste del contenedor de filtros cuando hay rechazo */
+        .filtros-container.matricula-con-rechazo {
+            margin-top: 0;
+        }
+
+        /* Tamaño del badge de notificaciones */
+        .notificacion-badge {
+            font-size: 12px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+        }
+
+        /* Panel de notificaciones - igual que matrícula */
+        .panel-notificaciones {
+            z-index: 1000;
+        }
     </style>
 {% endblock %}
 
 {% block content %}
 <div class="container">
-
-    <!-- ACCESO RESTRINGIDO -->
-    {% if acceso_restringido %}
-    <div class="header-usuarios">
-        <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario }}</strong></div>
-        <form action="/mod_principal" method="get">
-            <button type="submit" class="btn-volver">Regresar</button>
-        </form>
-    </div>
-
-    <div style="display:flex; justify-content:center; align-items:center; min-height:60vh;">
-        <div style="text-align:center; max-width:600px; padding:40px; background:linear-gradient(135deg,#6e0343 0%,#6e0343 100%); border-radius:20px; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
-            <div style="font-size:80px; margin-bottom:20px;">🔒</div>
-            <h2 style="color:white; margin-bottom:20px; font-size:28px;">En proceso de Validación por: {{ nombre_rol }}</h2>
-            <p style="color:rgba(255,255,255,0.95); font-size:18px; line-height:1.6; margin-bottom:30px;">{{ mensaje_restriccion }}</p>
-            {% if estado_actual %}
-            <div style="background:rgba(255,255,255,0.2); padding:15px; border-radius:10px; margin-bottom:20px;">
-                <p style="color:white; margin:0; font-size:16px;"><strong>Estado actual:</strong> {{ estado_actual }}</p>
-            </div>
-            {% endif %}
-            <a href="/mod_principal" style="display:inline-block; padding:12px 30px; background:white; color:#6e0343; text-decoration:none; border-radius:25px; font-weight:bold; transition:all 0.3s; box-shadow:0 4px 15px rgba(0,0,0,0.2);">
-                Volver al Menú Principal
-            </a>
-        </div>
-    </div>
-
-    {% else %}
-    <!-- CONTENIDO NORMAL -->
-
-    <!-- Header — misma clase que matrícula -->
+    <!-- Header común -->
     <div class="header-usuarios">
         <div class="bienvenido">
             Bienvenido: <strong>{{ nombre_usuario }}</strong>
@@ -133,7 +124,7 @@
 
     <h2>Aprovechamiento</h2>
 
-    <!-- Notificaciones (solo cuando hay rechazo) — misma estructura que matrícula -->
+    <!-- NOTIFICACIONES (solo para capturista con rechazo) - MISMO QUE MATRÍCULA -->
     {% if rechazo_info %}
     <div class="notificaciones-container">
         <button class="btn-notificaciones" onclick="togglePanelNotificaciones()" title="Ver notificaciones">
@@ -144,10 +135,11 @@
             <span class="notificacion-badge">1</span>
         </button>
 
-        <div id="panel-notificaciones" class="panel-notificaciones" style="display:none;">
+        <!-- Panel de Notificaciones Desplegable -->
+        <div id="panel-notificaciones" class="panel-notificaciones" style="display: none;">
             <div class="panel-notificaciones-header">
                 <h4>🔔 Notificaciones</h4>
-                <button class="btn-cerrar-panel" onclick="togglePanelNotificaciones()">✕</button>
+                <button class="btn-cerrar-panel" onclick="togglePanelNotificaciones()" title="Cerrar">✕</button>
             </div>
             <div class="panel-notificaciones-body">
                 <div class="notificacion-item notificacion-rechazo">
@@ -166,17 +158,30 @@
         </div>
     </div>
 
-    <!-- Banner de rechazo — misma clase que matrícula -->
-    <div id="banner-rechazo" class="banner-rechazo" style="display:none;">
+    <!-- BANNER DE RECHAZO (visible directamente) - MISMO QUE MATRÍCULA -->
+    <div id="banner-rechazo" class="banner-rechazo">
         <div class="banner-rechazo-icon">
             <span class="icono-advertencia-grande">⚠️</span>
         </div>
-        <div style="text-align:center; color:white;">
-            <h3 style="margin:10px 0;">❌ APROVECHAMIENTO RECHAZADO — CORRECCIONES REQUERIDAS</h3>
-            <p style="margin:5px 0;"><strong>Motivo:</strong> {{ rechazo_info.motivo }}</p>
-            <p style="margin:5px 0; font-size:13px; opacity:0.85;">
-                Por: {{ rechazo_info.rechazado_por }} &nbsp;·&nbsp; {{ rechazo_info.fecha }}
-            </p>
+        <div class="banner-rechazo-content">
+            <div class="banner-rechazo-header">
+                <h3>Aprovechamiento Rechazado</h3>
+                <button class="btn-cerrar-banner" onclick="cerrarBannerRechazo()" title="Cerrar">✕</button>
+            </div>
+            <div class="banner-rechazo-body">
+                <div class="rechazo-motivo">
+                    <strong>Motivo del Rechazo:</strong>
+                    <p>{{ rechazo_info.motivo }}</p>
+                </div>
+                <div class="rechazo-meta">
+                    <span><strong>Rechazado por:</strong> {{ rechazo_info.rechazado_por }}</span>
+                    <span class="separador">•</span>
+                    <span><strong>Fecha:</strong> {{ rechazo_info.fecha }}</span>
+                </div>
+                <div class="rechazo-instrucciones">
+                    <p>Corrige el aprovechamiento y vuelve a guardar antes de finalizar el semestre.</p>
+                </div>
+            </div>
         </div>
     </div>
     {% endif %}
@@ -185,36 +190,27 @@
     <div class="alert-info">
         <strong>Información:</strong> No hay aprovechamientos disponibles para su nivel y unidad académica.
     </div>
-
     {% else %}
 
-    <!-- Filtros — misma clase que matrícula -->
-    <div class="filtros-container">
+    <!-- Filtros (igual que matrícula) -->
+    <div class="filtros-container {% if rechazo_info %}matricula-con-rechazo{% endif %}">
         <div class="filtros-row">
             <input type="hidden" id="periodo" name="periodo" value="{{ periodo_default_id }}">
-
-            <div class="filtro-item" id="programa-container">
+            <div class="filtro-item">
                 <label for="programa"><strong>Programa Académico:</strong></label>
                 <select id="programa" name="programa" required></select>
             </div>
-
-            <div class="filtro-item" id="modalidad-container">
+            <div class="filtro-item">
                 <label for="modalidad"><strong>Modalidad:</strong></label>
                 <select id="modalidad" name="modalidad" required></select>
             </div>
-
             <input type="hidden" id="semestre" name="semestre" value="1">
-            <input type="hidden" id="turno"    name="turno"    value="1">
-
-            {% if unidad_actual %}
-            <input type="hidden" id="unidad_academica" name="unidad_academica" value="{{ unidad_actual.Id_Unidad_Academica }}">
-            {% else %}
-            <input type="hidden" id="unidad_academica" name="unidad_academica" value="0">
-            {% endif %}
+            <input type="hidden" id="turno" name="turno" value="1">
+            <input type="hidden" id="unidad_academica" name="unidad_academica" value="{{ unidad_actual_id }}">
         </div>
     </div>
 
-    <!-- Leyenda semáforo — misma clase que matrícula -->
+    <!-- Leyenda semáforo -->
     <div class="semaforo-leyenda">
         <div class="leyenda-titulo">
             <span style="font-weight:600; color:#6e0343;">📊 Estado de Semestres:</span>
@@ -235,115 +231,108 @@
         </div>
     </div>
 
-    <!-- Captura — misma estructura que matrícula -->
-    <div class="captura-container">
-
-        <!-- Pestañas — misma clase que matrícula -->
+    <!-- ===================================================== -->
+    <!-- TABLA PRINCIPAL DINÁMICA DE APROVECHAMIENTO (con pestañas) -->
+    <!-- ===================================================== -->
+    <div class="captura-container" id="captura-matricula-container" style="display: none;">
+        <!-- Pestañas de semestres -->
         <div class="semestres-tabs" id="semestres-tabs"></div>
 
-        <!-- Tabla — MISMAS clases que matrícula -->
         <div class="tabla-matricula-container">
-
-            <!-- Barra de contexto semestre/programa/modalidad -->
             <div class="tabla-header"></div>
-
-            <!-- Scroll de tabla — MISMA clase que matrícula -->
             <div class="tabla-scroll">
                 <table class="tabla-matricula-completa">
                     <thead id="tabla-header"></thead>
                     <tbody id="tabla-body">
-                        <tr><td colspan="4" style="text-align:center; padding:40px; color:#666;">
-                            <div id="pantalla-carga" style="display:flex; flex-direction:column; align-items:center; gap:15px;">
-                                <div style="font-size:48px;">📊</div>
-                                <p style="margin:0; font-size:16px;">Cargando datos de aprovechamiento...</p>
-                            </div>
+                        <tr><td colspan="4" style="text-align:center; padding:40px;">
+                            <div id="pantalla-carga">Cargando datos de aprovechamiento...</div>
                         </td></tr>
                     </tbody>
                 </table>
             </div>
+        </div>
 
-        </div><!-- /tabla-matricula-container -->
-
-        <!-- Botones — misma sección que matrícula -->
         <div class="actions-section actions-after-table">
-            {% if rol == 'Capturista' %}
-            <button id="btn-guardar-matricula" type="button" class="btn-primary" onclick="guardarTablaUnificada()">
-                💾 Guardar Avance
-            </button>
-            <button id="btn-validar-matricula" type="button" class="btn-finalizar" onclick="validarCapturaSemestre()">
-                🎯 Finalizar Semestre
-            </button>
-            {% else %}
-            <!-- Roles de validación -->
-            <button id="btn-validar-semestre" type="button" class="btn btn-success" onclick="validarSemestre()"
-                {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado este aprovechamiento"{% endif %}>
-                ✅ Validar
-            </button>
-            <button id="btn-rechazar-semestre" type="button" class="btn btn-danger" onclick="rechazarSemestre()"
-                {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado este aprovechamiento"{% endif %}>
-                ❌ Rechazar
-            </button>
-
             {% if usuario_ya_valido or usuario_ya_rechazo %}
-            <div class="mensaje-validacion-previa {% if usuario_ya_valido %}validada{% else %}rechazada{% endif %}">
-                <span class="icono-info">{% if usuario_ya_valido %}✅{% else %}❌{% endif %}</span>
-                <span class="texto-info">
-                    {% if usuario_ya_valido %}Ya has <strong>validado</strong> este aprovechamiento.
-                    {% else %}Ya has <strong>rechazado</strong> este aprovechamiento.{% endif %}
-                </span>
-            </div>
-            {% endif %}
+                <!-- Mensaje de validación previa (sin botones) -->
+                <div class="mensaje-validacion-previa {% if usuario_ya_valido %}validada{% else %}rechazada{% endif %}" style="text-align:center; padding:15px;">
+                    <span class="icono-info">{% if usuario_ya_valido %}✅{% else %}❌{% endif %}</span>
+                    <span class="texto-info" style="font-size:16px; font-weight:bold;">
+                        {% if usuario_ya_valido %}Ya has <strong>finalizado</strong> este aprovechamiento.
+                        {% else %}Ya has <strong>rechazado</strong> este aprovechamiento.{% endif %}
+                    </span>
+                </div>
+            {% else %}
+                <!-- Botones normales (solo si no ha validado/rechazado) -->
+                <button id="btn-guardar-matricula" type="button" class="btn-primary" onclick="guardarTablaUnificada()">
+                    💾 Guardar Avance
+                </button>
+                <button id="btn-limpiar-formulario" type="button" class="btn-secondary" onclick="limpiarFormulario()">
+                    🧹 Limpiar Formulario
+                </button>
+                <button id="btn-validar-matricula" type="button" class="btn-finalizar" onclick="validarCapturaSemestre()">
+                    🎯 Finalizar Semestre
+                </button>
+                {% if matricula_rechazada %}
+                <button id="btn-validar-todos-semestres" type="button" class="btn-success btn-validacion-masiva" 
+                        onclick="validarTodosLosSemestres()" 
+                        style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); margin-left: 10px;">
+                    ✅✅ Validar Todos los Semestres
+                </button>
+                {% endif %}
             {% endif %}
         </div>
 
-        <!-- Panel de rechazo — misma clase que matrícula -->
-        <div id="panel-rechazo" class="panel-rechazo" style="display:none;">
-            <div class="panel-rechazo-header">
-                <h3>Rechazar Aprovechamiento</h3>
-                <button class="btn-cerrar-panel" onclick="cerrarPanelRechazo()"><span>✕</span></button>
-            </div>
-            <div class="panel-rechazo-body">
-                <div class="panel-warning">
-                    Está a punto de rechazar el aprovechamiento completo. Esta acción devolverá todos los datos al capturista para que realice las correcciones necesarias.
-                </div>
-                <div class="form-group">
-                    <label for="motivo-rechazo-panel">
-                        Motivo del Rechazo <span style="color:#8b2332;">*</span>
-                        <span class="texto-ayuda">Explique detalladamente por qué se rechaza (mínimo 10 caracteres)</span>
-                    </label>
-                    <textarea
-                        id="motivo-rechazo-panel"
-                        rows="5"
-                        maxlength="250"
-                        placeholder="Ejemplo: Los datos del Semestre 3 no coinciden con los registros oficiales. Se requiere verificación de las cifras en el turno matutino."
-                        class="textarea-motivo-rechazo"
-                        oninput="actualizarContadorPanel()"
-                    ></textarea>
-                    <div class="contador-caracteres">
-                        <span id="contador-caracteres-panel">0</span> / 250 caracteres
-                    </div>
-                </div>
-            </div>
-            <div class="panel-footer">
-                <button class="btn-cancelar" onclick="cerrarPanelRechazo()">Cancelar</button>
-                <button class="btn-confirmar-rechazo" onclick="confirmarRechazoPanel()">✅ Confirmar Rechazo</button>
-            </div>
-        </div>
+        
+    </div>
 
-    </div><!-- /captura-container -->
+  
     {% endif %}
-
-    {% endif %}{# fin acceso_restringido #}
-
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    // Datos inyectados desde el backend
     window.aprovechamientos = {{ aprovechamientos | tojson }};
-    window.inscritos        = {{ inscritos        | tojson }};
-    window.reincorporados   = {{ reincorporados   | tojson }};
-    window.rechazoInfo      = {{ rechazo_info     | tojson if rechazo_info else 'null' }};
+    window.inscritos = {{ inscritos | tojson }};
+    window.reincorporados = {{ reincorporados | tojson }};
+    window.rechazoInfo = {{ rechazo_info | tojson if rechazo_info else 'null' }};
+
+    // Funciones para el banner y notificaciones (idénticas a matrícula)
+    function cerrarBannerRechazo() {
+        const banner = document.getElementById('banner-rechazo');
+        if (banner) banner.style.display = 'none';
+    }
+
+    function togglePanelNotificaciones() {
+        const panel = document.getElementById('panel-notificaciones');
+        if (panel) {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
+    function mostrarBannerRechazo() {
+        const banner = document.getElementById('banner-rechazo');
+        if (banner) {
+            banner.style.display = 'flex';
+            const panel = document.getElementById('panel-notificaciones');
+            if (panel) panel.style.display = 'none';
+        }
+    }
+
+    function actualizarContadorPanel() {
+        const textarea = document.getElementById('motivo-rechazo-panel');
+        const contador = document.getElementById('contador-caracteres-panel');
+        if (textarea && contador) {
+            contador.textContent = textarea.value.length;
+        }
+    }
+
+    function cerrarPanelRechazo() {
+        const panel = document.getElementById('panel-rechazo');
+        if (panel) panel.style.display = 'none';
+    }
 </script>
 <script src="/static/js/aprovechamiento.js"></script>
 {% endblock %}
