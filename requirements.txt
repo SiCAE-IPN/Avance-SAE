@@ -23,6 +23,6 @@ requests==2.31.0
 SQLAlchemy==2.0.32
 uvicorn==0.22.0
 WeasyPrint==60.0
-
+xlsxwriter==3.2.9
 # Nota: WeasyPrint requiere dependencias de sistema (librerías de GTK/Pango/Cairo).
 # Instalar en Windows: siga la documentación oficial de WeasyPrint.

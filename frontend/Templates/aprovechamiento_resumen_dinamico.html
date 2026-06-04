@@ -24,7 +24,7 @@
     .tabla-titulo {
         font-size: 1.2rem;
         font-weight: bold;
-        color: #1e293b;
+        color: #ffffff;
         margin-bottom: 15px;
         border-bottom: 2px solid #e2e8f0;
         padding-bottom: 8px;
@@ -113,6 +113,17 @@
         font-weight: bold;
     }
 
+    .marca-agua {
+        position: fixed;
+        top: 40%;
+        left: 50%;
+        transform: rotate(-45deg);
+        font-size: 80px;
+        color: rgba(128, 128, 128, 0.15);
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 1000;
+    }
     @media print {
         .btn, .acciones-validacion, .panel-rechazo, .no-print { display: none !important; }
         body { margin: 0; padding: 0; background: white; }
@@ -142,6 +153,9 @@
                 <span class="header-item-value">{{ nombre_ua }}</span>
             </div>
         </div>
+        {% if exportando_pdf and no_validado %}
+            <div class="marca-agua">SIN VALIDEZ OFICIAL</div>
+        {% endif %}
 
         <div class="header-info">
             <div class="header-item">
@@ -165,7 +179,7 @@
 
         <!-- TABLA 1: PROGRAMA ACADÉMICO -->
         <div class="tabla-seccion">
-            <div class="tabla-titulo">{{ '1.' if exportando_pdf else '1️⃣ ' }}Programa Académico</div>
+            <div class="tabla-titulo" >{{ '1.' if exportando_pdf else '1️⃣ ' }}Programa Académico</div>
             <div class="tabla-wrapper">
                 <table class="tabla-dinamica" id="tbl-programa">
                     <thead>
@@ -427,20 +441,53 @@
         window.location.href = url;
     }
 
-    function exportarExcel() {
-        const wb = XLSX.utils.book_new();
-        const pc = periodo ? periodo.replace(/\//g, '-') : 'Periodo';
-        const nc = nivel   ? nivel.replace(/\s+/g, '_') : 'Nivel';
 
-        const ids = ['tbl-programa', 'tbl-semestre', 'tbl-modalidad', 'tbl-turno'];
-        const nombres = ['Programa', 'Semestre', 'Modalidad', 'Turno'];
-        ids.forEach((id, i) => {
-            const t = document.getElementById(id);
-            if (t) XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(t), nombres[i]);
-        });
+async function exportarExcel() {
+    const periodo = "{{ periodo }}";
+    const nivel   = "{{ nivel }}";
+    const unidad  = "{{ unidad }}";
+    const carrera = document.getElementById('selector-carrera')?.value || 'TODAS';
 
-        XLSX.writeFile(wb, `Aprovechamiento_4tablas_${unidad}_${nc}_${pc}.xlsx`);
+    let url = `/aprovechamiento/exportar-excel-aprovechamiento?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}`;
+    if (carrera !== 'TODAS') {
+        url += `&carrera=${encodeURIComponent(carrera)}`;
     }
+
+    // Mostrar loading
+    Swal.fire({
+        title: 'Generando archivo Excel',
+        text: 'Por favor espera, esto puede tomar unos segundos...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText);
+        }
+        const blob = await response.blob();
+        const link = document.createElement('a');
+        const objectUrl = URL.createObjectURL(blob);
+        link.href = objectUrl;
+        link.download = `Aprovechamiento_${unidad}_${nivel}_${periodo}.xlsx`;
+        link.click();
+        URL.revokeObjectURL(objectUrl);
+        Swal.close(); // Cerrar el loading
+    } catch (error) {
+        console.error(error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error al exportar',
+            text: 'Ocurrió un problema al generar el Excel. Revisa la consola o contacta a soporte.',
+        });
+    }
+}
+
 
     async function validarAprovechamiento() {
         const r = await Swal.fire({
