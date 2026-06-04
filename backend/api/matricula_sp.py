@@ -2139,13 +2139,13 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
                 periodo_id = periodo_obj.Id_Periodo
                 
                 # Eliminar registros de validación anteriores para este periodo/formato
-                validaciones_eliminadas = db.query(Validacion).filter(
-                    Validacion.Id_Periodo == periodo_id,
-                    Validacion.Id_Formato == 1  # Formato de matrícula
-                ).delete()
+                #validaciones_eliminadas = db.query(Validacion).filter(
+                #    Validacion.Id_Periodo == periodo_id,
+                #    Validacion.Id_Formato == 1  # Formato de matrícula
+                #).delete()
                 
                 db.commit()
-                print(f"✅ {validaciones_eliminadas} validaciones previas eliminadas")
+                #print(f"✅ {validaciones_eliminadas} validaciones previas eliminadas")
                 print(f"   Los validadores pueden volver a validar/rechazar")
             else:
                 print(f"⚠️  No se pudo obtener ID del periodo para limpiar validaciones")

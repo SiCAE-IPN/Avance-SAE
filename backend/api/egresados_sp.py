@@ -1816,6 +1816,11 @@ async def obtener_informe_egresados(request: Request, sess=Depends(get_current_s
         periodo_id, periodo_literal = get_ultimo_periodo(db)
         if not periodo_id or not periodo_literal:
             return {"success": False, "error": "No hay un periodo activo configurado"}
+
+        #Obetener periodo anterior al activo
+        periodo_anterior_id = int(periodo_id) - 1
+        periodo_anterior = db.query(Periodo).filter(Periodo.Id_Periodo == periodo_anterior_id).first()
+        periodo_anterior_literal = periodo_anterior.Periodo if periodo_anterior else None
         
         # Obtener información de unidad y nivel
         unidad_actual = db.query(Unidad_Academica).filter(
@@ -2189,13 +2194,13 @@ async def resumen_egresados_dinamico_view(
                 "generaciones": [],
                 "boletas_columnas": [],
                 "filas_pivot": [],
-            "modalidades_columnas": [],
-            "filas_boleta_modalidad": [],
-            "programa_counts": {},
-            "turnos_columnas": [],
-            "edades_columnas": [],
-            "filas_edad_turno": [],
-            "programa_counts_edad": {},
+                "modalidades_columnas": [],
+                "filas_boleta_modalidad": [],
+                "programa_counts": {},
+                "turnos_columnas": [],
+                "edades_columnas": [],
+                "filas_edad_turno": [],
+                "programa_counts_edad": {},
                 "total_general": {"boletas": {}, "total_h": 0, "total_m": 0, "total_t": 0},
                 "puede_validar": puede_validar,
                 "usuario_ya_valido": usuario_ya_valido,
@@ -2717,6 +2722,7 @@ async def resumen_egresados_dinamico_view(
             "id_rol": id_rol,
             "periodo": periodo,
             "periodo_id": periodo_id,
+            "periodo_anterior": periodo_anterior_literal,
             "nivel": nivel,
             "unidad": unidad,
             "datos_resumen": datos_resumen,
@@ -2756,6 +2762,7 @@ async def resumen_egresados_dinamico_view(
             "id_rol": id_rol,
             "periodo": periodo,
             "periodo_id": None,
+            "periodo_anterior": None,
             "nivel": nivel,
             "unidad": unidad,
             "datos_resumen": [],
