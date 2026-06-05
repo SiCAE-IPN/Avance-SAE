@@ -4272,30 +4272,6 @@ async def acuse_validacion_view(
         id_unidad_academica = ua_obj.Id_Unidad_Academica if ua_obj else 0
         id_nivel = nivel_obj.Id_Nivel if nivel_obj else 0
 
-        # === NUEVO: OBTENER RESPONSABLES DE LA UNIDAD PARA LAS FIRMAS ===        
-        # Buscamos usuarios de la unidad, con el rol específico y que estén ACTIVOS (Id_Estatus == 1)
-        capturista_obj = db.query(Usuario).filter(Usuario.Id_Unidad_Academica == id_unidad_academica, Usuario.Id_Rol == 3, Usuario.Id_Estatus == 1).first()
-        ceget_obj = db.query(Usuario).filter(Usuario.Id_Unidad_Academica == id_unidad_academica, Usuario.Id_Rol == 4, Usuario.Id_Estatus == 1).first()
-        titular_obj = db.query(Usuario).filter(Usuario.Id_Unidad_Academica == id_unidad_academica, Usuario.Id_Rol == 5, Usuario.Id_Estatus == 1).first()
-
-        def formatear_nombre(u):
-            if not u: 
-                return "No asignado"
-            # Extraemos los datos de forma segura (por si alguno es null en la base de datos)
-            nombre = getattr(u, 'Nombre', '') or ''
-            paterno = getattr(u, 'Paterno', '') or ''
-            materno = getattr(u, 'Materno', '') or ''
-            
-            # Unimos los nombres quitando los espacios vacíos
-            nombre_completo = " ".join(filter(None, [nombre.strip(), paterno.strip(), materno.strip()]))
-            
-            return nombre_completo if nombre_completo else "No asignado"
-
-        nombre_capturista = formatear_nombre(capturista_obj)
-        nombre_ceget = formatear_nombre(ceget_obj)
-        nombre_titular = formatear_nombre(titular_obj)
-        # ================================================================
-
         host = get_request_host(request)
         usuario_login = sess.usuario
         
@@ -4451,7 +4427,56 @@ async def acuse_validacion_view(
                 
         # Modificar el '9' para el semaforo en que se desee ya no mostrar la marca de agua en el acuse
         no_validado = estado_semaforo_actual < 9
-        
+
+        # =================================================================
+        # REPOSITORIO DE NOMBRES PARA FIRMAS (SÚPER SEGURO ANTE CUALQUIER BD)
+        # =================================================================
+        nombre_capturista = "No asignado"
+        nombre_ceget = "No asignado"
+        nombre_titular = "No asignado"
+
+        try:
+            query_usuarios = text("""
+                SELECT Id_Rol, Nombre, Paterno, Materno 
+                FROM Usuarios 
+                WHERE Id_Unidad_Academica = :id_ua 
+                  AND Id_Rol IN (3, 4, 5)
+            """)
+            
+            usuarios_registrados = db.execute(query_usuarios, {
+                "id_ua": id_unidad_academica
+            }).fetchall()
+
+            # 🔍 Imprime en tu consola cuántos usuarios encontró para esta UA
+            print(f"📢 [DEBUG FIRMAS] Se encontraron {len(usuarios_registrados)} usuarios con roles (3,4,5) para la UA ID: {id_unidad_academica}")
+
+            for usuario in usuarios_registrados:
+                # 🛠️ TRUCO MAESTRO: Convertimos todas las llaves a minúsculas.
+                # Esto soluciona para siempre si la BD responde 'Id_Rol' o 'id_rol'.
+                u_dict = {k.lower(): v for k, v in usuario._mapping.items()}
+                
+                u_rol = u_dict.get('id_rol')
+                u_nombre = u_dict.get('nombre') or ''
+                u_paterno = u_dict.get('paterno') or ''
+                u_materno = u_dict.get('materno') or ''
+
+                # Armamos el nombre completo limpiando espacios en blanco
+                partes = [str(p).strip() for p in [u_nombre, u_paterno, u_materno] if p]
+                nombre_armado = " ".join(partes).strip()
+
+                if u_rol == 3:   # 3 = Capturista
+                    nombre_capturista = nombre_armado
+                elif u_rol == 4: # 4 = CEGET
+                    nombre_ceget = nombre_armado
+                elif u_rol == 5: # 5 = Titular
+                    nombre_titular = nombre_armado
+
+            print(f"📢 [DEBUG RESULTADO] Capturista: {nombre_capturista} | CEGET: {nombre_ceget} | Titular: {nombre_titular}")
+
+        except Exception as e_firmas:
+            # Si algo truena (por ejemplo, que la tabla se llame 'usuarios' en minúsculas en tu BD), aquí lo verás
+            print(f"❌ [ERROR FIRMAS] No se pudieron cargar los nombres: {str(e_firmas)}")
+
         return templates.TemplateResponse("matricula_acuse_nuevo.html", {
             "request": request, "nombre_usuario": nombre_completo, "nombre_rol": nombre_rol, "id_rol": id_rol,
             "periodo": periodo, "nivel": nivel, "unidad": unidad,
@@ -4468,6 +4493,9 @@ async def acuse_validacion_view(
             "pendiente_validacion": pendiente_validacion,
             "no_validado": no_validado, # PASADO AL TEMPLATE
             "fecha_hoy": datetime.now().strftime("%d/%m/%Y"), # FECHA DEL SISTEMA
+            "nombre_capturista": nombre_capturista,
+            "nombre_ceget": nombre_ceget,
+            "nombre_titular": nombre_titular,
             "error_message": None,
             "session": sess
         })
@@ -4487,6 +4515,9 @@ async def acuse_validacion_view(
             "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
             "no_validado": True, # PASADO AL TEMPLATE
             "fecha_hoy": datetime.now().strftime("%d/%m/%Y"),
+            "nombre_capturista": nombre_capturista,
+            "nombre_ceget": nombre_ceget,
+            "nombre_titular": nombre_titular,
             "error_message": f"Error al procesar acuse: {str(e)}",
             "session": sess
         })
