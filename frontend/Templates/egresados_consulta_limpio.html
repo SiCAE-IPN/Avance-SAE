@@ -1847,7 +1847,7 @@
                 }
                 
                 console.log('✅ Datos guardados en Temp_Egresados');
-                /**
+                
                 await Swal.fire({
                     title: 'Datos guardados en temporal',
                     html: 'Revisa <b>Temp_Egresados</b> antes de finalizar la captura.',
@@ -1857,7 +1857,7 @@
                     showConfirmButton: false,
                     allowOutsideClick: false,
                     allowEscapeKey: false
-                });**/
+                });
             }
             
             const response = await fetch('/egresados/finalizar_captura', {

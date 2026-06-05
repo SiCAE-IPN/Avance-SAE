@@ -1222,9 +1222,8 @@ async def validar_egresados(request: Request, sess=Depends(get_current_session),
                 @PPeriodo = :periodo,
                 @UUnidad_Academica = :ua,
                 @NNivel = :nivel,
-                @UUsuario = :usuario,
+                @uusuario = :usuario,
                 @HHost = :host,
-                @semaforo = :semaforo,
                 @NNota = :nota
         """)
 
@@ -1234,7 +1233,6 @@ async def validar_egresados(request: Request, sess=Depends(get_current_session),
             'nivel': nivel_literal,
             'usuario': usuario_sp,
             'host': host_sp,
-            'semaforo': int(sem_actual) if sem_actual is not None else 0,
             'nota': nota_sp,
         })
 
@@ -1751,6 +1749,68 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
                 pass
 
             db.commit()
+
+# =========================================================================
+            # NUEVA LÓGICA AUTOMÁTICA: Verificar si todos los semáforos están en 3 (Completado)
+            # =========================================================================
+            try:
+                # 1. Extraer de forma segura el periodo actual como string puro (por si viene como tupla)
+                p_actual_str = periodo[1] if isinstance(periodo, tuple) else str(periodo)
+                
+                # Obtener el objeto del periodo actual para extraer su ID numérico
+                periodo_db = db.query(Periodo).filter(Periodo.Periodo == p_actual_str).first()
+                id_periodo_check = periodo_db.Id_Periodo if periodo_db else None
+                
+                id_unidad_check = int(sess.id_unidad_academica) if getattr(sess, 'id_unidad_academica', None) else None
+                
+                id_nivel_cookie = getattr(sess, 'id_nivel', None)
+                id_nivel_check = 0 if id_nivel_cookie in ("None", None, "") else int(id_nivel_cookie)
+
+                if id_periodo_check and id_unidad_check and id_nivel_check:
+                    # 2. Contar cuántos registros de la UA/Periodo/Nivel/Formato=3 NO están en estado 3
+                    pendientes = db.query(SemaforoSemestreUnidadAcademica).filter(
+                        SemaforoSemestreUnidadAcademica.Id_Periodo == id_periodo_check,
+                        SemaforoSemestreUnidadAcademica.Id_Unidad_Academica == id_unidad_check,
+                        SemaforoSemestreUnidadAcademica.Id_Nivel == id_nivel_check,
+                        SemaforoSemestreUnidadAcademica.Id_Formato == 3,
+                        SemaforoSemestreUnidadAcademica.Id_Semaforo != 3
+                    ).count()
+
+                    print(f"🔍 [Automatización] Semáforos pendientes por finalizar (Formato 3): {pendientes}")
+
+                    # 3. Si ya no hay pendientes (todos están en '3'), ejecutamos el SP Final
+                    if pendientes == 0:
+                        print("🎉 ¡Todos los semáforos están en 3! Ejecutando SP_Finaliza_Captura_Egresados...")
+                        
+                        # 4. Forzar que el periodo anterior sea un STRING PURO para evitar el error de TVP de pyodbc
+                        p_anterior_str = periodo_busqueda[1] if isinstance(periodo_busqueda, tuple) else str(periodo_busqueda)
+                        
+                        sql_finaliza = text("""
+                            EXEC [dbo].[SP_Finaliza_Captura_Egresados]
+                                @PPeriodo = :periodo,
+                                @UUnidad_Academica = :unidad,
+                                @MModalidad = :modalidad,
+                                @PPrograma = :programa,
+                                @UUsuario = :usuario,
+                                @HHost = :host,
+                                @NNivel = :nivel
+                        """)
+                        
+                        db.execute(sql_finaliza, {
+                            'periodo': p_anterior_str,     # Se envía el periodo ANTERIOR como un string limpio (ej: '2024-2025/2')
+                            'unidad': unidad_sigla,
+                            'modalidad': modalidad_nombre,
+                            'programa': programa_nombre,
+                            'usuario': usuario_sp,
+                            'host': host_sp,
+                            'nivel': nivel
+                        })
+                        db.commit()
+                        print(f"✅ SP_Finaliza_Captura_Egresados ejecutado con éxito usando el periodo anterior: '{p_anterior_str}'")
+            except Exception as e_check:
+                print(f"⚠️ Error en la automatización del SP final o validación de semáforos: {str(e_check)}")
+            # =========================================================================
+
         except Exception as e_exec:
             db.rollback()
             sp_error = True
@@ -1782,7 +1842,6 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
         import traceback
         traceback.print_exc()
         return {"error": f"Error al finalizar la captura: {str(e)}"}
-
 
 @router.get('/informe')
 async def obtener_informe_egresados(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
@@ -2714,6 +2773,8 @@ async def resumen_egresados_dinamico_view(
             left = col_left[i] if i < len(col_left) else None
             right = col_right[i] if i < len(col_right) else None
             tablas_filas.append((left, right))
+
+        periodo_anterior_literal = get_periodo_anterior_al_ultimo(periodo)
 
         return templates.TemplateResponse(nombre_template, {
             "request": request,
