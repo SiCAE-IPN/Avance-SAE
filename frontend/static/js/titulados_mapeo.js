@@ -13,6 +13,47 @@ function resetSelect(select, placeholder) {
     select.disabled = true;
 }
 
+// Tu función de filtrado — solo esta es nueva
+function filtrarPorSelects() {
+    const programaSeleccionado = selectPrograma.value;
+    const modalidadSeleccionada = selectModalidad.value;
+
+    const table = document.getElementById('informe-titulados-table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'))
+        .filter(row => !row.querySelector('td[colspan]'));
+
+    rows.forEach(row => {
+        const programa  = row.cells[0]?.textContent.trim();
+        const modalidad = row.cells[1]?.textContent.trim();
+
+        const coincidePrograma  = !programaSeleccionado  || programa  === programaSeleccionado;
+        const coincideModalidad = !modalidadSeleccionada || modalidad === modalidadSeleccionada;
+
+        row.style.display = (coincidePrograma && coincideModalidad) ? '' : 'none';
+    });
+
+    // Recalcular totales
+    let totalH = 0, totalM = 0;
+    rows.forEach(row => {
+        if (row.style.display === 'none') return;
+        totalH += parseInt(row.cells[6]?.textContent.trim()) || 0;
+        totalM += parseInt(row.cells[7]?.textContent.trim()) || 0;
+    });
+
+    const totalRow = document.getElementById('informe-total-row-titulados');
+    if (totalRow) {
+        if (totalH + totalM === 0) {
+            totalRow.style.display = 'none';
+        } else {
+            totalRow.style.display = '';
+            totalRow.querySelector('.total-h').textContent = totalH;
+            totalRow.querySelector('.total-m').textContent = totalM;
+            totalRow.querySelector('.total-g').textContent = totalH + totalM;
+        }
+    }
+}
+
 function llenarSelect(select, opciones) {
     opciones.forEach(opcion => {
         const opt = document.createElement('option');
@@ -58,6 +99,8 @@ selectPrograma.addEventListener('change', function() {
     if (typeof actualizarBarraTitulados === 'function') {
         actualizarBarraTitulados();
     }
+
+    filtrarPorSelects();
 });
 
 selectModalidad.addEventListener('change', function() {
@@ -89,6 +132,9 @@ selectModalidad.addEventListener('change', function() {
     if (typeof actualizarBarraTitulados === 'function') {
         actualizarBarraTitulados();
     }
+
+    filtrarPorSelects();
+
 });
 
 selectBoleta.addEventListener('change', function() {

@@ -8,14 +8,22 @@ from backend.database.connection import get_db
 from backend.core.templates import templates
 from backend.schemas import Nivel
 from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados, procesar_titulados
-from backend.crud.ConsultaTitulados import insertar_temp_titulados, insertar_titulados_sp
+from backend.crud.ConsultaTitulados import insertar_temp_titulados, insertar_titulados_sp, finalizar_captura_programa_modalidad
 from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo, get_ultimo_periodo
 from backend.core.auth import get_current_session
 from backend.database.models.CatPeriodo import CatPeriodo as Periodo
 from backend.database.models.Temp_Titulados import Temp_Titulados as TituladosModel
 from backend.database.models.CatUnidadAcademica import CatUnidadAcademica as Unidad_Academica
+from pydantic import BaseModel
+from typing import List, Optional
 
 host = "Test"
+fila = []
+
+class FinalizarTituladosRequest(BaseModel):
+    datos: Optional[List[dict]] = []
+    programa: str
+    modalidad: str
 
 def valor_orden_edad(edad: str):
     edad = edad.strip()
@@ -210,21 +218,18 @@ async def consulta_titulados(
              "es_validador": es_validador,
              "es_rol_superior": es_rol_superior,
              "es_rol_director": es_rol_director,
-             "acceso_restringido" : False}
+             "acceso_restringido" : False,
+             "session": sess}
              )
 
 @router.post("/guardar-avance-titulados", response_class=JSONResponse)
-
 def guardar_titulados(
-    request: Request,
     datos: List[dict],
     sess = Depends(get_current_session),
     db: Session = Depends(get_db)):
 
-    
     sigla_unidad_academica = sess.sigla_unidad_academica
     nivel = sess.nombre_nivel
-
 
     try:
         id_p, periodo = get_periodo_anterior_al_ultimo(db)
@@ -239,7 +244,6 @@ def guardar_titulados(
     except Exception as e:
         print(f"Error al obtener periodo activo: {str(e)}")
         return JSONResponse(content={"status": "error", "message": f"Error al obtener periodo activo: {str(e)}"}, status_code=500)
-
 
     print(f"Datos recibidos para guardar: {datos}")
 
@@ -266,19 +270,73 @@ def guardar_titulados(
     return {"status": "guardado", "total_registros": total}
 
 
-"""@router.post("/finalizar-titulados", response_class=JSONResponse)
+@router.post("/finalizar-titulados", response_class=JSONResponse)
 def finalizar_captura_titulados(
-    request: Request,
-    datos: List[dict],
-    sess = Depends(get_current_session),
-    db: Session = Depends(get_db)
+    payload: FinalizarTituladosRequest,  # ← lee todo del body JSON
+    sess=Depends(get_current_session),
+    db: Session=Depends(get_db)
 ):
-    
+    datos    = payload.datos
+    programa = payload.programa
+    modalidad = payload.modalidad
+
     sigla_unidad_academica = sess.sigla_unidad_academica
     nivel = sess.nombre_nivel
 
     try:
         id_p, periodo = get_periodo_anterior_al_ultimo(db)
+        id_p_actual, periodo_actual = get_periodo_activo(db)
+        if periodo is None:
+            return JSONResponse(
+                content={"status": "error", "message": "No se encontró un periodo activo."},
+                status_code=404
+            )
+        if periodo_actual is None:
+            return JSONResponse(
+                content={"status": "error", "message": "No se encontró un periodo activo."},
+                status_code=404
+            )
+    except Exception as e:
+        return JSONResponse(
+            content={"status": "error", "message": f"Error al obtener periodo activo: {str(e)}"},
+            status_code=500
+        )
+
+    try:
+        if datos:
+            registros = preparar_datos_temp_titulados(
+                datos=datos,
+                periodo=periodo,
+                sigla=sigla_unidad_academica,
+                nivel=nivel
+            )
+            insertar_temp_titulados(db, registros)
+
+        finalizar_captura_programa_modalidad(
+            db, periodo, sigla_unidad_academica,
+            modalidad, programa, sess.usuario, host, nivel
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"status": "error", "message": f"Error al finalizar captura: {str(e)}"},
+            status_code=500
+        )
+
+    return {"status": "finalizado"}
+
+@router.get('/acuse-validacion')
+async def acuse_titulados_view(
+    request: Request,
+    periodo: str,
+    nivel: str,
+    unidad: str,
+    sess = Depends(get_current_session),
+    db: Session = Depends(get_db),
+    exportando_pdf: bool = False
+):
+    
+    try:
+       
         id_p_actual, periodo_actual = get_periodo_activo(db)
 
         if periodo is None:
@@ -291,44 +349,29 @@ def finalizar_captura_titulados(
         print(f"Error al obtener periodo activo: {str(e)}")
         return JSONResponse(content={"status": "error", "message": f"Error al obtener periodo activo: {str(e)}"}, status_code=500)
 
-    try:
-        registros = preparar_datos_temp_titulados(
-            datos=datos,
-            periodo = periodo,
-            sigla= sigla_unidad_academica,
-            nivel= nivel
-        )
+    
+    print(f"Generando acuse para Unidad: {unidad}, Periodo: {periodo_actual}, Nivel: {nivel}, Usuario: {sess.usuario}, Host: {host}")
 
-        #insertar en temp titulados con datos preparados
-        total = insertar_temp_titulados(db, registros)
 
-        # Finalizar titulados
 
-        finalizar_captura_titulados(db, periodo_actual, sigla_unidad_academica, )
+    contexto_sp, filas = obtener_titulados(db, unidad, periodo_actual, nivel, sess.usuario, host)
+    
+    print()
+    print()
 
-    except Exception as e:
-        print(f"Error al finalizar captura de titulados: {str(e)}")
-        return JSONResponse(content={"status": "error", "message": f"Error al finalizar captura: {str(e)}"}, status_code=500)
+    print (f"Contexto SP: {contexto_sp}")
+    print (f"Filas SP: {filas}")
 
-    return {"status": "finalizado"}"""
-
-@router.get('/acuse-validacion')
-async def acuse_titulados_view(
-    request: Request,
-    periodo: str,
-    nivel: str,
-    unidad: str,
-    sess = Depends(get_current_session),
-    db: Session = Depends(get_db),
-    exportando_pdf: bool = False
-):
-    contexto_sp, filas = obtener_titulados(db, unidad, periodo, nivel, sess.usuario, host)
     tablas = procesar_titulados(filas)
+
+    print (tablas)
 
     return templates.TemplateResponse("titulados_acuse.html", {
         "request"       : request,
         "periodo"       : contexto_sp.get("Periodo"),
         "unidad"        : contexto_sp.get("Sigla"),
         "exportando_pdf": exportando_pdf,
-        **tablas   # desempaca todas las tablas directamente
+        "session": sess,
+        **tablas
+           # desempaca todas las tablas directamente
     })

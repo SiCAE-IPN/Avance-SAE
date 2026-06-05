@@ -82,20 +82,20 @@ def insertar_titulados_sp(db: Session, unidad_academica, usuario, host, periodo,
         connection.rollback()
         raise RuntimeError(f"Error al ejecutar SP_Insertar_Titulados: {e}")
 
-"""def finalizar_captura_titulados(db: Session, periodo,unidad_academica, modalidad, programa, usuario, host, nivel):
+def finalizar_captura_programa_modalidad(db: Session, periodo,unidad_academica, modalidad, programa, usuario, host, nivel):
 
     try:
         connection = db.connection().connection
         cursor = connection.cursor()
         cursor.execute(
-            Exec [dbo].[SP_Actualiza_Titulados_Por_Semestre_AU] 
+            """Exec [dbo].[SP_Actualiza_Titulados_Por_Semestre_AU] 
                     @PPeriodo = ?
                     , @UUnidad_Academica = ?
                     , @MModalidad = ?
                     , @PPrograma = ?
                     , @UUsuario = ?
                     , @HHost = ?
-                    , @NNivel = ?
+                    , @NNivel = ? """
             , (periodo, unidad_academica, modalidad, programa, usuario, host, nivel))
 
         connection.commit()
@@ -104,7 +104,7 @@ def insertar_titulados_sp(db: Session, unidad_academica, usuario, host, periodo,
     except Exception as e:
         connection.rollback()
         raise RuntimeError(f"Error al ejecutar SP_Finalizar_Captura {e}")
-"""
+
 
 if __name__ == "__main__":
     inicio = time.time()

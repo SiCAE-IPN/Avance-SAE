@@ -757,60 +757,71 @@ const label = document.createElement('span');
         Swal.close();
     }
 
-    function abrirModalProgresoCircular(totalSemestres) {
-        const totalSeguro = Math.max(1, parseInt(totalSemestres, 10) || 1);
-        const radius = 56;
-        const circumference = 2 * Math.PI * radius;
+        // ==========================================
+        // Modal de progreso circular (versión robusta)
+        // ==========================================
+        let modalProgreso = null;
 
-        Swal.fire({
-            title: 'Validacion en Curso',
-            html:
-                '<div style="display:flex;flex-direction:column;align-items:center;gap:10px;">' +
-                '  <div style="position:relative;width:150px;height:150px;">' +
-                `    <svg width="150" height="150" viewBox="0 0 150 150">` +
-                '      <circle cx="75" cy="75" r="56" stroke="#e9ecef" stroke-width="10" fill="none"></circle>' +
-                `      <circle id="mv-progress-circle" cx="75" cy="75" r="56" stroke="#28a745" stroke-width="10" fill="none" stroke-linecap="round" transform="rotate(-90 75 75)" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference}"></circle>` +
-                '    </svg>' +
-                '    <div id="mv-progress-percent" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#2f3a45;">0%</div>' +
-                '  </div>' +
-                '  <div id="mv-progress-title" style="font-weight:700;color:#2f3a45;">Preparando plan de validacion...</div>' +
-                '  <div id="mv-progress-detail" style="font-size:13px;color:#5f6b77;">0 de ' + totalSeguro + ' semestres</div>' +
-                '</div>',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            showConfirmButton: false,
-            width: '520px'
-        });
-    }
-
-    function actualizarModalProgresoCircular(completados, total, titulo, detalle) {
-        const totalSeguro = Math.max(1, parseInt(total, 10) || 1);
-        const done = Math.max(0, Math.min(totalSeguro, parseInt(completados, 10) || 0));
-        const percent = Math.round((done / totalSeguro) * 100);
-
-        const circle = document.getElementById('mv-progress-circle');
-        const percentEl = document.getElementById('mv-progress-percent');
-        const titleEl = document.getElementById('mv-progress-title');
-        const detailEl = document.getElementById('mv-progress-detail');
-
-        if (circle) {
-            const radius = 56;
-            const circumference = 2 * Math.PI * radius;
-            const offset = circumference - (percent / 100) * circumference;
-            circle.style.strokeDasharray = String(circumference);
-            circle.style.strokeDashoffset = String(offset);
+        function abrirModalProgresoCircular(total) {
+            if (modalProgreso) {
+                modalProgreso.close();
+                modalProgreso = null;
+            }
+            Swal.fire({
+                title: 'Validando todos los semestres...',
+                html: `
+                    <div style="position: relative; width: 150px; height: 150px; margin: 0 auto;">
+                        <svg viewBox="0 0 120 120" style="transform: rotate(-90deg); width: 100%; height: 100%;">
+                            <circle cx="60" cy="60" r="54" fill="none" stroke="#e0e0e0" stroke-width="8" />
+                            <circle cx="60" cy="60" r="54" fill="none" stroke="#6e0343" stroke-width="8"
+                                    stroke-dasharray="339.292" stroke-dashoffset="339.292"
+                                    class="progress-ring__circle" />
+                        </svg>
+                        <div id="progreso-porcentaje-modal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 28px; font-weight: bold; color: #6e0343;">0%</div>
+                    </div>
+                    <div id="progreso-texto-modal" style="margin-top: 20px; font-size: 14px; color: #555; text-align: center;">Preparando...</div>
+                    <div id="progreso-detalle-modal" style="margin-top: 8px; font-size: 12px; color: #999; text-align: center;">0 / 0</div>
+                `,
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    modalProgreso = Swal.getPopup();
+                    const circle = modalProgreso.querySelector('.progress-ring__circle');
+                    if (circle) {
+                        const radius = 54;
+                        const circumference = radius * 2 * Math.PI;
+                        circle.style.strokeDasharray = `${circumference} ${circumference}`;
+                        circle.style.strokeDashoffset = circumference;
+                        window.progressCircumference = circumference;
+                    } else {
+                        window.progressCircumference = 339.292; // fallback
+                    }
+                }
+            });
         }
 
-        if (percentEl) percentEl.textContent = `${percent}%`;
-        if (titleEl && titulo) titleEl.textContent = titulo;
-        if (detailEl) detailEl.textContent = detalle || `${done} de ${totalSeguro} semestres`;
-    }
-
-    function cerrarModalProgresoCircular() {
-        if (Swal.isVisible()) {
-            Swal.close();
+        function actualizarModalProgresoCircular(actual, total, texto, detalle) {
+            if (!modalProgreso) return;
+            const percent = Math.round((actual / total) * 100);
+            const circle = modalProgreso.querySelector('.progress-ring__circle');
+            if (circle && window.progressCircumference) {
+                const offset = window.progressCircumference - (percent / 100) * window.progressCircumference;
+                circle.style.strokeDashoffset = offset;
+            }
+            const porcentajeSpan = modalProgreso.querySelector('#progreso-porcentaje-modal');
+            if (porcentajeSpan) porcentajeSpan.innerText = `${percent}%`;
+            const textoDiv = modalProgreso.querySelector('#progreso-texto-modal');
+            if (textoDiv) textoDiv.innerText = texto;
+            const detalleDiv = modalProgreso.querySelector('#progreso-detalle-modal');
+            if (detalleDiv) detalleDiv.innerText = detalle;
         }
-    }
+
+        function cerrarModalProgresoCircular() {
+            if (modalProgreso) {
+                Swal.close();
+                modalProgreso = null;
+            }
+        }
     
     function verificarSiPuedeContinuar() {
         if (spEnEjecucion || interfazBloqueada) {
@@ -4506,13 +4517,18 @@ function updateInputsBySemestre(semestreNum) {
     }
     
     // ===== VALIDACIÓN MASIVA DE TODOS LOS SEMESTRES (solo cuando hay rechazo) =====
-    async function validarTodosLosSemestres() {
+    window.validarTodosLosSemestres = async function () {
+        if (validacionMasivaEnCurso) {
+            Swal.fire({ icon: 'info', title: 'En proceso', text: 'Ya hay una validación masiva en curso.' });
+            return;
+        }
+
         const confirmacion = await Swal.fire({
-            title: 'Validacion masiva de UA',
-            html: '<p><strong>Se validaran todos los programas, modalidades, semestres y turnos de la UA.</strong></p>',
+            title: 'Validación masiva de Aprovechamiento',
+            html: '<p><strong>Se validarán TODOS los semestres pendientes.</strong><br>Los campos vacíos se rellenarán automáticamente con <strong>ceros</strong>.<br>Se verificará que los totales de matrícula y aprovechamiento coincidan.</p>',
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Si, continuar',
+            confirmButtonText: 'Sí, continuar',
             cancelButtonText: 'Cancelar',
             confirmButtonColor: '#28a745',
             cancelButtonColor: '#dc3545'
@@ -4520,15 +4536,28 @@ function updateInputsBySemestre(semestreNum) {
 
         if (!confirmacion.isConfirmed) return;
 
-        const periodo = document.getElementById('periodo')?.value;
+        const periodo = document.getElementById('periodo-texto')?.textContent.trim() || '';
         if (!periodo) {
             await Swal.fire({ icon: 'warning', title: 'Periodo faltante', text: 'No se pudo obtener el periodo.' });
             return;
         }
 
-        const todosLosProgramas = Array.isArray(window.__MAT?.programas) ? window.__MAT.programas : [];
+        // Obtener todos los programas y modalidades únicos
+        const progSet = new Set();
+        const progModMap = new Map();
+        (window.aprovechamientos || []).forEach(item => {
+            const prog = item.Nombre_Programa;
+            const mod = item.Modalidad;
+            if (prog && mod) {
+                progSet.add(prog);
+                if (!progModMap.has(prog)) progModMap.set(prog, new Set());
+                progModMap.get(prog).add(mod);
+            }
+        });
+        const todosLosProgramas = Array.from(progSet).map(p => ({ Nombre_Programa: p }));
+
         if (todosLosProgramas.length === 0) {
-            await Swal.fire({ icon: 'warning', title: 'Sin programas', text: 'No hay programas disponibles para esta UA.' });
+            await Swal.fire({ icon: 'warning', title: 'Sin programas', text: 'No hay programas disponibles.' });
             return;
         }
 
@@ -4551,104 +4580,183 @@ function updateInputsBySemestre(semestreNum) {
             textoBoton: btnValidarTodos.textContent
         };
 
-        const plan = [];
-        const resumen = [];
+        // Estructuras
+        const plan = [];          // semestres pendientes (estado != 3)
+        const resumen = [];       // para estadísticas
         let totalSemestresPlan = 0;
+        let semestresYaCompletos = 0;
         let semestresProcesados = 0;
         let semestresExitosos = 0;
         let semestresConError = 0;
-        let turnosExitosos = 0;
-        let turnosConError = 0;
+        let semestresErrorTotales = 0;  // por totales no coincidentes
+        let turnosRellenados = 0;
 
         btnValidarTodos.disabled = true;
         validacionMasivaEnCurso = true;
 
         try {
-            // 1) Construir plan completo de trabajo (programa/modalidad/semestres)
-            for (const programaItem of todosLosProgramas) {
-                const programaId = String(programaItem.Id_Programa);
-                const programaNombre = programaItem.Nombre_Programa || `Programa ${programaId}`;
-                const modalidadesRaw = window.__MAT?.programaAModalidades?.[programaId] || window.__MAT?.programaAModalidades?.[programaItem.Id_Programa] || [];
+            // 1. Construir plan (solo semestres con semáforo != 3)
+            for (const progItem of todosLosProgramas) {
+                const programaNombre = progItem.Nombre_Programa;
+                const modalidades = Array.from(progModMap.get(programaNombre) || []);
 
-                if (!Array.isArray(modalidadesRaw) || modalidadesRaw.length === 0) {
+                if (modalidades.length === 0) {
                     resumen.push({
                         programaNombre,
                         modalidadNombre: 'Sin modalidad',
                         semestresTotal: 0,
                         semestresOk: 0,
+                        semestresCompletos: 0,
                         semestresError: 0,
-                        turnosOk: 0,
-                        turnosError: 0,
                         observaciones: ['Sin modalidades configuradas']
                     });
                     continue;
                 }
 
-                for (const modalidadItem of modalidadesRaw) {
-                    const modalidadId = String(
-                        typeof modalidadItem === 'object'
-                            ? (modalidadItem.Id_Modalidad ?? modalidadItem.id ?? modalidadItem.Id)
-                            : modalidadItem
-                    );
-                    const modalidadNombre =
-                        typeof modalidadItem === 'object'
-                            ? (modalidadItem.Nombre_Modalidad ?? modalidadItem.Modalidad ?? modalidadItem.nombre ?? `Modalidad ${modalidadId}`)
-                            : `Modalidad ${modalidadId}`;
-
-                    programaSelect.value = programaId;
-                    filtrarModalidadesPorPrograma();
-                    modalidadSelect.value = modalidadId;
-                    semestreInput.value = '1';
-                    await cargarDatosExistentes();
-
-                    const semestres = Array.isArray(semestresDisponiblesSP) ? [...new Set(semestresDisponiblesSP)] : [];
-
-                    plan.push({
-                        programaId,
-                        programaNombre,
-                        modalidadId,
-                        modalidadNombre,
-                        semestres
+                for (const modalidadNombre of modalidades) {
+                    // Obtener semestres para esta combinación
+                    const semSet = new Set();
+                    (window.aprovechamientos || []).forEach(item => {
+                        if (item.Nombre_Programa === programaNombre && item.Modalidad === modalidadNombre) {
+                            const sem = normalizarSemestre(item.Semestre || item.semestre);
+                            if (!isNaN(sem) && sem > 0) semSet.add(sem);
+                        }
                     });
-
+                    let semestres = Array.from(semSet).sort((a,b)=>a-b);
+                    
+                    // Obtener estados de semáforo
+                    procesarEstadosSemaforoAprovechamiento(programaNombre, modalidadNombre);
+                    const semestresPendientes = [];
+                    let completosCombo = 0;
+                    for (const sem of semestres) {
+                        const estado = estadosSemaforoPorSemestre[sem] ?? 1;
+                        if (estado === 3) {
+                            completosCombo++;
+                            semestresYaCompletos++;
+                        } else {
+                            semestresPendientes.push(sem);
+                        }
+                    }
+                    plan.push({
+                        programaNombre,
+                        modalidadNombre,
+                        semestres: semestresPendientes
+                    });
                     resumen.push({
                         programaNombre,
                         modalidadNombre,
                         semestresTotal: semestres.length,
                         semestresOk: 0,
+                        semestresCompletos: completosCombo,
                         semestresError: 0,
-                        turnosOk: 0,
-                        turnosError: 0,
-                        observaciones: semestres.length === 0 ? ['Sin semestres detectados'] : []
+                        observaciones: []
                     });
-
-                    totalSemestresPlan += semestres.length;
+                    totalSemestresPlan += semestresPendientes.length;
                 }
             }
 
             if (totalSemestresPlan === 0) {
                 await Swal.fire({
-                    icon: 'warning',
-                    title: 'Sin semestres para validar',
-                    text: 'No se detectaron semestres en programas/modalidades de la UA.'
+                    icon: 'info',
+                    title: 'Sin semestres pendientes',
+                    html: `Ya hay ${semestresYaCompletos} semestre(s) completamente validados.<br>No hay semestres por procesar.`
                 });
                 return;
             }
 
-            // 2) Abrir un unico modal de progreso circular
             abrirModalProgresoCircular(totalSemestresPlan);
-            actualizarModalProgresoCircular(0, totalSemestresPlan, 'Iniciando validacion masiva...', `0 de ${totalSemestresPlan} semestres`);
+            actualizarModalProgresoCircular(0, totalSemestresPlan, 'Iniciando validación masiva...', `0 de ${totalSemestresPlan} semestres`);
 
-            // 3) Ejecutar plan
+            // 🔍 Función para verificar totales de matrícula vs aprovechamiento
+            function verificarTotalesSemestre() {
+                let sumaMatriculaH = 0, sumaMatriculaM = 0;
+                let sumaAprovH = 0, sumaAprovM = 0;
+                
+                // Sumar matrícula (filas .fila-matricula: Inscritos + Reincorporados)
+                document.querySelectorAll('.fila-matricula input').forEach(input => {
+                    const val = parseInt(input.value) || 0;
+                    const sexo = input.dataset.sexo;
+                    if (sexo === 'Hombre') sumaMatriculaH += val;
+                    else if (sexo === 'Mujer') sumaMatriculaM += val;
+                });
+                
+                // Sumar aprovechamiento (filas .fila-aprovechamiento: Aprobado, Reprobado, Desertor)
+                document.querySelectorAll('.fila-aprovechamiento input').forEach(input => {
+                    const val = parseInt(input.value) || 0;
+                    const sexo = input.dataset.sexo;
+                    if (sexo === 'Hombre') sumaAprovH += val;
+                    else if (sexo === 'Mujer') sumaAprovM += val;
+                });
+                
+                return {
+                    coincide: (sumaMatriculaH === sumaAprovH && sumaMatriculaM === sumaAprovM),
+                    matriculaH: sumaMatriculaH,
+                    matriculaM: sumaMatriculaM,
+                    aprovH: sumaAprovH,
+                    aprovM: sumaAprovM
+                };
+            }
+
+            // Funciones auxiliares (guardar y finalizar)
+            async function guardarSemestreSilencioso(programa, modalidad, semestreNum) {
+                const inputs = document.querySelectorAll('#tabla-body input.input-matricula-nueva');
+                const cambiosTemp = {};
+                inputs.forEach(input => {
+                    let val = input.value.trim();
+                    if (val === '' || val === null || val === undefined) {
+                        val = '0';
+                        input.value = '0';
+                        turnosRellenados++;
+                    }
+                    const numVal = parseInt(val) || 0;
+                    const key = `${semestreNum}|${input.dataset.tipo}|${input.dataset.turno}|${input.dataset.sexo}`;
+                    cambiosTemp[key] = numVal;
+                    cambiosGlobales[key] = numVal;
+                });
+                const claves = Object.keys(cambiosTemp);
+                if (claves.length === 0) return;
+                const datos = prepararDatosParaEnvio(claves);
+                if (datos.length === 0) return;
+                const res = await fetch('/aprovechamiento/guardar_progreso_aprovechamiento', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos)
+                });
+                if (!res.ok) throw new Error('Error guardando progreso');
+                actualizarMemoriaLocalConCambios(datos);
+            }
+
+            async function finalizarSemestreSilencioso(programa, modalidad, semestreNum) {
+                const semestreTexto = semestreNumeroATexto(semestreNum);
+                const periodoVal = document.getElementById('periodo-texto')?.textContent.trim() || '';
+                let rama = '', sigla = '', nivel = 'Superior';
+                const fuentes = [window.aprovechamientos, window.inscritos, window.reincorporados];
+                for (const fuente of fuentes) {
+                    if (fuente?.length) {
+                        const r = fuente.find(reg => String(reg.Nombre_Programa || reg.nombre_programa || '').trim().toUpperCase() === programa.toUpperCase());
+                        if (r) { rama = r.Nombre_Rama || r.Rama || r.rama || ''; sigla = r.Sigla || r.sigla || ''; nivel = r.Nivel || r.nivel || 'Superior'; break; }
+                    }
+                }
+                const res = await fetch('/aprovechamiento/finalizar_captura_semestre', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        programa, modalidad, semestre: semestreTexto, periodo: periodoVal,
+                        rama, Nombre_Rama: rama, sigla, nivel
+                    })
+                });
+                if (!res.ok) throw new Error(await res.text());
+                estadosSemaforoPorSemestre[semestreNum] = 3;
+            }
+
+            // 2. Ejecutar plan (solo semestres pendientes)
             for (const item of plan) {
                 const resumenItem = resumen.find(r => r.programaNombre === item.programaNombre && r.modalidadNombre === item.modalidadNombre);
-                if (!item.semestres || item.semestres.length === 0) {
-                    continue;
-                }
+                if (!item.semestres.length) continue;
 
-                programaSelect.value = item.programaId;
-                filtrarModalidadesPorPrograma();
-                modalidadSelect.value = item.modalidadId;
+                programaSelect.value = item.programaNombre;
+                const changeEvent = new Event('change', { bubbles: true });
+                programaSelect.dispatchEvent(changeEvent);
+                await new Promise(r => setTimeout(r, 300));
+                modalidadSelect.value = item.modalidadNombre;
+                await new Promise(r => setTimeout(r, 300));
 
                 for (const semestreId of item.semestres) {
                     actualizarModalProgresoCircular(
@@ -4660,126 +4768,48 @@ function updateInputsBySemestre(semestreNum) {
 
                     try {
                         semestreInput.value = String(semestreId);
-                        await cargarDatosExistentes();
+                        await new Promise((resolve) => {
+                            window.cargarTablaAprovechamiento(item.programaNombre, item.modalidadNombre, semestreId);
+                            setTimeout(resolve, 500);
+                        });
 
-                        const turnos = Array.isArray(turnosDisponibles) ? [...turnosDisponibles] : [];
-                        if (turnos.length === 0) {
+                        // Esperar turnos
+                        let espera = 0;
+                        while (!window.turnosActualesPantalla && espera < 20) {
+                            await new Promise(r => setTimeout(r, 100));
+                            espera++;
+                        }
+                        
+                        // Guardar (rellena ceros)
+                        await guardarSemestreSilencioso(item.programaNombre, item.modalidadNombre, semestreId);
+                        
+                        // ✅ VERIFICAR TOTALES
+                        const { coincide, matriculaH, matriculaM, aprovH, aprovM } = verificarTotalesSemestre();
+                        if (!coincide) {
+                            const errorMsg = `Totales no coinciden: Matrícula H=${matriculaH} M=${matriculaM} | Aprov H=${aprovH} M=${aprovM}`;
+                            console.warn(`❌ Semestre ${semestreId} (${item.programaNombre}/${item.modalidadNombre}): ${errorMsg}`);
                             semestresConError++;
+                            semestresErrorTotales++;
                             if (resumenItem) {
                                 resumenItem.semestresError++;
-                                resumenItem.observaciones.push(`Semestre ${semestreId}: sin turnos`);
+                                resumenItem.observaciones.push(`Semestre ${semestreId}: ${errorMsg}`);
                             }
+                            // No se finaliza este semestre
                             semestresProcesados++;
                             continue;
                         }
-
-                        let turnosOkSemestre = 0;
-                        let turnosErrorSemestre = 0;
-
-                        for (let j = 0; j < turnos.length; j++) {
-                            const turno = turnos[j];
-                            const turnoId = parseInt(turno.Id_Turno, 10);
-
-                            try {
-                                turnoInput.value = String(turnoId);
-                                turnoActualIndex = j;
-                                await cargarDatosExistentes();
-
-                                const inputs = document.querySelectorAll('input.input-matricula-nueva');
-                                inputs.forEach(input => {
-                                    if (!input.disabled && (!input.value || input.value.trim() === '')) {
-                                        input.value = '0';
-                                    }
-                                });
-
-                                const totalGrupos = totalGruposPorSemestre[semestreId] || 0;
-                                const payload = {
-                                    periodo,
-                                    programa: item.programaId,
-                                    semestre: semestreId,
-                                    modalidad: item.modalidadId,
-                                    turno: turnoId,
-                                    total_grupos: totalGrupos,
-                                    datos_matricula: {}
-                                };
-
-                                inputs.forEach(input => {
-                                    if (input.dataset.grupoEdad && input.dataset.tipoIngreso && input.dataset.semestre) {
-                                        const key = `${input.dataset.grupoEdad}_${input.dataset.tipoIngreso}_${input.dataset.semestre}`;
-                                        payload.datos_matricula[key] = parseInt(input.value, 10) || 0;
-                                    }
-                                });
-
-                                const saveResponse = await fetch('/matricula/guardar', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(payload)
-                                });
-                                const saveResult = await saveResponse.json();
-                                if (saveResult.error) throw new Error(saveResult.error);
-
-                                const updateResponse = await fetch('/matricula/actualizar', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ periodo, total_grupos: totalGrupos })
-                                });
-                                const updateResult = await updateResponse.json();
-                                if (updateResult.error) throw new Error(updateResult.error);
-
-                                const prepararResponse = await fetch('/matricula/preparar_turno', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        periodo,
-                                        programa: item.programaId,
-                                        modalidad: item.modalidadId,
-                                        semestre: semestreId,
-                                        turno: turnoId,
-                                        total_grupos: totalGrupos
-                                    })
-                                });
-                                const prepararResult = await prepararResponse.json();
-                                if (prepararResult.error) throw new Error(prepararResult.error);
-
-                                marcarTurnoComoValidado(semestreId, turnoId);
-                                turnosOkSemestre++;
-                                turnosExitosos++;
-                            } catch (turnoError) {
-                                console.error('Error de turno en validacion masiva:', turnoError);
-                                turnosErrorSemestre++;
-                                turnosConError++;
-                            }
-                        }
-
-                        if (resumenItem) {
-                            resumenItem.turnosOk += turnosOkSemestre;
-                            resumenItem.turnosError += turnosErrorSemestre;
-                        }
-
-                        if (turnosErrorSemestre === 0 && todosTurnosValidados(semestreId)) {
-                            await ejecutarSPFinalSemestre(
-                                semestreId,
-                                periodo,
-                                item.programaId,
-                                item.modalidadId,
-                                semestreId,
-                                { silencioso: true }
-                            );
-                            semestresExitosos++;
-                            if (resumenItem) resumenItem.semestresOk++;
-                        } else {
-                            semestresConError++;
-                            if (resumenItem) {
-                                resumenItem.semestresError++;
-                                resumenItem.observaciones.push(`Semestre ${semestreId}: turnos con error o validacion incompleta`);
-                            }
-                        }
+                        
+                        // Si los totales coinciden, finalizar
+                        await finalizarSemestreSilencioso(item.programaNombre, item.modalidadNombre, semestreId);
+                        semestresExitosos++;
+                        if (resumenItem) resumenItem.semestresOk++;
+                        
                     } catch (semError) {
-                        console.error('Error de semestre en validacion masiva:', semError);
+                        console.error('Error en semestre:', semError);
                         semestresConError++;
                         if (resumenItem) {
                             resumenItem.semestresError++;
-                            resumenItem.observaciones.push(`Semestre ${semestreId}: ${semError.message || 'error inesperado'}`);
+                            resumenItem.observaciones.push(`Semestre ${semestreId}: ${semError.message}`);
                         }
                     } finally {
                         semestresProcesados++;
@@ -4793,29 +4823,43 @@ function updateInputsBySemestre(semestreNum) {
                 }
             }
 
-            // 4) Cerrar modal de progreso y mostrar resumen estrategico
             cerrarModalProgresoCircular();
 
-            const eficienciaSemestres = Math.round((semestresExitosos / totalSemestresPlan) * 100);
-            const paresTotales = resumen.length;
-            const paresCompletos = resumen.filter(r => r.semestresTotal > 0 && r.semestresError === 0 && r.semestresOk === r.semestresTotal).length;
+            // Mostrar resumen final (similar al de matrícula)
+            const eficiencia = totalSemestresPlan > 0 ? Math.round((semestresExitosos / totalSemestresPlan) * 100) : 0;
+            const totalCombos = resumen.length;
+            const combosCompletos = resumen.filter(r => r.semestresTotal > 0 && r.semestresError === 0 && r.semestresOk === (r.semestresTotal - r.semestresCompletos)).length;
 
             const filasResumen = resumen.map(r => {
-                const estado = (r.semestresTotal > 0 && r.semestresError === 0 && r.semestresOk === r.semestresTotal)
+                const estado = (r.semestresTotal > 0 && r.semestresError === 0 && r.semestresOk === (r.semestresTotal - r.semestresCompletos))
                     ? 'Completado'
                     : (r.semestresOk > 0 ? 'Parcial' : 'Pendiente/Error');
-
-                const obs = r.observaciones.length > 0 ? r.observaciones.slice(0, 2).join('; ') : '-';
+                const obs = r.observaciones.slice(0,2).join('; ') || '-';
                 return `<tr>
                     <td style="padding:6px;border-bottom:1px solid #eee;">${r.programaNombre}</td>
                     <td style="padding:6px;border-bottom:1px solid #eee;">${r.modalidadNombre}</td>
-                    <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${r.semestresOk}/${r.semestresTotal}</td>
-                    <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${r.turnosOk}</td>
-                    <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${r.turnosError}</td>
-                    <td style="padding:6px;border-bottom:1px solid #eee;">${estado}</td>
+                    <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${r.semestresOk}/${r.semestresTotal - r.semestresCompletos} (${r.semestresCompletos} ya completos)</td>
+                    <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${estado}</td>
                     <td style="padding:6px;border-bottom:1px solid #eee;max-width:260px;">${obs}</td>
                 </tr>`;
             }).join('');
+
+            let htmlResumen = `<div style="text-align:left;">
+                <p><strong>Semestres procesados exitosamente:</strong> ${semestresExitosos} / ${totalSemestresPlan} (${eficiencia}%)</p>
+                <p><strong>Semestres ya validados (omitidos):</strong> ${semestresYaCompletos}</p>
+                <p><strong>Campos rellenados con cero:</strong> ${turnosRellenados}</p>`;
+            if (semestresErrorTotales > 0) {
+                htmlResumen += `<p style="color:#dc3545;"><strong>Semestres con error por totales no coincidentes:</strong> ${semestresErrorTotales}</p>`;
+            }
+            if (semestresConError - semestresErrorTotales > 0) {
+                htmlResumen += `<p style="color:#dc3545;"><strong>Otros errores:</strong> ${semestresConError - semestresErrorTotales}</p>`;
+            }
+            htmlResumen += `<div style="max-height:260px;overflow:auto;border:1px solid #ddd;border-radius:8px;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead><tr><th>Programa</th><th>Modalidad</th><th>Semestres</th><th>Estado</th><th>Observaciones</th></tr></thead>
+                    <tbody>${filasResumen}</tbody>
+                </table>
+            </div></div>`;
 
             await Swal.fire({
                 icon: semestresConError === 0 ? 'success' : 'warning',
@@ -4845,28 +4889,28 @@ function updateInputsBySemestre(semestreNum) {
             });
 
             actualizarColoresPestanas();
+            guardarEstadoYRecargar();
         } catch (error) {
             cerrarModalProgresoCircular();
-            console.error('Error en validacion masiva:', error);
-            await Swal.fire({ icon: 'error', title: 'Error en validacion masiva', text: error.message || 'Error inesperado' });
+            console.error('Error en validación masiva:', error);
+            await Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'Error inesperado' });
         } finally {
             validacionMasivaEnCurso = false;
-            spEnEjecucion = false;
-            interfazBloqueada = false;
-
+            // Restaurar filtros originales
             programaSelect.value = estadoOriginal.programa;
-            if (programaSelect.value) {
-                filtrarModalidadesPorPrograma();
+            const changeEvent = new Event('change', { bubbles: true });
+            programaSelect.dispatchEvent(changeEvent);
+            await new Promise(r => setTimeout(r, 300));
+            if (Array.from(modalidadSelect.options).some(opt => opt.value === estadoOriginal.modalidad)) {
+                modalidadSelect.value = estadoOriginal.modalidad;
             }
-            modalidadSelect.value = estadoOriginal.modalidad;
             semestreInput.value = estadoOriginal.semestre;
             turnoInput.value = estadoOriginal.turno;
-            await cargarDatosExistentes();
-
+            await window.cargarTablaAprovechamiento(estadoOriginal.programa, estadoOriginal.modalidad, parseInt(estadoOriginal.semestre));
             btnValidarTodos.textContent = estadoOriginal.textoBoton;
             btnValidarTodos.disabled = false;
         }
-    }
+    };
     
     // Función para validar y finalizar la captura del semestre actual - NUEVO SISTEMA DE DOS FASES
     async function validarCapturaSemestre() {

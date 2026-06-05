@@ -66,7 +66,7 @@
         {# ── Columna izquierda: Programa · Boleta · Edad ── #}
         <div class="columna-izq">
 
-            {% if tabla_programas %}
+        
             <div class="tabla-seccion">
                 <div class="tabla-titulo">
                     {{ '1. ' if exportando_pdf else '1️⃣' }}Programa Académico
@@ -103,9 +103,9 @@
                     </tfoot>
                 </table>
             </div>
-            {% endif %}
+           
 
-            {% if tabla_boletas %}
+           
             <div class="tabla-seccion">
                 <div class="tabla-titulo">
                     {{ '2. ' if exportando_pdf else '2️⃣ ' }}Boleta
@@ -142,7 +142,7 @@
                     </tfoot>
                 </table>
             </div>
-            {% endif %}
+            
 
             {% if tabla_edades %}
             <div class="tabla-seccion">

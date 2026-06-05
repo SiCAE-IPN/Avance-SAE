@@ -131,6 +131,11 @@ def a_lista(d: dict, orden=None) -> list[dict]:
             for k, v in items
         ]
 
+def _sumar(d: dict) -> dict:
+    h = sum(v['H'] for v in d.values())
+    m = sum(v['M'] for v in d.values())
+    return {'hombres': h, 'mujeres': m, 'total': h + m}
+
 def procesar_titulados(filas: list[dict]) -> dict:
     
     programa  : Dict[str, Dict[str, int]] = defaultdict(_nueva_tabla)
@@ -166,6 +171,16 @@ def procesar_titulados(filas: list[dict]) -> dict:
         'tabla_tipo_tit'   : a_lista(tipo_tit),
         'tabla_edades'     : a_lista(edad),
         'tabla_turnos'     : a_lista(turno),
+
+        'totales_programas'  : _sumar(programa),
+        'totales_modalidades': _sumar(modalidad),
+        'totales_boletas'    : _sumar(boleta),
+        'totales_tipo_tit'   : _sumar(tipo_tit),
+        'totales_edades'     : _sumar(edad),
+        'totales_turnos'     : _sumar(turno),
+
+        # Total general para el encabezado
+        'total_t': sum(v['T'] for v in programa.values()),
     }
     
 if __name__ == "__main__":
