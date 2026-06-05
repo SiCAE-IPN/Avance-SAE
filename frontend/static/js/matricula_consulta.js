@@ -773,11 +773,11 @@ const label = document.createElement('span');
                     <div style="position: relative; width: 150px; height: 150px; margin: 0 auto;">
                         <svg viewBox="0 0 120 120" style="transform: rotate(-90deg); width: 100%; height: 100%;">
                             <circle cx="60" cy="60" r="54" fill="none" stroke="#e0e0e0" stroke-width="8" />
-                            <circle cx="60" cy="60" r="54" fill="none" stroke="#6e0343" stroke-width="8"
+                            <circle cx="60" cy="60" r="54" fill="none" stroke="#28a745" stroke-width="8"
                                     stroke-dasharray="339.292" stroke-dashoffset="339.292"
                                     class="progress-ring__circle" />
                         </svg>
-                        <div id="progreso-porcentaje-modal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 28px; font-weight: bold; color: #6e0343;">0%</div>
+                        <div id="progreso-porcentaje-modal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 28px; font-weight: bold; color: #28a745;">0%</div>
                     </div>
                     <div id="progreso-texto-modal" style="margin-top: 20px; font-size: 14px; color: #555; text-align: center;">Preparando...</div>
                     <div id="progreso-detalle-modal" style="margin-top: 8px; font-size: 12px; color: #999; text-align: center;">0 / 0</div>
@@ -4516,13 +4516,8 @@ function updateInputsBySemestre(semestreNum) {
         }
     }
     
-    // ===== VALIDACIÓN MASIVA DE TODOS LOS SEMESTRES (solo cuando hay rechazo) =====
-    window.validarTodosLosSemestres = async function () {
-        if (validacionMasivaEnCurso) {
-            Swal.fire({ icon: 'info', title: 'En proceso', text: 'Ya hay una validación masiva en curso.' });
-            return;
-        }
-
+// ===== VALIDACIÓN MASIVA DE TODOS LOS SEMESTRES (solo cuando hay rechazo) =====
+    async function validarTodosLosSemestres() {
         const confirmacion = await Swal.fire({
             title: 'Validación masiva de Aprovechamiento',
             html: '<p><strong>Se validarán TODOS los semestres pendientes.</strong><br>Los campos vacíos se rellenarán automáticamente con <strong>ceros</strong>.<br>Se verificará que los totales de matrícula y aprovechamiento coincidan.</p>',
@@ -4863,15 +4858,12 @@ function updateInputsBySemestre(semestreNum) {
 
             await Swal.fire({
                 icon: semestresConError === 0 ? 'success' : 'warning',
-                title: semestresConError === 0 && paresCompletos === paresTotales
-                    ? '¡Has concluido la captura de la UA!'
-                    : 'Resumen de Validacion de Semestres',
+                title: 'Resumen de Validacion de Semestres',
                 html:
                     `<div style="text-align:left;">` +
                     `<p><strong>Semestres exitosos:</strong> ${semestresExitosos} / ${totalSemestresPlan} (${eficienciaSemestres}%)</p>` +
                     `<p><strong>Turnos exitosos:</strong> ${turnosExitosos} | <strong>Turnos con error:</strong> ${turnosConError}</p>` +
                     `<p><strong>Programas/modalidades completos:</strong> ${paresCompletos} / ${paresTotales}</p>` +
-                    `${semestresConError === 0 && paresCompletos === paresTotales ? '<p><strong>✅ Toda la UA quedó finalizada correctamente.</strong></p>' : ''}` +
                     `<div style="max-height:260px;overflow:auto;border:1px solid #ddd;border-radius:8px;">` +
                     `<table style="width:100%;border-collapse:collapse;font-size:12px;">` +
                     `<thead style="position:sticky;top:0;background:#f8f9fa;">` +

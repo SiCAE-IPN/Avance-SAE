@@ -59,7 +59,6 @@ body {
 .total-resumen {
     background-color: #ecf0f1;
     border-left: 4px solid #3498db;
-    padding: 8px 10px;
     border-radius: 3px;
     text-align: center;
     font-weight: bold;
@@ -305,16 +304,33 @@ table tfoot td:last-child {
    LAYOUT EN DOS COLUMNAS PARA TABLAS
    =============================================== */
 .contenedor-columnas {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    display: table;
     width: 100%;
-    gap: 20px; /* Espacio entre la columna izquierda y derecha */
-    margin-bottom: 15px;
+    table-layout: fixed; /* Fuerza a WeasyPrint a respetar los porcentajes exactos */
+    margin-bottom: 20px;
 }
 
-.columna-izq, .columna-der {
-    width: 48%; /* Se dividen a la mitad casi exactas dejando espacio en medio */
+/* El "Clearfix" es obligatorio para que las tablas no se salgan del fondo */
+.contenedor-columnas::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+.columna-izq {
+    width: 48%;
+    float: left; /* Fallback para navegadores que no soporten display: table */
+}
+
+.columna-der {
+    width: 48%;
+    float: right; /* Fallback para navegadores que no soporten display: table */
+}
+
+/* SEPARACIÓN VERTICAL DE LAS TABLAS */
+.tabla-seccion {
+    margin-bottom: 35px; /* Aumentamos el margen para que no se encimen y respiren */
+    page-break-inside: avoid;
 }
 
 /* Ajuste específico para que WeasyPrint exporte el PDF sin romper las columnas */
@@ -467,12 +483,33 @@ table tfoot td:last-child {
     .contenedor-acuse {
         max-width: 100%;
         margin: 0;
-        padding: 0.5in;
+        padding: 0.1in 0.25in 0.25in 0.25in !important;
         box-shadow: none;
         page-break-after: avoid;
     }
 
+    /* Forzamos el comportamiento estable en PDF */
+    .contenedor-columnas {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .columna-izq {
+        display: block !important;
+        float: left !important;
+        width: 48% !important;
+        padding: 0 !important;
+    }
+
+    .columna-der {
+        display: block !important;
+        float: right !important;
+        width: 48% !important;
+        padding: 0 !important;
+    }
+
     .tabla-seccion {
+        margin-bottom: 15px !important;
         page-break-inside: avoid;
     }
 
@@ -500,17 +537,35 @@ table tfoot td:last-child {
         display: table-header-group;
     }
 
+    /* Compactar celdas en el PDF para ahorrar espacio vertical */
+    table th, table td {
+        padding: 4px 8px !important; /* Menos espacio arriba y abajo del texto */
+    }
+
     .tabla-titulo {
         page-break-after: avoid;
     }
 
+    .total-resumen {
+        margin-top: 10px !important;
+        margin-bottom: 15px !important; 
+        padding: 6px !important; 
+    }
+
     .marca-agua {
         position: fixed;
-        top: 40%;
-        left: 50%; /* Lo recorremos un poco a la izquierda para centrarlo en la hoja Carta */
-        transform: rotate(-45deg); /* Solo rotación, WeasyPrint lo procesa mejor sin translate */
-        font-size: 80px; /* Un poquito más grande para que abarque la hoja */
-        color: rgba(128, 128, 128, 0.15); /* Ligeramente más transparente en PDF para no tapar datos */
+        top: 50%;
+        left: -25%; 
+        width: 150%; 
+        text-align: center;
+        transform: rotate(-45deg);
+        font-size: 70px; 
+        font-weight: bold; 
+        color: rgba(128, 128, 128, 0.25);
+        text-transform: uppercase; 
+        pointer-events: none;
+        z-index: 9999;
+        white-space: nowrap;
     }
 }
 
@@ -551,18 +606,20 @@ table tfoot td:last-child {
    MARCA DE AGUA (MEJORADA PARA WEASYPRINT)
    =============================================== */
 .marca-agua {
-    position: fixed; 
-    top: 45%;
-    left: 25%;
-    transform: rotate(-45deg);
-    font-size: 70px;
-    font-weight: bold;
-    color: rgba(128, 128, 128, 0.25);
-    text-transform: uppercase;
-    pointer-events: none;
-    z-index: 999;
-    white-space: nowrap;
-}
+        position: fixed;
+        top: 50%;
+        left: -25%; 
+        width: 150%; 
+        text-align: center;
+        transform: rotate(-45deg);
+        font-size: 70px; 
+        font-weight: bold; 
+        color: rgba(128, 128, 128, 0.25);
+        text-transform: uppercase; 
+        pointer-events: none;
+        z-index: 9999;
+        white-space: nowrap;
+    }
 
 /* ===============================================
    VALIDACION / RECHAZO (NUEVA VISTA ACUSE)

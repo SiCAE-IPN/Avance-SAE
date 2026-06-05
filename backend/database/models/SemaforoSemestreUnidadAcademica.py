@@ -11,6 +11,7 @@ class SemaforoSemestreUnidadAcademica(Base):
 
     Id_Periodo: Mapped[int] = mapped_column(Integer, primary_key=True)
     Id_Unidad_Academica: Mapped[int] = mapped_column(Integer, primary_key=True)
+    Id_Nivel: Mapped[int] = mapped_column(Integer, primary_key=True)
     Id_Formato: Mapped[int] = mapped_column(Integer, primary_key=True)
     Id_Modalidad_Programa: Mapped[int] = mapped_column(Integer, primary_key=True)
     Id_Semestre: Mapped[int] = mapped_column(Integer, primary_key=True)

@@ -37,7 +37,6 @@ def get_user_acuses_dir(usuario_login: str) -> Path:
 
 
 def build_folio_acuse(*, periodo_literal: str, unidad_sigla: str, estatus_entrega: str | None = None) -> str:
-    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
     sufijo = "ORDINARIA"
     if estatus_entrega and "extempor" in estatus_entrega.strip().lower():
         sufijo = "EXTEMPORANEA"
