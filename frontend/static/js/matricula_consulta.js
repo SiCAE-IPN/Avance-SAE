@@ -531,30 +531,59 @@ let semaforoEstados = __MAT.semaforoEstados ?? [];
             sub.style.gap = '4px';
             sub.style.fontSize = '11px';
 
-            const label = document.createElement('span');
+const label = document.createElement('span');
             label.textContent = 'Grupos:';
 
             const input = document.createElement('input');
             input.type = 'number';
-            input.min = '0';
+            input.min = '1'; 
+            input.step = '1'; 
             input.className = 'input-total-grupos-turno';
             input.setAttribute('data-turno-id', turno.id);
             input.setAttribute('data-semestre-id', semestreNum);
 
-            // Valor inicial desde el mapa (si ya hay datos del SP o localStorage)
+            // Bloquear físicamente teclas no deseadas
+            input.addEventListener('keydown', function(e) {
+                if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '.') {
+                    e.preventDefault();
+                }
+                if (e.key === '0' && this.value === '') {
+                    e.preventDefault();
+                }
+            });
+
+            // NUEVO: Borramos letras y limitamos a 2 dígitos máximo
+            input.addEventListener('input', function() {
+                // Borra todo lo que no sea número
+                this.value = this.value.replace(/[^0-9]/g, '');
+                
+                // Si escriben más de 2 números, lo corta a los primeros 2
+                if (this.value.length > 2) {
+                    this.value = this.value.slice(0, 2);
+                }
+            });
+
+            // Valor inicial desde el mapa
             const claveInicial = `${semestreNum}_${turno.id}`;
             const valorInicial = totalGruposPorSemestreYTurno[claveInicial];
             if (valorInicial !== undefined && valorInicial !== null && valorInicial !== '') {
-                input.value = valorInicial;
+                if (parseInt(valorInicial) > 0) {
+                    input.value = valorInicial;
+                }
             }
 
             const actualizarTotalGrupos = () => {
+                if (input.value !== "" && parseInt(input.value) < 1) {
+                    input.value = '';
+                }
+
                 const valor = input.value;
                 const clave = `${semestreNum}_${turno.id}`;
-                if (valor === '' || isNaN(parseInt(valor)) || parseInt(valor) < 0) {
+                
+                if (valor === '' || isNaN(parseInt(valor)) || parseInt(valor) < 1) {
                     delete totalGruposPorSemestreYTurno[clave];
                 } else {
-                    totalGruposPorSemestreYTurno[clave] = parseInt(valor) || 0;
+                    totalGruposPorSemestreYTurno[clave] = parseInt(valor);
                 }
                 recalcularTotalGruposSemestre(semestreNum);
                 guardarTotalGruposEnLocalStorage();
@@ -5053,11 +5082,29 @@ function updateInputsBySemestre(semestreNum) {
     }
 
     // Agregar validación solo números en inputs
+    // Agregar validación solo números positivos y máximo 2 dígitos en inputs de la tabla
     document.addEventListener('DOMContentLoaded', function() {
+        // Evento cuando el usuario escribe o pega texto
         document.addEventListener('input', function(e) {
             if (e.target.classList.contains('input-matricula-nueva')) {
-                // Solo permitir números
-                e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                // 1. Quitar letras y caracteres extraños
+                let valor = e.target.value.replace(/[^0-9]/g, '');
+                
+                // 2. Cortar a máximo 4 dígitos
+                if (valor.length > 4) {
+                    valor = valor.slice(0, 4);
+                }
+                
+                e.target.value = valor;
+            }
+        });
+
+        // Bloquear teclas de negativo, punto decimal y 'e' (exponente)
+        document.addEventListener('keydown', function(e) {
+            if (e.target.classList.contains('input-matricula-nueva')) {
+                if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '.') {
+                    e.preventDefault();
+                }
             }
         });
     });

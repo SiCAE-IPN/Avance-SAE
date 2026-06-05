@@ -41,7 +41,7 @@ def build_folio_acuse(*, periodo_literal: str, unidad_sigla: str, estatus_entreg
     sufijo = "ORDINARIA"
     if estatus_entrega and "extempor" in estatus_entrega.strip().lower():
         sufijo = "EXTEMPORANEA"
-    return f"{_safe_slug(periodo_literal).upper()}-{_safe_slug(unidad_sigla).upper()}-{stamp} {sufijo}"
+    return f"{_safe_slug(unidad_sigla).upper()}-{_safe_slug(periodo_literal).upper()}"
 
 
 def save_acuse_pdf_for_user(
@@ -55,7 +55,7 @@ def save_acuse_pdf_for_user(
     user_dir = get_user_acuses_dir(usuario_login)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_name = (
-        f"acuse_matricula_{_safe_slug(periodo_literal)}_{_safe_slug(unidad_sigla)}_"
+        f"{_safe_slug(periodo_literal)}_{_safe_slug(unidad_sigla)}_acuse_captura_"
         f"{ts}.pdf"
     )
     file_path = user_dir / file_name
