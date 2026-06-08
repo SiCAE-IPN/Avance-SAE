@@ -311,6 +311,11 @@ def finalizar_captura_titulados(
                 nivel=nivel
             )
             insertar_temp_titulados(db, registros)
+            
+            finalizar_captura_programa_modalidad(
+                db, periodo, sigla_unidad_academica,
+                modalidad, programa, sess.usuario, host, nivel
+            )
 
         finalizar_captura_programa_modalidad(
             db, periodo, sigla_unidad_academica,
