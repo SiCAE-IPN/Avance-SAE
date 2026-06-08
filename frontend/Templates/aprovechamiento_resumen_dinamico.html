@@ -113,31 +113,52 @@
         font-weight: bold;
     }
 
+    /* Marca de agua - centrada y rotada */
     .marca-agua {
         position: fixed;
-        top: 40%;
+        top: 50%;
         left: 50%;
-        transform: rotate(-45deg);
+        transform: translate(-50%, -50%) rotate(-45deg);
         font-size: 80px;
         color: rgba(128, 128, 128, 0.15);
         white-space: nowrap;
         pointer-events: none;
         z-index: 1000;
     }
+
+    /* Estilos para impresión/PDF */
     @media print {
         .btn, .acciones-validacion, .panel-rechazo, .no-print { display: none !important; }
         body { margin: 0; padding: 0; background: white; }
         .tabla-seccion { page-break-inside: avoid; box-shadow: none; padding: 0; }
         .tabla-dinamica { font-size: 0.6rem; }
+
+        /* Forzar que la marca de agua aparezca en cada página del PDF */
+        .marca-agua {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) rotate(-45deg) !important;
+            font-size: 80px !important;
+            color: rgba(128, 128, 128, 0.15) !important;
+            white-space: nowrap !important;
+            pointer-events: none !important;
+            z-index: 9999 !important;
+            display: block !important;
+            page-break-inside: avoid;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="contenedor-acuse">
+    {% if no_validado %}
+    <div class="marca-agua"> Sin Validez Oficial </div>
+    {% endif %}
 
     <div class="acuse-header">
-        <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - APROVECHAMIENTO</h1>
+        <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN {{no_validado}}- APROVECHAMIENTO</h1>
 
         <div class="header-info">
             <div class="header-item">
@@ -153,10 +174,7 @@
                 <span class="header-item-value">{{ nombre_ua }}</span>
             </div>
         </div>
-        {% if exportando_pdf and no_validado %}
-            <div class="marca-agua">SIN VALIDEZ OFICIAL</div>
-        {% endif %}
-
+        
         <div class="header-info">
             <div class="header-item">
                 <span class="header-item-label">Usuario:</span>
@@ -424,6 +442,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
     // Fecha actual en vista web
+    const noValidado = {{ no_validado|lower }};   // true/false desde el backend
     const fechaEl = document.getElementById('fecha-actual');
     if (fechaEl && !fechaEl.textContent.trim()) {
         fechaEl.textContent = new Date().toLocaleDateString('es-MX', {
@@ -493,7 +512,7 @@ async function exportarExcel() {
         const r = await Swal.fire({
             icon: 'question',
             title: '¿Validar Aprovechamiento?',
-            html: `Periodo: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br>Esta acción marcará el aprovechamiento como aprobado y bloqueará cualquier modificación futura.`,
+            html: `Período: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br>Esta acción marcará el aprovechamiento como aprobado y bloqueará cualquier modificación futura.`,
             showCancelButton: true,
             confirmButtonText: 'Sí, validar',
             cancelButtonText: 'Cancelar',
@@ -581,7 +600,7 @@ async function exportarExcel() {
         }
         const r = await Swal.fire({
             icon: 'warning', title: '¿Rechazar Aprovechamiento?',
-            html: `Periodo: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br><b>Motivo:</b> ${motivo.substring(0,100)}${motivo.length > 100 ? '...' : ''}<br><br>Esta acción devolverá el aprovechamiento para correcciones.`,
+            html: `Período: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br><b>Motivo:</b> ${motivo.substring(0,100)}${motivo.length > 100 ? '...' : ''}<br><br>Esta acción devolverá el aprovechamiento para correcciones.`,
             showCancelButton: true,
             confirmButtonText: 'Sí, rechazar', cancelButtonText: 'Cancelar',
             confirmButtonColor: '#dc3545', cancelButtonColor: '#6c757d',
@@ -598,4 +617,4 @@ async function exportarExcel() {
     }
 </script>
 {% endif %}
-{% endblock %}  
+{% endblock %}

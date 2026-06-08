@@ -669,11 +669,12 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                 SemaforoUnidadAcademica.Id_Formato == 2,
                 SemaforoUnidadAcademica.Id_Nivel == id_nivel
             ).first()
-        print("antes del if")
+        
         if semaforo_captura:
             semaforo = semaforo_captura.Id_Semaforo
             print("Semaforo:",semaforo)
         no_validado = semaforo < 9
+        print("No validado:", no_validado)
         return templates.TemplateResponse(
             "aprovechamiento_selector.html",
             {
@@ -890,6 +891,22 @@ async def resumen_aprovechamiento_dinamico_view(
     context = await obtener_contexto_aprovechamiento(
         request, periodo, nivel, unidad, sess, db, exportando_pdf=False
     )
+
+    periodo_anterior_id,_ = get_periodo_anterior_al_ultimo(db)
+    Id_Unidad_Academica = context["session"].id_unidad_academica
+    id_nivel = context["session"].id_nivel
+
+    semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
+        SemaforoUnidadAcademica.Id_Periodo          == periodo_anterior_id,
+        SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
+        SemaforoUnidadAcademica.Id_Formato          == 2,
+        SemaforoUnidadAcademica.Id_Nivel            == id_nivel
+    ).first()
+    print(semaforo_captura.Id_Semaforo)
+    no_validado = semaforo_captura.Id_Semaforo < 9
+    print(no_validado)
+    context["no_validado"] = no_validado
+
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
 
 
@@ -1149,19 +1166,10 @@ async def validar_unidad_completa(request: Request, sess=Depends(get_current_ses
         db.rollback()
         print(f"ERROR CRÍTICO: {str(e)}")
         return JSONResponse(status_code=500, content={"detail": str(e)})
-
-
-
-
-
-import io
-import re
+    
 import xlsxwriter
-from sqlalchemy import text
-from collections import defaultdict
-from datetime import datetime
 from fastapi.responses import StreamingResponse
-from fastapi import HTTPException
+import io
 
 @router.get("/exportar-excel-aprovechamiento")
 async def exportar_aprovechamiento_excel(
@@ -1172,183 +1180,93 @@ async def exportar_aprovechamiento_excel(
     sess=Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
-    try:
-        from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+    """
+    Exporta a Excel los datos de:
+    - SP_Consulta_Aprovechamiento_Unidad_Academica
+    - SP_Consulta_Inscritos_Aprovechamiento
+    según los filtros proporcionados.
+    """
+    
+    # 1. Obtener la sigla de la unidad académica (el SP espera sigla)
+    ua_obj = db.query(CatUnidadAcademica).filter(
+        (CatUnidadAcademica.Nombre == unidad) | (CatUnidadAcademica.Sigla == unidad)
+    ).first()
+    if not ua_obj:
+        raise HTTPException(404, "Unidad académica no encontrada")
+    sigla_unidad = ua_obj.Sigla
 
-        ua_obj = db.query(CatUnidadAcademica).filter(
-            (CatUnidadAcademica.Nombre == unidad) | (CatUnidadAcademica.Sigla == unidad)
-        ).first()
-        if not ua_obj:
-            raise HTTPException(404, "Unidad académica no encontrada")
-        sigla_unidad = ua_obj.Sigla
+    usuario_login = sess.usuario
+    host = request.client.host
 
-        usuario_login = sess.usuario
-        host = request.client.host
+    # 2. Ejecutar SP de aprovechamiento (igual que en /consulta)
+    query_aprov = text("""
+        SET NOCOUNT ON;
+        EXEC dbo.SP_Consulta_Aprovechamiento_Unidad_Academica
+            @UUnidad_Academica = :sigla,
+            @PPeriodo = :periodo,
+            @NNivel = :nivel,
+            @UUsuario = :usuario,
+            @HHost = :host;
+    """)
+    result_aprov = db.execute(query_aprov, {
+        "sigla": sigla_unidad,
+        "periodo": periodo,
+        "nivel": nivel,
+        "usuario": usuario_login,
+        "host": host
+    })
+    rows_aprovechamiento = [dict(row) for row in result_aprov.mappings().all()] if result_aprov.returns_rows else []
 
-        # SP Aprovechamiento
-        query_aprov = text("""
-            SET NOCOUNT ON;
-            EXEC dbo.SP_Consulta_Aprovechamiento_Unidad_Academica
-                @UUnidad_Academica = :sigla,
-                @PPeriodo = :periodo,
-                @NNivel = :nivel,
-                @UUsuario = :usuario,
-                @HHost = :host;
-        """)
-        result_aprov = db.execute(query_aprov, {
-            "sigla": sigla_unidad, "periodo": periodo, "nivel": nivel,
-            "usuario": usuario_login, "host": host
-        })
-        rows_aprovechamiento = [dict(row) for row in result_aprov.mappings().all()] if result_aprov.returns_rows else []
+    # 3. Ejecutar SP de inscritos
+    query_inscritos = text("""
+        SET NOCOUNT ON;
+        EXEC dbo.SP_Consulta_Inscritos_Aprovechamiento
+            @PPeriodo = :periodo,
+            @SSigla_Unidad_Academica = :sigla,
+            @NNivel = :nivel;
+    """)
+    result_inscritos = db.execute(query_inscritos, {
+        "periodo": periodo,
+        "sigla": sigla_unidad,
+        "nivel": nivel
+    })
+    rows_inscritos = [dict(row) for row in result_inscritos.mappings().all()] if result_inscritos.returns_rows else []
 
-        # SP Inscritos
-        query_inscritos = text("""
-            SET NOCOUNT ON;
-            EXEC dbo.SP_Consulta_Inscritos_Aprovechamiento
-                @PPeriodo = :periodo,
-                @SSigla_Unidad_Academica = :sigla,
-                @NNivel = :nivel;
-        """)
-        result_inscritos = db.execute(query_inscritos, {
-            "periodo": periodo, "sigla": sigla_unidad, "nivel": nivel
-        })
-        rows_inscritos = [dict(row) for row in result_inscritos.mappings().all()] if result_inscritos.returns_rows else []
+    # 4. Crear archivo Excel en memoria
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
 
-        # Detectar columna de programa
-        def obtener_columna_programa(rows):
-            if not rows:
-                return None
-            posibles = ['Nombre_Programa', 'Programa', 'NombrePrograma', 'Carrera', 'Nombre_Carrera']
-            for col in posibles:
-                if col in rows[0]:
-                    return col
-            return list(rows[0].keys())[0]
+    # Hoja 1: Aprovechamiento
+    ws_aprov = workbook.add_worksheet("Aprovechamiento")
+    if rows_aprovechamiento:
+        headers = list(rows_aprovechamiento[0].keys())
+        for col, h in enumerate(headers):
+            ws_aprov.write(0, col, h)
+        for row_idx, row in enumerate(rows_aprovechamiento, start=1):
+            for col_idx, key in enumerate(headers):
+                ws_aprov.write(row_idx, col_idx, row.get(key, ''))
+    else:
+        ws_aprov.write(0, 0, "No hay datos de aprovechamiento para los filtros seleccionados")
 
-        col_prog_aprov = obtener_columna_programa(rows_aprovechamiento)
-        col_prog_ins = obtener_columna_programa(rows_inscritos)
+    # Hoja 2: Inscritos
+    ws_ins = workbook.add_worksheet("Inscritos")
+    if rows_inscritos:
+        headers = list(rows_inscritos[0].keys())
+        for col, h in enumerate(headers):
+            ws_ins.write(0, col, h)
+        for row_idx, row in enumerate(rows_inscritos, start=1):
+            for col_idx, key in enumerate(headers):
+                ws_ins.write(row_idx, col_idx, row.get(key, ''))
+    else:
+        ws_ins.write(0, 0, "No hay datos de inscritos para los filtros seleccionados")
 
-        # Agrupar
-        aprov_por_programa = defaultdict(list)
-        for r in rows_aprovechamiento:
-            prog = r.get(col_prog_aprov, "Sin Programa") if col_prog_aprov else "Sin Programa"
-            prog = str(prog).strip() or "Sin Programa"
-            aprov_por_programa[prog].append(r)
+    workbook.close()
+    output.seek(0)
 
-        ins_por_programa = defaultdict(list)
-        for r in rows_inscritos:
-            prog = r.get(col_prog_ins, "Sin Programa") if col_prog_ins else "Sin Programa"
-            prog = str(prog).strip() or "Sin Programa"
-            ins_por_programa[prog].append(r)
-
-        todos_programas = sorted(set(aprov_por_programa.keys()) | set(ins_por_programa.keys()))
-        if not todos_programas:
-            todos_programas = ["Sin programa"]
-
-        # Crear Excel
-        output = io.BytesIO()
-        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-
-        # Formatos
-        header_format = workbook.add_format({'bold': True, 'bg_color': '#800020', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter', 'text_wrap': True})
-        data_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'text_wrap': True})
-        data_format_alt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#F9F9F9', 'text_wrap': True})
-        title_format = workbook.add_format({'bold': True, 'font_size': 12, 'bg_color': '#D3D3D3', 'border': 1, 'align': 'left'})
-        total_format = workbook.add_format({'bold': True, 'bg_color': '#E6E6E6', 'border': 1, 'align': 'center'})
-        date_format = workbook.add_format({'italic': True, 'font_size': 9})
-
-        fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
-
-        def escribir_tabla(ws, start_row, titulo, datos, columnas_numericas=None):
-            if not datos:
-                ws.write(start_row, 0, f"{titulo} - Sin datos", data_format)
-                return start_row + 2
-
-            columnas = list(datos[0].keys())
-            # Título
-            ws.write(start_row, 0, titulo, title_format)
-            ws.merge_range(start_row, 0, start_row, len(columnas)-1, titulo, title_format)
-            start_row += 1
-            # Encabezados
-            for col, h in enumerate(columnas):
-                ws.write(start_row, col, str(h), header_format)
-            # Datos
-            for i, row in enumerate(datos):
-                fila = start_row + 1 + i
-                fmt = data_format_alt if i % 2 == 0 else data_format
-                for col, key in enumerate(columnas):
-                    val = row.get(key, '')
-                    ws.write(fila, col, str(val) if val is not None else '', fmt)
-            # Autofiltro
-            ws.autofilter(start_row, 0, start_row + len(datos) - 1, len(columnas)-1)
-            ws.freeze_panes(start_row + 1, 0)
-            # Totales
-            if columnas_numericas:
-                total_row = start_row + len(datos) + 1
-                ws.write(total_row, 0, "TOTALES", total_format)
-                for col_idx, key in enumerate(columnas):
-                    if key in columnas_numericas:
-                        try:
-                            start_cell = xlsxwriter.utility.xl_col_to_name(col_idx) + str(start_row + 2)
-                            end_cell = xlsxwriter.utility.xl_col_to_name(col_idx) + str(start_row + len(datos))
-                            ws.write_formula(total_row, col_idx, f"=SUM({start_cell}:{end_cell})", total_format)
-                        except:
-                            pass
-
-            # ===== AJUSTE AUTOMÁTICO DE ANCHO DE COLUMNAS =====
-            for col_idx, key in enumerate(columnas):
-                # Calcular longitud máxima del encabezado y de los datos
-                max_len = len(str(key))
-                for row in datos:
-                    val = row.get(key, '')
-                    cell_len = len(str(val))
-                    if cell_len > max_len:
-                        max_len = cell_len
-                # Establecer ancho con un margen de 2 caracteres, sin límite superior
-                # Si quieres un límite máximo (ej. 80), puedes usar min(max_len+2, 80)
-                ws.set_column(col_idx, col_idx, max_len + 2)
-
-            return start_row + len(datos) + 3
-
-        # Crear hojas
-        for programa in todos_programas:
-            sheet_name = re.sub(r'[\\/*?:"<>|]', '_', programa)[:31]
-            ws = workbook.add_worksheet(sheet_name)
-
-            # Metadatos
-            ws.write(0, 0, f"UNIDAD: {sigla_unidad}", date_format)
-            ws.write(1, 0, f"PERIODO: {periodo}  |  NIVEL: {nivel}", date_format)
-            ws.write(2, 0, f"FECHA EXPORTACIÓN: {fecha_actual}", date_format)
-            ws.set_row(0, 15)
-            ws.set_row(1, 15)
-            ws.set_row(2, 15)
-
-            current_row = 4
-            aprov_data = aprov_por_programa.get(programa, [])
-            col_numericas = ['Alumnos', 'Matricula', 'Total', 'Hombres', 'Mujeres', 'Grupos', 'Inscritos']
-            current_row = escribir_tabla(ws, current_row, "📊 APROVECHAMIENTO", aprov_data, col_numericas)
-            current_row += 1
-            ins_data = ins_por_programa.get(programa, [])
-            escribir_tabla(ws, current_row, "🎓 INSCRITOS", ins_data, col_numericas)
-
-        workbook.close()
-        output.seek(0)
-
-        safe_unidad = re.sub(r'[\\/*?:"<>|]', '_', sigla_unidad)
-        safe_nivel = re.sub(r'[\\/*?:"<>|]', '_', nivel)
-        safe_periodo = re.sub(r'[\\/*?:"<>|]', '_', periodo)
-        filename = f"Aprovechamiento_Inscritos_{safe_unidad}_{safe_nivel}_{safe_periodo}.xlsx"
-
-        return StreamingResponse(
-            output,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
-        )
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
-
-
-
-
+    # Nombre del archivo
+    filename = f"Aprovechamiento_Inscritos_{sigla_unidad}_{nivel}_{periodo}.xlsx"
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
