@@ -4523,13 +4523,13 @@ async def acuse_validacion_view(
         })
 
 @router.get('/acuse-validacion/pdf')
-async def exportar_aprovechamiento_pdf(
+async def acuse_validacion_pdf(
     request: Request,
     periodo: str,
     nivel: str,
     unidad: str,
     sess=Depends(get_current_session),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db)
 ):
     try:
         import importlib
@@ -4537,16 +4537,8 @@ async def exportar_aprovechamiento_pdf(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"WeasyPrint no está instalado: {exc}")
 
-    resp = await acuse_validacion_aprovechamiento_view(
-        request=request,
-        periodo=periodo,
-        nivel=nivel,
-        unidad=unidad,
-        sess=sess,
-        db=db,
-        exportando_pdf=True,
-    )
-
+    resp = await acuse_validacion_view(request, periodo, nivel, unidad, sess, db, exportando_pdf=True)
+    
     if isinstance(resp, RedirectResponse):
         return resp
 
@@ -4555,28 +4547,28 @@ async def exportar_aprovechamiento_pdf(
     else:
         html_text = bytes(resp.body).decode('utf-8')
 
+    # CORRECCIÓN DE RUTA: parents[2] sube de 'api' a 'backend' y luego a la RAÍZ del proyecto
     base_path = Path(__file__).resolve().parents[2] / 'frontend' / 'static'
-    ruta_css  = base_path / 'css' / 'components' / 'matricula_acuse.css'
+    ruta_css = base_path / 'css' / 'components' / 'matricula_acuse.css'
 
+    # Validación preventiva para asegurar que la ruta es correcta ahora
     if not ruta_css.exists():
         raise HTTPException(
-            status_code=500,
-            detail=f"No se encontró el CSS en: {ruta_css}."
+            status_code=500, 
+            detail=f"No se encontró el archivo CSS en: {ruta_css}. Verifica si la carpeta 'frontend' está al mismo nivel que 'backend'."
         )
 
     try:
         pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
             stylesheets=[
                 weasyprint.CSS(filename=str(ruta_css)),
-                weasyprint.CSS(string='@page { size: landscape; margin: 1cm }')
+                weasyprint.CSS(string='@page { size: Letter; margin: 1cm 1cm 3.5cm 1cm }')
             ]
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
 
-    filename = f"Aprovechamiento_{unidad}_{periodo}.pdf".replace(' ', '_')
-    return Response(
-        content=pdf_bytes,
-        media_type='application/pdf',
-        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-    )
+    filename = f"acuse_{unidad}_{periodo}.pdf".replace(' ', '_')
+    return Response(content=pdf_bytes, media_type='application/pdf', headers={
+        'Content-Disposition': f'attachment; filename="{filename}"'
+    })
