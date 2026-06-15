@@ -178,18 +178,20 @@ function renderizarTablaTituladosCaptura() {
                 <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 4px;background:#e3f2fd;border-radius:4px;border:1px solid #90caf9;line-height:1;">
                     <div style="font-weight:700;color:#1976d2;font-size:11px;min-width:14px;text-align:center;">H</div>
                     <input type="number" min="0"
-                           value="${vals.hombres}"
-                           onchange="actualizarValorTitulado(${fila.id}, '${turno}', 'hombres', this.value)"
-                           style="width:42px;padding:2px 3px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:11px;">
+                        value="${vals.hombres}"
+                        onkeydown="if(event.key==='-'||event.key==='.'||event.key==='e') event.preventDefault()"
+                        oninput="this.value=this.value.replace(/[^0-9]/g,''); actualizarValorTitulado(${fila.id}, '${turno}', 'hombres', this.value)"
+                        style="width:42px;padding:2px 3px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:11px;">
                 </div>
             </td>
             <td style="padding:8px; text-align:center;">
                 <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 4px;background:#fce4ec;border-radius:4px;border:1px solid #f48fb1;line-height:1;">
                     <div style="font-weight:700;color:#c2185b;font-size:11px;min-width:14px;text-align:center;">M</div>
                     <input type="number" min="0"
-                           value="${vals.mujeres}"
-                           onchange="actualizarValorTitulado(${fila.id}, '${turno}', 'mujeres', this.value)"
-                           style="width:42px;padding:2px 3px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#c2185b;font-weight:600;text-align:center;font-size:11px;">
+                        value="${vals.mujeres}"
+                        onkeydown="if(event.key==='-'||event.key==='.'||event.key==='e') event.preventDefault()"
+                        oninput="this.value=this.value.replace(/[^0-9]/g,''); actualizarValorTitulado(${fila.id}, '${turno}', 'mujeres', this.value)"
+                        style="width:42px;padding:2px 3px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#c2185b;font-weight:600;text-align:center;font-size:11px;">
                 </div>
             </td>`;
         });
@@ -243,6 +245,7 @@ function eliminarFilaEgresado(id) {
     }
 }
 
+
 function limpiarTabla() {
     
     if (filasTitulados.length > 0  && confirm(`¿Está seguro de eliminar los ${filasTitulados.length} registros?`)) {
@@ -251,6 +254,8 @@ function limpiarTabla() {
         console.log('Tabla limpiada completamente');
     }
 }
+
+
 
 document.addEventListener('DOMContentLoaded', function () {
 
