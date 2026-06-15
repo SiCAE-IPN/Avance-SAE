@@ -13,15 +13,33 @@ function resetSelect(select, placeholder) {
     select.disabled = true;
 }
 
-// Tu función de filtrado — solo esta es nueva
 function filtrarPorSelects() {
     const programaSeleccionado = selectPrograma.value;
     const modalidadSeleccionada = selectModalidad.value;
-
     const table = document.getElementById('informe-titulados-table');
     const tbody = table.querySelector('tbody');
+
+    if (!programaSeleccionado || !modalidadSeleccionada) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" style="text-align: center; padding: 40px; color: #999;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
+                    <div>Seleccione un programa y modalidad para mostrar el informe.</div>
+                </td>
+            </tr>`;
+        return;
+    }
+
     const rows = Array.from(tbody.querySelectorAll('tr'))
         .filter(row => !row.querySelector('td[colspan]'));
+
+    datosFilasFiltrados = datosFilas.filter(f => {
+        const coincidePrograma  = !programaSeleccionado  || f.Nombre_Programa === programaSeleccionado;
+        const coincideModalidad = !modalidadSeleccionada || f.Modalidad       === modalidadSeleccionada;
+        return coincidePrograma && coincideModalidad && f.Titulados !== null;;
+    });
+
+    console.log('Datos filtrados:', datosFilasFiltrados);
 
     rows.forEach(row => {
         const programa  = row.cells[0]?.textContent.trim();
@@ -54,6 +72,60 @@ function filtrarPorSelects() {
     }
 }
 
+// Semaforo de captura 
+
+function actualizarSemaforoTitulados() {
+    const pill = document.getElementById('pestana-semaforo-titulados');
+    const semaforoDot = document.getElementById('semaforo-dot-titulados');
+    const semaforoTexto = document.getElementById('semaforo-texto-titulados');
+
+
+    if (!selectPrograma.value || !selectModalidad.value) {
+        pill.style.display = 'none';
+        return; 
+    }
+
+    const semaforos = [...new Set(
+        datosFilas
+            .filter(f => f.Nombre_Programa === selectPrograma.value && f.Modalidad === selectModalidad.value)
+            .map(f => f.Id_Semaforo)
+    )];
+
+
+    if (semaforos.length === 0) {
+        pill.style.display = 'none';
+        return;
+    }
+
+    // Tomar el semáforo de mayor valor (el más avanzado)
+    const valor = Math.max(...semaforos);
+
+    const estados = {
+        1: { clase: 'semaforo-rojo',     texto: 'No Capturado' },
+        2: { clase: 'semaforo-amarillo', texto: 'En Proceso De Captura' },
+        3: { clase: 'semaforo-verde',    texto: 'Captura Finalizada' },
+    };
+
+    console.log('Semáforos encontrados para el programa y modalidad seleccionados:', semaforos, 'Valor seleccionado para semáforo:', valor);
+
+    const estado = estados[valor] ?? estados[1];
+
+    pill.className = `pestana-semaforo ${estado.clase}`;
+    semaforoDot.className = `semaforo-dot ${estado.clase}`;
+    semaforoTexto.textContent = estado.texto;
+
+    const filtrosSecundarios = document.getElementById('filtros-secundarios');
+    const btnFinalizar = document.getElementById('btn-finalizar-captura'); 
+
+    if (valor === 3) {
+        filtrosSecundarios.style.display = 'none';
+        if (btnFinalizar) btnFinalizar.disabled = true;
+    } else {
+        filtrosSecundarios.style.display = 'block';
+        if (btnFinalizar) btnFinalizar.disabled = false;
+    }
+}
+
 function llenarSelect(select, opciones) {
     opciones.forEach(opcion => {
         const opt = document.createElement('option');
@@ -66,8 +138,10 @@ function llenarSelect(select, opciones) {
 selectPrograma.addEventListener('change', function() {
     const programaSeleccionado = this.value;
     const filtrosSecundarios = document.getElementById('filtros-secundarios');
+    const pill = document.getElementById('pestana-semaforo-titulados');
 
     filtrosSecundarios.style.display = 'none';
+    pill.style.display = 'none';
 
     resetSelect(selectModalidad, '-- Seleccione una Modalidad --');
     resetSelect(selectBoleta, '-- Seleccione Boleta --');
@@ -76,7 +150,9 @@ selectPrograma.addEventListener('change', function() {
 
     resetSelect(selectTipoTitulacion, '-- Seleccione Tipo de Titulación --');
 
-    if (!programaSeleccionado) return;
+    if (!programaSeleccionado) {
+        return;
+    }
 
     const modalidades = [...new Set(
         datosFilas
@@ -109,7 +185,6 @@ selectModalidad.addEventListener('change', function() {
     if (typeof limpiarTabla === 'function') {
         limpiarTabla(); 
     } else {
-        
         filasTitulados = [];
         renderizarTablaTituladosCaptura();
     }
@@ -118,12 +193,15 @@ selectModalidad.addEventListener('change', function() {
     resetSelect(selectTipoTitulacion, '-- Seleccione Tipo de Titulación --');
 
     const filtrosSecundarios = document.getElementById('filtros-secundarios');
-
+    const pill = document.getElementById('pestana-semaforo-titulados');
+    
     if (!this.value) {
         filtrosSecundarios.style.display = 'none';
+        pill.style.display = 'none';
         return;
     }
 
+    pill.style.display = 'inline-flex';
     filtrosSecundarios.style.display = 'block'; 
 
     llenarSelect(selectBoleta, boletas);
@@ -132,9 +210,10 @@ selectModalidad.addEventListener('change', function() {
     if (typeof actualizarBarraTitulados === 'function') {
         actualizarBarraTitulados();
     }
-
+    
+    renderizarTablaTitulados(datosFilas);
     filtrarPorSelects();
-
+    actualizarSemaforoTitulados();
 });
 
 selectBoleta.addEventListener('change', function() {

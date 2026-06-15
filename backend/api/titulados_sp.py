@@ -7,8 +7,8 @@ from backend.api import unidad_academica
 from backend.database.connection import get_db
 from backend.core.templates import templates
 from backend.schemas import Nivel
-from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados, procesar_titulados
-from backend.crud.ConsultaTitulados import insertar_temp_titulados, insertar_titulados_sp, finalizar_captura_programa_modalidad
+from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados, preparar_datos_temp_titulados_desde_db, procesar_titulados
+from backend.crud.ConsultaTitulados import insertar_temp_titulados, insertar_titulados_sp, finalizar_captura_programa_modalidad, verificar_todos_programas_finalizados, finalizar_unidad_academica
 from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo, get_ultimo_periodo
 from backend.core.auth import get_current_session
 from backend.database.models.CatPeriodo import CatPeriodo as Periodo
@@ -16,6 +16,7 @@ from backend.database.models.Temp_Titulados import Temp_Titulados as TituladosMo
 from backend.database.models.CatUnidadAcademica import CatUnidadAcademica as Unidad_Academica
 from pydantic import BaseModel
 from typing import List, Optional
+import traceback
 
 host = "Test"
 fila = []
@@ -24,6 +25,7 @@ class FinalizarTituladosRequest(BaseModel):
     datos: Optional[List[dict]] = []
     programa: str
     modalidad: str
+    origen: str
 
 def valor_orden_edad(edad: str):
     edad = edad.strip()
@@ -272,26 +274,20 @@ def guardar_titulados(
 
 @router.post("/finalizar-titulados", response_class=JSONResponse)
 def finalizar_captura_titulados(
-    payload: FinalizarTituladosRequest,  # ← lee todo del body JSON
+    payload: FinalizarTituladosRequest,
     sess=Depends(get_current_session),
-    db: Session=Depends(get_db)
+    db: Session = Depends(get_db)
 ):
-    datos    = payload.datos
-    programa = payload.programa
+    datos     = payload.datos
+    programa  = payload.programa
     modalidad = payload.modalidad
-
-    sigla_unidad_academica = sess.sigla_unidad_academica
-    nivel = sess.nombre_nivel
+    sigla     = sess.sigla_unidad_academica
+    nivel     = sess.nombre_nivel
 
     try:
-        id_p, periodo = get_periodo_anterior_al_ultimo(db)
+        id_p,        periodo        = get_periodo_anterior_al_ultimo(db)
         id_p_actual, periodo_actual = get_periodo_activo(db)
-        if periodo is None:
-            return JSONResponse(
-                content={"status": "error", "message": "No se encontró un periodo activo."},
-                status_code=404
-            )
-        if periodo_actual is None:
+        if periodo is None or periodo_actual is None:
             return JSONResponse(
                 content={"status": "error", "message": "No se encontró un periodo activo."},
                 status_code=404
@@ -302,32 +298,75 @@ def finalizar_captura_titulados(
             status_code=500
         )
 
-    try:
-        if datos:
-            registros = preparar_datos_temp_titulados(
-                datos=datos,
-                periodo=periodo,
-                sigla=sigla_unidad_academica,
-                nivel=nivel
-            )
-            insertar_temp_titulados(db, registros)
-            
-            finalizar_captura_programa_modalidad(
-                db, periodo, sigla_unidad_academica,
-                modalidad, programa, sess.usuario, host, nivel
+    # Preparar registros fuera de cualquier condición para que siempre exista la variable
+    registros = []
+    if datos:
+        try:
+            if payload.origen == "db":
+                registros = preparar_datos_temp_titulados_desde_db(
+                    datos=datos,
+                    periodo=periodo,
+                    sigla=sigla,
+                    nivel=nivel
+                )
+            else:
+                registros = preparar_datos_temp_titulados(
+                    datos=datos,
+                    periodo=periodo,
+                    sigla=sigla,
+                    nivel=nivel
+                )
+        except Exception as e:
+            return JSONResponse(
+                content={"status": "error", "message": f"Error al preparar datos: {str(e)}"},
+                status_code=500
             )
 
+    try:
+        # 1. Insertar en Temp_Titulados si hay registros
+        if registros:
+            insertar_temp_titulados(db, registros)
+
+        # 2. SP programa-modalidad (borra Temp_Titulados al terminar)
         finalizar_captura_programa_modalidad(
-            db, periodo, sigla_unidad_academica,
+            db, periodo_actual, sigla,
             modalidad, programa, sess.usuario, host, nivel
         )
+
+        # 3. Verificar si todos los programas-modalidad de la UA están en semáforo 3
+        todos_finalizados = verificar_todos_programas_finalizados(
+            db, periodo, sigla, nivel
+        )
+
+
+        # 4. Si todos están en 3, reinsertar y ejecutar SP de unidad académica
+        if todos_finalizados:
+            if registros:
+                db.expunge_all()  
+                insertar_temp_titulados(db, registros)
+            
+            else:
+                print("No hay registros para reinsertar antes de finalizar unidad académica.")
+
+            finalizar_unidad_academica(
+                db, periodo, sigla, modalidad, programa,
+                sess.usuario, host, nivel
+            )
+            
+
     except Exception as e:
+        traceback.print_exc()
         return JSONResponse(
             content={"status": "error", "message": f"Error al finalizar captura: {str(e)}"},
             status_code=500
         )
 
-    return {"status": "finalizado"}
+    return JSONResponse(
+        content={
+            "status": "finalizado",
+            "unidad_finalizada": todos_finalizados
+        }
+    )
 
 @router.get('/acuse-validacion')
 async def acuse_titulados_view(

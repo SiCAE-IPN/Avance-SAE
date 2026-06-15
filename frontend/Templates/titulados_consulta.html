@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/css/components/matricula_consulta.css">
     <link rel="stylesheet" href="/static/css/panel-rechazo.css">
     <link rel="stylesheet" href="/static/css/components/botones_validacion.css">
+    <link rel="stylesheet" href="/static/css/components/semaforo.css">
     <link rel="stylesheet" href="/static/css/components/filtrosExcel.css">
     <style>
         /* Ocultar el submenu de categorias que viene de base.html en esta vista */
@@ -507,8 +508,14 @@
         
         <!-- Panel de Informe (oculto para roles 4-9) -->
         <div id="informe-panel" class="informe-container" style="{% if es_rol_director or es_rol_superior %}display:none;{% else %}display:block;{% endif %} margin-top: 30px;">
+            
             <h3 style="text-align:center; color:#6e0343;">📊 Informe de Titulados Guardados</h3>
             <p style="text-align:center; color:#666; margin-bottom: 20px;">Datos actuales guardados en la base de datos</p>
+
+            <div id="pestana-semaforo-titulados" class="pestana-semaforo" title="Estado de captura por semáforo" style="display: none;">
+                <span id="semaforo-dot-titulados" class="semaforo-dot"></span>
+                <span id="semaforo-texto-titulados">No hay datos capturados</span>
+            </div>
             
             <div style="overflow-x: auto;">
                 <table id="informe-titulados-table" style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -547,7 +554,7 @@
                         <tr>
                             <td colspan="9" style="text-align: center; padding: 30px; color: #999;">
                                 <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
-                                <div>No hay datos guardados aún. Guarde registros para ver el informe.</div>
+                                <div>Seleccione un programa y modalidad para mostrar el informe.</div>
                             </td>
                         </tr>
                     </tbody>
@@ -592,6 +599,7 @@
     }
 
     let filasTitulados = [];
+    let datosFilasFiltrados = [];
     let turnosDisponibles = [];
 
     let activeFilters = {};
@@ -601,15 +609,15 @@
     let interfazBloqueada = false;
 
 </script>
-<script src="/static/js/titulados_mapeo.js"></script>
+
 <script src="/static/js/titulados_consulta.js"></script>
 <script src="/static/js/titulados_datos.js"></script>
+<script src="/static/js/titulados_mapeo.js"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (datosFilas && datosFilas.length > 0) {
             generarCabeceraTabla();
-            renderizarTablaTitulados(datosFilas);
             initTableFilters();
         }
     });
