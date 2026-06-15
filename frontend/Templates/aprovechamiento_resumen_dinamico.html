@@ -1,6 +1,6 @@
 {% extends "base_pdf.html" if exportando_pdf else "base.html" %}
 
-{% block title %}Acuse de Validación - Aprovechamiento (4 tablas){% endblock %}
+{% block title %}Acuse de Validación - Aprovechamiento{% endblock  %}
 
 {% block styles %}
     {% if not exportando_pdf %}
@@ -117,13 +117,17 @@
     .marca-agua {
         position: fixed;
         top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%) rotate(-45deg);
-        font-size: 80px;
-        color: rgba(128, 128, 128, 0.15);
-        white-space: nowrap;
+        left: -25%;
+        width: 150%;
+        text-align: center;
+        transform: rotate(-45deg);
+        font-size: 70px;
+        font-weight: bold;
+        color: rgba(128, 128, 128, 0.25);
+        text-transform: uppercase;
         pointer-events: none;
-        z-index: 1000;
+        z-index: 9999;
+        white-space: nowrap;
     }
 
     /* Estilos para impresión/PDF */
@@ -132,21 +136,6 @@
         body { margin: 0; padding: 0; background: white; }
         .tabla-seccion { page-break-inside: avoid; box-shadow: none; padding: 0; }
         .tabla-dinamica { font-size: 0.6rem; }
-
-        /* Forzar que la marca de agua aparezca en cada página del PDF */
-        .marca-agua {
-            position: fixed !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) rotate(-45deg) !important;
-            font-size: 80px !important;
-            color: rgba(128, 128, 128, 0.15) !important;
-            white-space: nowrap !important;
-            pointer-events: none !important;
-            z-index: 9999 !important;
-            display: block !important;
-            page-break-inside: avoid;
-        }
     }
 </style>
 {% endblock %}
@@ -158,7 +147,7 @@
     {% endif %}
 
     <div class="acuse-header">
-        <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN {{no_validado}}- APROVECHAMIENTO</h1>
+        <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - APROVECHAMIENTO</h1>
 
         <div class="header-info">
             <div class="header-item">
@@ -202,7 +191,7 @@
                 <table class="tabla-dinamica" id="tbl-programa">
                     <thead>
                         <tr>
-                            <th rowspan="2">Aprovechamiento</th>
+                            <th rowspan="2"><strong>Aprovechamiento</strong></th>
                             {% for cat in tabla_programa.categorias %}
                                 <th colspan="3">{{ cat }}</th>
                             {% endfor %}
@@ -218,7 +207,7 @@
                     <tbody>
                         {% for fila in tabla_programa.filas %}
                         <tr>
-                            <td><strong>{{ fila.tipo }}</strong></td>
+                            <td>{{ fila.tipo }}</td>
                             {% for celda in fila.celdas %}
                                 <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
                             {% endfor %}
@@ -262,7 +251,7 @@
                     <tbody>
                         {% for fila in tabla_semestre.filas %}
                         <tr>
-                            <td><strong>{{ fila.tipo }}</strong></td>
+                            <td>{{ fila.tipo }}</td>
                             {% for celda in fila.celdas %}
                                 <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
                             {% endfor %}
@@ -306,7 +295,7 @@
                     <tbody>
                         {% for fila in tabla_modalidad.filas %}
                         <tr>
-                            <td><strong>{{ fila.tipo }}</strong></td>
+                            <td>{{ fila.tipo }}
                             {% for celda in fila.celdas %}
                                 <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
                             {% endfor %}
@@ -350,7 +339,7 @@
                     <tbody>
                         {% for fila in tabla_turno.filas %}
                         <tr>
-                            <td><strong>{{ fila.tipo }}</strong></td>
+                            <td>{{ fila.tipo }}</td>
                             {% for celda in fila.celdas %}
                                 <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
                             {% endfor %}
@@ -456,7 +445,8 @@
     const idRol   = {{ id_rol }};
 
     function exportarPdf() {
-        const url = `/aprovechamiento/acuse-validacion/pdf?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}`;
+        
+        const url = `/aprovechamiento/acuse-validacion/pdf?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}&no_validado={{ no_validado|lower }}`;
         window.location.href = url;
     }
 
