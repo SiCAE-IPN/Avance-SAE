@@ -4221,7 +4221,7 @@ async def resumen_matricula_dinamico_view(
 # NUEVO ENDPOINT: ACUSE VALIDACIÓN (Template Compacto para Carta)
 # ============================================================================
 
-from datetime import datetime
+from datetime import datetime # Asegúrate de que esto esté importado al inicio de tu archivo
 
 @router.get('/acuse-validacion')
 async def acuse_validacion_view(

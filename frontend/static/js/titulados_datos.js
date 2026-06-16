@@ -60,9 +60,10 @@ function finalizarCapturaTitulados() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            datos: filasTitulados,
+            datos: filasTitulados.length > 0 ? filasTitulados : datosFilasFiltrados,
             programa: programa,
-            modalidad: modalidad
+            modalidad: modalidad,
+            origen: filasTitulados.length > 0 ? "captura" : "db"  // ← aquí
         })
     })
     .then(response => {
@@ -76,7 +77,7 @@ function finalizarCapturaTitulados() {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error al guardar el avance, por favor intente de nuevo.');
+        alert('Error al finalizar programa modalidad, por favor intente de nuevo.');
     });
 }
 
@@ -222,7 +223,9 @@ function updateFilterHeaderStates() {
 function showFilterDropdown(headerElement, columnIndex) {
     const table = document.getElementById('informe-titulados-table');
     const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('td[colspan]'));
+    const rows = Array.from(tbody.querySelectorAll('tr'))
+        .filter(row => !row.querySelector('td[colspan]'))
+        .filter(row => row.style.display !== 'none');
     
     if (rows.length === 0) {
         console.log('⚠️ No hay datos para filtrar');
@@ -523,13 +526,28 @@ function clearColumnFilter(columnIndex) {
 }
 
 function applyAllFilters() {
+    const programaSeleccionado = selectPrograma.value;
+    const modalidadSeleccionada = selectModalidad.value;
+
     const table = document.getElementById('informe-titulados-table');
     const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('td[colspan]'));
+    const rows = Array.from(tbody.querySelectorAll('tr'))
+        .filter(row => !row.querySelector('td[colspan]'));
 
     rows.forEach(row => {
-        let shouldShow = true;
+        
+        const programa  = row.cells[0]?.textContent.trim();
+        const modalidad = row.cells[1]?.textContent.trim();
+        const coincidePrograma  = !programaSeleccionado  || programa  === programaSeleccionado;
+        const coincideModalidad = !modalidadSeleccionada || modalidad === modalidadSeleccionada;
 
+        if (!coincidePrograma || !coincideModalidad) {
+            row.style.display = 'none';
+            return; 
+        }
+
+
+        let shouldShow = true;
         for (const [columnIndex, allowedValues] of Object.entries(activeFilters)) {
             const cell = row.cells[parseInt(columnIndex)];
             if (cell) {

@@ -55,9 +55,19 @@ def get_titulados(
     
 def insertar_temp_titulados(db: Session, registros: list[Temp_Titulados]) -> int:
     try:
-        db.add_all(registros)
+        if not registros:
+            return 0
+        
+        datos = [
+            {c.name: getattr(r, c.name) for c in r.__table__.columns}
+            for r in registros
+        ]
+
+        
+        db.execute(Temp_Titulados.__table__.insert(), datos)
         db.commit()
-        return len(registros)
+        
+        return len(datos)
     except Exception as e:
         db.rollback()
         raise e
@@ -104,6 +114,68 @@ def finalizar_captura_programa_modalidad(db: Session, periodo,unidad_academica, 
     except Exception as e:
         connection.rollback()
         raise RuntimeError(f"Error al ejecutar SP_Finalizar_Captura {e}")
+    
+def verificar_todos_programas_finalizados(
+    db: Session,
+    periodo: str,
+    sigla: str,
+    nivel: str
+) -> bool:
+    
+    resultado = db.execute(
+        text("""
+            SELECT COUNT(*) as total,
+                   SUM(CASE WHEN ssua.id_semaforo = 3 THEN 1 ELSE 0 END) as finalizados
+            FROM [dbo].[Semaforo_Semestre_Unidad_Academica] ssua
+                INNER JOIN [dbo].[Cat_Periodo] per
+                    ON per.Id_Periodo = ssua.Id_Periodo
+                INNER JOIN [dbo].[Cat_Unidad_Academica] ua
+                    ON ua.Id_Unidad_Academica = ssua.Id_Unidad_Academica
+                INNER JOIN [dbo].[Cat_Nivel] niv
+                    ON niv.Id_Nivel = ssua.Id_Nivel
+            WHERE per.Periodo   = :periodo
+              AND ua.Sigla      = :sigla
+              AND niv.Nivel     = :nivel
+              AND ssua.Id_Formato = 4
+        """),
+        {"periodo": periodo, "sigla": sigla, "nivel": nivel}
+    ).fetchone()
+
+    if resultado is None or resultado.total == 0:
+        return False
+
+    return resultado.total == resultado.finalizados
+
+def finalizar_unidad_academica(
+    db: Session,
+    periodo: str,
+    sigla: str,
+    modalidad, 
+    programa, 
+    usuario,
+    host, 
+    nivel
+):
+    try:
+        connection = db.connection().connection
+        cursor = connection.cursor()
+        cursor.execute(
+            """Exec [dbo].[SP_Finaliza_Captura_Titulados] 
+                    @PPeriodo = ?
+                    , @UUnidad_Academica = ?
+                    , @MModalidad = ?
+                    , @PPrograma = ?
+                    , @UUsuario = ?
+                    , @HHost = ?
+                    , @NNivel = ? """
+            , (periodo, sigla, modalidad, programa,usuario, host, nivel))
+
+        connection.commit()
+        cursor.close()
+
+    except Exception as e:
+        connection.rollback()
+        raise RuntimeError(f"Error al ejecutar SP_Finalizar_Unidad_Academica {e}")
 
 
 if __name__ == "__main__":
