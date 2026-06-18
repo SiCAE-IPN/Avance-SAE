@@ -1,8 +1,7 @@
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
+import os
+import base64
+import msal
+import requests
 from typing import Optional, TypedDict
 from backend.core.config import settings
 
@@ -23,40 +22,92 @@ def send_email(
     from_email: Optional[str] = None,
     attachments: Optional[list[EmailAttachment]] = None,
 ):
+    # 1. Definir remitente oficial (usando sicae@ipn.mx desde tus settings)
     if not from_email:
-        from_email = settings.effective_from
-    if not from_email:
-        raise EmailSendError("Remitente no configurado (SMTP_FROM o SMTP_USER vacío)")
+        from_email = getattr(settings, "SMTP_FROM", "sicae@ipn.mx")
 
+    # Mantener tu lógica exacta de prefijos para mantener el estándar visual
     full_subject = f"{settings.SMTP_SUBJECT_PREFIX} - {subject}" if settings.SMTP_SUBJECT_PREFIX else subject
 
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = full_subject
-    msg['From'] = from_email
-    msg['To'] = to_email
-
-    mime_text = MIMEText(html_body, 'html', 'utf-8')
-    msg.attach(mime_text)
-
-    for attachment in attachments or []:
-        filename = str(attachment.get('filename') or 'adjunto.bin')
-        content = attachment.get('content') or b''
-        mime_type = str(attachment.get('mime_type') or 'application/octet-stream')
-        maintype, _, subtype = mime_type.partition('/')
-        if not subtype:
-            maintype = 'application'
-            subtype = 'octet-stream'
-
-        part = MIMEBase(maintype, subtype)
-        part.set_payload(content)
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
-        msg.attach(part)
-
     try:
-        with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            if settings.SMTP_USER and settings.SMTP_PASS:
-                server.login(settings.SMTP_USER, settings.SMTP_PASS)
-            server.sendmail(from_email, [to_email], msg.as_string())
+        # 2. Configurar autenticación con Microsoft Entra ID
+        # Asegúrate de mapear estas variables en tu objeto 'settings' o usar os.getenv
+        client_id = settings.MICROSOFT_CLIENT_ID
+        tenant_id = settings.MICROSOFT_TENANT_ID
+        client_secret = settings.MICROSOFT_CLIENT_SECRET
+        
+        authority = f"https://login.microsoftonline.com/{tenant_id}"
+        
+        app = msal.ConfidentialClientApplication(
+            client_id,
+            authority=authority,
+            client_credential=client_secret
+        )
+
+        # 3. Adquirir Token de Acceso para Microsoft Graph
+        scopes = ["https://graph.microsoft.com/.default"]
+        token_result = app.acquire_token_for_client(scopes=scopes)
+
+        if "access_token" not in token_result:
+            raise EmailSendError(
+                f"Error de autenticación con Microsoft: {token_result.get('error_description')}"
+            )
+
+        access_token = token_result["access_token"]
+
+        # 4. Construir la estructura del mensaje para Microsoft Graph
+        # Separamos el html_body en la estructura JSON correspondiente
+        message_json = {
+            "subject": full_subject,
+            "body": {
+                "contentType": "HTML",
+                "content": html_body
+            },
+            "toRecipients": [
+                {
+                    "emailAddress": {
+                        "address": to_email
+                    }
+                }
+            ],
+            "attachments": []
+        }
+
+        # 5. Procesar los archivos adjuntos (Ej. El PDF del acuse de matrícula)
+        for attachment in attachments or []:
+            filename = str(attachment.get('filename') or 'adjunto.bin')
+            content_bytes = attachment.get('content') or b''
+            mime_type = str(attachment.get('mime_type') or 'application/octet-stream')
+            
+            # Microsoft Graph exige que el contenido binario esté codificado en un string Base64
+            base64_content = base64.b64encode(content_bytes).decode('utf-8')
+            
+            message_json["attachments"].append({
+                "@odata.type": "#microsoft.graph.fileAttachment",
+                "name": filename,
+                "contentType": mime_type,
+                "contentBytes": base64_content
+            })
+
+        # 6. Realizar la petición HTTP POST hacia el endpoint de Exchange Online
+        url_api = f"https://graph.microsoft.com/v1.0/users/{from_email}/sendMail"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "message": message_json,
+            "saveToSentItems": "true"  # Guarda copia en la bandeja de enviados de sicae@ipn.mx
+        }
+
+        response = requests.post(url_api, json=payload, headers=headers)
+
+        # El código HTTP 202 Indica que Exchange aceptó y procesó el envío del correo con éxito
+        if response.status_code != 202:
+            raise EmailSendError(f"Código de error Graph: {response.status_code} - {response.text}")
+
     except Exception as e:
-        raise EmailSendError(f"Error enviando correo: {e}")
+        # AGREGA ESTE PRINT TEMPORAL PARA VER EL ERROR EN CONSOLA:
+        print(f"- DETALLE DEL ERROR REAL: {e}")
+        raise EmailSendError(f"Error enviando correo por Microsoft Graph: {e}")

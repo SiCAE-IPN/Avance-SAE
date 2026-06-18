@@ -7,13 +7,14 @@ from pydantic_settings import BaseSettings
 from functools import lru_cache
 
 class Settings(BaseSettings):
-	# SMTP
-	SMTP_HOST: str = "smtp.gmail.com"
-	SMTP_PORT: int = 465
-	SMTP_USER: str = ""
-	SMTP_PASS: str = ""
-	SMTP_FROM: Optional[EmailStr] = None
-	SMTP_SUBJECT_PREFIX: str = "SAE"
+	# --- NUEVA CONFIGURACIÓN MICROSOFT (EXCHANGE ONLINE) ---
+	MICROSOFT_CLIENT_ID: str = ""
+	MICROSOFT_TENANT_ID: str = ""
+	MICROSOFT_CLIENT_SECRET: str = ""
+	
+	# Mantenemos estas para no romper la lógica visual y de prefijos
+	SMTP_FROM: Optional[EmailStr] = "sicae@ipn.mx"
+	SMTP_SUBJECT_PREFIX: str = "SiCAE"
 
 	# DB (se mantienen para compatibilidad con entorno existente)
 	DB_USER: str = ""
@@ -31,7 +32,8 @@ class Settings(BaseSettings):
 
 	@property
 	def effective_from(self) -> str:
-		return self.SMTP_FROM or self.SMTP_USER
+		# Ahora el remitente oficial siempre será SMTP_FROM (sicae@ipn.mx)
+		return self.SMTP_FROM or "sicae@ipn.mx"
 
 @lru_cache()
 def get_settings() -> Settings:
