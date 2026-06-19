@@ -10,7 +10,7 @@ from backend.services.periodo_service import get_ultimo_periodo, get_periodo_act
 
 router = APIRouter()
 
-HHost: str = "Test"
+HHost: str = "Emmanuel-Laptop"
 
 @router.get("/periodos", response_class=HTMLResponse)
 def domicilios_view(
@@ -67,7 +67,7 @@ def domicilios_view(
 @router.post("/nuevo_periodo")  
 def nuevo_periodo(request: Request, data: dict, sess=Depends(get_current_session), db: Session = Depends(get_db)):
     # Obtener información del usuario desde las cookies
-    UUsuario = str(sess.nombre_usuario)
+    UUsuario = str(sess.usuario)
     
     print(f"Creando periodo: {data['periodo']} por usuario: {UUsuario}")
     print(f"Fecha inicial: {data.get('fecha_inicial')}, Fecha final: {data.get('fecha_final')}")
@@ -75,6 +75,14 @@ def nuevo_periodo(request: Request, data: dict, sess=Depends(get_current_session
     try:
         # PASO 1: Ejecutar el SP para crear el nuevo periodo
         print("📝 Creando nuevo periodo...")
+        #Imprimir los parámetros que se van a enviar al SP para verificar su formato
+        print(f"Parámetros para SP_Inicia_periodo:")
+        print(f"  @PPeriodo = {data['periodo']}")
+        print(f"  @FFecha_Inicial = {data['fecha_inicial']}")
+        print(f"  @FFecha_Final = {data['fecha_final']}")
+        print(f"  @HHost = {HHost}")
+        print(f"  @UUsuario = {UUsuario}")
+
         query = text("""
             EXEC dbo.SP_Inicia_periodo
                 @PPeriodo = :PPeriodo,
