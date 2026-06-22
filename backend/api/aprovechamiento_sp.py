@@ -321,7 +321,8 @@ async def obtener_contexto_aprovechamiento(
     unidad: str,
     sess,
     db: Session,
-    exportando_pdf: bool = False
+    exportando_pdf: bool = False,
+    no_validado: bool = False
 ):
     id_rol = int(getattr(sess, 'id_rol', 0) or 0)
     nombre_rol = getattr(sess, 'nombre_rol', '') or ''
@@ -924,6 +925,7 @@ async def acuse_validacion_aprovechamiento_view(
     sess=Depends(get_current_session),
     db: Session = Depends(get_db),
     exportando_pdf: bool = False,
+    no_validado: bool = False,
 ):
     """
     Vista de Acuse de Validación - Aprovechamiento.
@@ -949,8 +951,10 @@ async def acuse_validacion_aprovechamiento_view(
     print(f"{'='*70}")
 
     context = await obtener_contexto_aprovechamiento(
-        request, periodo, nivel, unidad, sess, db, exportando_pdf=exportando_pdf
+        request, periodo, nivel, unidad, sess, db, exportando_pdf=exportando_pdf, no_validado=no_validado
     )
+    if isinstance(context, dict):
+        context["no_validado"] = no_validado
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
 
 
@@ -964,25 +968,25 @@ async def exportar_aprovechamiento_pdf(
     periodo: str,
     nivel: str,
     unidad: str,
+    no_validado: str = "false",  # 👈 1. Agregar este parámetro para capturarlo de la URL
     sess=Depends(get_current_session),
     db: Session = Depends(get_db),
 ):
-    """
-    Genera el PDF del Acuse de Validación de Aprovechamiento.
-    Reutiliza la vista acuse_validacion_aprovechamiento_view con exportando_pdf=True.
-    """
     try:
         import importlib
         weasyprint = importlib.import_module("weasyprint")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"WeasyPrint no está instalado: {exc}")
 
-    # ✅ acuse_validacion_aprovechamiento_view está definida ANTES, sin NameError
+    # 2. Pasamos el valor convertido a booleano a la vista principal
+    es_no_validado = no_validado.lower() == 'true'
+
     resp = await acuse_validacion_aprovechamiento_view(
         request=request,
         periodo=periodo,
         nivel=nivel,
         unidad=unidad,
+        no_validado=es_no_validado, # 👈 3. Enviarlo al contexto del HTML
         sess=sess,
         db=db,
         exportando_pdf=True,
@@ -991,20 +995,18 @@ async def exportar_aprovechamiento_pdf(
     if isinstance(resp, RedirectResponse):
         return resp
 
-    # Decodificar el HTML renderizado
     if isinstance(resp.body, memoryview):
         html_text = resp.body.tobytes().decode('utf-8')
     else:
         html_text = bytes(resp.body).decode('utf-8')
 
-    # Ruta al CSS compartido
     base_path = Path(__file__).resolve().parents[2] / 'frontend' / 'static'
     ruta_css  = base_path / 'css' / 'components' / 'matricula_acuse.css'
 
     if not ruta_css.exists():
         raise HTTPException(
             status_code=500,
-            detail=f"No se encontró el CSS en: {ruta_css}. Verifica que 'frontend' esté al mismo nivel que 'backend'."
+            detail=f"No se encontró el CSS en: {ruta_css}."
         )
 
     try:
@@ -1012,26 +1014,27 @@ async def exportar_aprovechamiento_pdf(
             stylesheets=[
                 weasyprint.CSS(filename=str(ruta_css)),
                 weasyprint.CSS(string='''
-                    @page {
-                        size: landscape;
-                        margin: 1cm;
+                    @page { size: landscape; margin: 1cm }
+
+                    /* 👈 4. CSS de la Marca de agua optimizado para WeasyPrint */
+                    .marca-agua {
+                        position: fixed;
+                        top: 45%;
+                        left: 0;
+                        right: 0;
+                        text-align: center;
+                        transform: rotate(-45deg);
+                        transform-origin: center center;
+                        font-size: 80px;
+                        font-weight: bold;
+                        color: rgba(128, 128, 128, 0.25);
+                        text-transform: uppercase;
+                        z-index: -1; /* Importante: z-index negativo para que quede de fondo real */
+                        pointer-events: none;
                     }
-                    body {
-                        font-size: 9pt;
-                        font-family: Arial, Helvetica, sans-serif;
-                    }
-                    .tabla-dinamica {
-                        font-size: 7pt;
-                    }
-                    .tabla-dinamica th,
-                    .tabla-dinamica td {
-                        padding: 2px 2px !important;
-                    }
-                    .acciones-validacion,
-                    .panel-rechazo,
-                    .btn,
-                    .estado-validacion,
-                    .mensaje-validacion {
+
+                    .acciones-validacion, .panel-rechazo, .btn,
+                    .estado-validacion, .mensaje-validacion {
                         display: none !important;
                     }
                     .tabla-seccion {
@@ -1051,8 +1054,6 @@ async def exportar_aprovechamiento_pdf(
         media_type='application/pdf',
         headers={'Content-Disposition': f'attachment; filename="{filename}"'}
     )
-
-
 # ============================================================================
 # ENDPOINTS DE VALIDACIÓN / RECHAZO
 # ============================================================================
