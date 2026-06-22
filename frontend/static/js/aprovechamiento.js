@@ -345,9 +345,9 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
         else if (s.startsWith('M')) datosAprovechamiento[sit][t].M += val;
     });
 
-    crearFilaInput(tbody, 'Inscritos',      turnos, datosInscritos,      true,  'fila-matricula',      esSemestreBloqueado);
-    crearFilaInput(tbody, 'Reincorporados', turnos, datosReincorporados, false, 'fila-matricula',      esSemestreBloqueado);
-    crearFilaTotalizador(tbody, 'Total Matricula', turnos, 'total-matricula', '#e8f5e9');
+    crearFilaInput(thead, 'Inscritos',      turnos, datosInscritos,      true,  'fila-matricula',      esSemestreBloqueado);
+    crearFilaInput(thead, 'Reincorporados', turnos, datosReincorporados, false, 'fila-matricula',      esSemestreBloqueado);
+    crearFilaTotalizador(thead,     'Total Matricula', turnos, 'total-matricula', '#e8f5e9');
 
     const trSep = document.createElement('tr');
     trSep.innerHTML = `<td colspan="${1 + turnos.length}" style="background:#dee2e6; height:6px; padding:0;"></td>`;
@@ -386,7 +386,7 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
     tr.onmouseover = () => tr.style.backgroundColor = '#f5f5f5';
     tr.onmouseout  = () => tr.style.backgroundColor = '';
 
-    let html = `<td style="font-weight:600; padding:14px 12px; border:1px solid #dee2e6; vertical-align:middle; font-size:14px; color:#333; background:#f8f9fa; white-space:normal; word-break:keep-all; min-width:160px; width:160px; max-width:160px;">${titulo}</td>`;
+    let html = `<td style="font-weight:600; text-align:center; padding:14px 12px; border:1px solid #dee2e6; vertical-align:middle; font-size:14px; color:#333; background:#f8f9fa; white-space:normal; word-break:keep-all; min-width:160px; width:160px; max-width:160px;">${titulo}</td>`;
 
     turnos.forEach((t, indexTurno) => {
         const valoresDB = datosMapa[t] || { H: 0, M: 0 };
@@ -410,16 +410,14 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
                     <input type="number" min="0"
                         class="input-matricula-nueva"
                         data-tipo="${titulo}" data-turno="${t}" data-sexo="Hombre"
-                        value="${valH}" oninput="registrarCambio(this)" ${attr}
-                        style="width:64px; padding:4px 6px; border:2px solid #2196f3; border-radius:4px; background:${bgH}; color:#1976d2; font-weight:600; text-align:center; font-size:13px;">
+                        value="${valH}" oninput="registrarCambio(this)" ${attr}>
                 </div>
                 <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px; background:#fce4ec; border-radius:6px; border:1px solid #f48fb1;">
                     <div style="font-weight:700; color:#c2185b; font-size:12px; min-width:14px; text-align:center;">M</div>
                     <input type="number" min="0"
                         class="input-matricula-nueva"
                         data-tipo="${titulo}" data-turno="${t}" data-sexo="Mujer"
-                        value="${valM}" oninput="registrarCambio(this)" ${attr}
-                        style="width:64px; padding:4px 6px; border:2px solid #e91e63; border-radius:4px; background:${bgM}; color:#c2185b; font-weight:600; text-align:center; font-size:13px;">
+                        value="${valM}" oninput="registrarCambio(this)" ${attr}>
                 </div>
             </div>
         </td>`;
@@ -428,11 +426,16 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
     tr.innerHTML = html;
     tbody.appendChild(tr);
 }
-
 function crearFilaTotalizador(tbody, titulo, turnos, idBase, colorFondo) {
     const tr = document.createElement('tr');
     tr.style.backgroundColor = colorFondo;
     tr.style.borderTop       = '2px solid #dee2e6';
+    // --- NUEVAS LÍNEAS PARA FIJAR LA FILA ---
+    tr.style.position  = 'sticky';
+    tr.style.bottom    = '0';     // Lo pega al borde inferior del contenedor
+    tr.style.zIndex    = '10';    // Asegura que no sea tapado por otras filas al hacer scroll
+    tr.style.boxShadow = '0px -3px 5px rgba(0, 0, 0, 0.05)'; 
+    // ----------------------------------------
 
     let html = `<td style="text-align:right; padding:14px 12px; font-weight:700; font-size:14px; border:1px solid #dee2e6; color:#333; background:#f8f9fa; white-space:normal; word-break:keep-all; min-width:160px; width:160px; max-width:160px;">${titulo}:</td>`;
 
@@ -442,12 +445,12 @@ function crearFilaTotalizador(tbody, titulo, turnos, idBase, colorFondo) {
         <td style="text-align:center; border:1px solid #dee2e6; ${borderRight} padding:12px 8px;">
             <div style="display:inline-flex; gap:10px; justify-content:center; align-items:center;">
                 <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#e3f2fd; border-radius:8px; border:2px solid #90caf9;">
-                    <span style="font-size:14px; color:#1976d2; font-weight:800;">H</span>
-                    <span id="${idBase}-${t}-Hombre" style="font-weight:800; color:#1976d2; font-size:26px; min-width:28px; display:inline-block; text-align:center; line-height:1;">0</span>
+                    <span style="font-size:12px; color:#1976d2; font-weight:800;">H</span>
+                    <span id="${idBase}-${t}-Hombre" style="font-weight:800; color:#1976d2; font-size:18px; min-width:18px; display:inline-block; text-align:center; line-height:1;">0</span>
                 </div>
                 <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#fce4ec; border-radius:8px; border:2px solid #f48fb1;">
-                    <span style="font-size:14px; color:#c2185b; font-weight:800;">M</span>
-                    <span id="${idBase}-${t}-Mujer" style="font-weight:800; color:#c2185b; font-size:26px; min-width:28px; display:inline-block; text-align:center; line-height:1;">0</span>
+                    <span style="font-size:12px; color:#c2185b; font-weight:800;">M</span>
+                    <span id="${idBase}-${t}-Mujer" style="font-weight:800; color:#c2185b; font-size:18px; min-width:18x; display:inline-block; text-align:center; line-height:1;">0</span>
                 </div>
             </div>
         </td>`;
@@ -456,7 +459,6 @@ function crearFilaTotalizador(tbody, titulo, turnos, idBase, colorFondo) {
     tr.innerHTML = html;
     tbody.appendChild(tr);
 }
-
 // ==========================================
 // 10. Cálculos
 // ==========================================
