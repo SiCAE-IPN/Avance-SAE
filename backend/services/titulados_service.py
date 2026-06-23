@@ -119,6 +119,32 @@ def preparar_datos_temp_titulados(
 
     return registros
 
+def preparar_datos_temp_titulados_desde_db(
+    datos: List[Dict[str, Any]],
+    periodo: str,
+    sigla: str,
+    nivel: str,
+) -> List[Temp_Titulados]:
+    registros = []
+    for fila in datos:
+        if fila.get("Titulados") is None:
+            continue  # saltar filas sin datos
+        registros.append(Temp_Titulados(
+            Periodo=periodo,
+            Sigla=sigla,
+            Nombre_Programa=fila.get("Nombre_Programa", ""),
+            Nombre_Rama=fila.get("Nombre_Rama", ""),
+            Nivel=nivel,
+            Modalidad=fila.get("Modalidad", ""),
+            Grupo_Edad=fila.get("Grupo_Edad", ""),
+            Boleta=int(fila["Boleta"]) if str(fila.get("Boleta", "")).isdigit() else 0,
+            Tipo_Titulacion=fila.get("Tipo_Titulacion", ""),
+            Turno=fila.get("Turno", ""),
+            Sexo=fila.get("Sexo", ""),
+            Titulados=fila.get("Titulados"),
+        ))
+    return registros
+
 #Acuse
 
 def _nueva_tabla() -> Dict[str, int]:
@@ -135,6 +161,7 @@ def _sumar(d: dict) -> dict:
     h = sum(v['H'] for v in d.values())
     m = sum(v['M'] for v in d.values())
     return {'hombres': h, 'mujeres': m, 'total': h + m}
+
 
 def procesar_titulados(filas: list[dict]) -> dict:
     
@@ -182,6 +209,8 @@ def procesar_titulados(filas: list[dict]) -> dict:
         # Total general para el encabezado
         'total_t': sum(v['T'] for v in programa.values()),
     }
+
+
     
 if __name__ == "__main__":
     with next(get_db()) as db:

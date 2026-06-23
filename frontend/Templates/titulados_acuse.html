@@ -7,6 +7,20 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="/static/css/components/egresados_acuse.css">
+    <style>
+    .columna-izq {
+        order: -1;
+    }
+
+    .columna-der {
+        order: 1;
+    }
+    .contenedor-columnas {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+    </style>
     {% endif %}
 {% endblock %}
 
@@ -61,254 +75,249 @@
     </div>
 
     {# ── TABLAS ── #}
-    <div class="contenedor-columnas">
+<div class="contenedor-columnas">
 
-        {# ── Columna izquierda: Programa · Boleta · Edad ── #}
-        <div class="columna-izq">
+    {# ── Columna izquierda: Titulación · Boleta · Edad ── #}
+    <div class="columna-izq">
 
-        
-            <div class="tabla-seccion">
-                <div class="tabla-titulo">
-                    {{ '1. ' if exportando_pdf else '1️⃣' }}Programa Académico
-                </div>
-                <table class="tabla-acuse">
-                    <thead>
-                        <tr>
-                            <th>Programa</th>
-                            <th style="width:15%;">H</th>
-                            <th style="width:15%;">M</th>
-                            <th style="width:15%;">T</th>
-                        </tr>
-                        <tr class="subheader">
-                            <th colspan="4">Titulados y/o Graduados</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in tabla_programas %}
-                        <tr>
-                            <td>{{ fila.nombre }}</td>
-                            <td>{{ fila.hombres }}</td>
-                            <td>{{ fila.mujeres }}</td>
-                            <td><strong>{{ fila.total }}</strong></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td>Total</td>
-                            <td><strong>{{ totales_programas.hombres }}</strong></td>
-                            <td><strong>{{ totales_programas.mujeres }}</strong></td>
-                            <td><strong>{{ totales_programas.total }}</strong></td>
-                        </tr>
-                    </tfoot>
-                </table>
+        {% if tabla_tipo_tit %}
+        <div class="tabla-seccion">
+            <div class="tabla-titulo">
+                {{ '1. ' if exportando_pdf else '1️⃣ ' }}Tipo de Titulación
             </div>
-           
+            <table class="tabla-acuse">
+                <thead>
+                    <tr>
+                        <th>Tipo de Titulación</th>
+                        <th style="width:15%;">H</th>
+                        <th style="width:15%;">M</th>
+                        <th style="width:15%;">T</th>
+                    </tr>
+                    <tr class="subheader">
+                        <th colspan="4">Titulados y/o Graduados</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_tipo_tit %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total</td>
+                        <td><strong>{{ totales_tipo_tit.hombres }}</strong></td>
+                        <td><strong>{{ totales_tipo_tit.mujeres }}</strong></td>
+                        <td><strong>{{ totales_tipo_tit.total }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endif %}
 
-           
-            <div class="tabla-seccion">
-                <div class="tabla-titulo">
-                    {{ '2. ' if exportando_pdf else '2️⃣ ' }}Boleta
-                </div>
-                <table class="tabla-acuse">
-                    <thead>
-                        <tr>
-                            <th>Boleta</th>
-                            <th style="width:15%;">H</th>
-                            <th style="width:15%;">M</th>
-                            <th style="width:15%;">T</th>
-                        </tr>
-                        <tr class="subheader">
-                            <th colspan="4">Titulados y/o Graduados</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in tabla_boletas %}
-                        <tr>
-                            <td>{{ fila.nombre }}</td>
-                            <td>{{ fila.hombres }}</td>
-                            <td>{{ fila.mujeres }}</td>
-                            <td><strong>{{ fila.total }}</strong></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td>Total</td>
-                            <td><strong>{{ totales_boletas.hombres }}</strong></td>
-                            <td><strong>{{ totales_boletas.mujeres }}</strong></td>
-                            <td><strong>{{ totales_boletas.total }}</strong></td>
-                        </tr>
-                    </tfoot>
-                </table>
+        <div class="tabla-seccion">
+            <div class="tabla-titulo">
+                {{ '2. ' if exportando_pdf else '2️⃣ ' }}Boleta
             </div>
-            
+            <table class="tabla-acuse">
+                <thead>
+                    <tr>
+                        <th>Boleta</th>
+                        <th style="width:15%;">H</th>
+                        <th style="width:15%;">M</th>
+                        <th style="width:15%;">T</th>
+                    </tr>
+                    <tr class="subheader">
+                        <th colspan="4">Titulados y/o Graduados</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_boletas %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total</td>
+                        <td><strong>{{ totales_boletas.hombres }}</strong></td>
+                        <td><strong>{{ totales_boletas.mujeres }}</strong></td>
+                        <td><strong>{{ totales_boletas.total }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
 
-            {% if tabla_edades %}
-            <div class="tabla-seccion">
-                <div class="tabla-titulo">
-                    {{ '3. ' if exportando_pdf else '3️⃣ ' }}Grupo de Edad
-                </div>
-                <table class="tabla-acuse">
-                    <thead>
-                        <tr>
-                            <th>Grupo de Edad</th>
-                            <th style="width:15%;">H</th>
-                            <th style="width:15%;">M</th>
-                            <th style="width:15%;">T</th>
-                        </tr>
-                        <tr class="subheader">
-                            <th colspan="4">Titulados y/o Graduados</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in tabla_edades %}
-                        <tr>
-                            <td>{{ fila.nombre }}</td>
-                            <td>{{ fila.hombres }}</td>
-                            <td>{{ fila.mujeres }}</td>
-                            <td><strong>{{ fila.total }}</strong></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td>Total</td>
-                            <td><strong>{{ totales_edades.hombres }}</strong></td>
-                            <td><strong>{{ totales_edades.mujeres }}</strong></td>
-                            <td><strong>{{ totales_edades.total }}</strong></td>
-                        </tr>
-                    </tfoot>
-                </table>
+        {% if tabla_edades %}
+        <div class="tabla-seccion">
+            <div class="tabla-titulo">
+                {{ '3. ' if exportando_pdf else '3️⃣ ' }}Grupo de Edad
             </div>
-            {% endif %}
+            <table class="tabla-acuse">
+                <thead>
+                    <tr>
+                        <th>Grupo de Edad</th>
+                        <th style="width:15%;">H</th>
+                        <th style="width:15%;">M</th>
+                        <th style="width:15%;">T</th>
+                    </tr>
+                    <tr class="subheader">
+                        <th colspan="4">Titulados y/o Graduados</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_edades %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total</td>
+                        <td><strong>{{ totales_edades.hombres }}</strong></td>
+                        <td><strong>{{ totales_edades.mujeres }}</strong></td>
+                        <td><strong>{{ totales_edades.total }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endif %}
 
-        </div>{# fin columna-izq #}
+    </div>{# fin columna-izq #}
 
-        {# ── Columna derecha: Modalidad · Tipo Titulación · Turno ── #}
-        <div class="columna-der">
+    {# ── Columna derecha: Programa · Modalidad · Turno ── #}
+    <div class="columna-der">
 
-            {% if tabla_modalidades %}
-            <div class="tabla-seccion">
-                <div class="tabla-titulo">
-                    {{ '4. ' if exportando_pdf else '4️⃣ ' }}Modalidad
-                </div>
-                <table class="tabla-acuse">
-                    <thead>
-                        <tr>
-                            <th>Modalidad</th>
-                            <th style="width:15%;">H</th>
-                            <th style="width:15%;">M</th>
-                            <th style="width:15%;">T</th>
-                        </tr>
-                        <tr class="subheader">
-                            <th colspan="4">Titulados y/o Graduados</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in tabla_modalidades %}
-                        <tr>
-                            <td>{{ fila.nombre }}</td>
-                            <td>{{ fila.hombres }}</td>
-                            <td>{{ fila.mujeres }}</td>
-                            <td><strong>{{ fila.total }}</strong></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td>Total</td>
-                            <td><strong>{{ totales_modalidades.hombres }}</strong></td>
-                            <td><strong>{{ totales_modalidades.mujeres }}</strong></td>
-                            <td><strong>{{ totales_modalidades.total }}</strong></td>
-                        </tr>
-                    </tfoot>
-                </table>
+        <div class="tabla-seccion">
+            <div class="tabla-titulo">
+                {{ '4. ' if exportando_pdf else '4️⃣ ' }}Programa Académico
             </div>
-            {% endif %}
+            <table class="tabla-acuse">
+                <thead>
+                    <tr>
+                        <th>Programa</th>
+                        <th style="width:15%;">H</th>
+                        <th style="width:15%;">M</th>
+                        <th style="width:15%;">T</th>
+                    </tr>
+                    <tr class="subheader">
+                        <th colspan="4">Titulados y/o Graduados</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_programas %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total</td>
+                        <td><strong>{{ totales_programas.hombres }}</strong></td>
+                        <td><strong>{{ totales_programas.mujeres }}</strong></td>
+                        <td><strong>{{ totales_programas.total }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
 
-            {% if tabla_tipo_tit %}
-            <div class="tabla-seccion">
-                <div class="tabla-titulo">
-                    {{ '5. ' if exportando_pdf else '5️⃣ ' }}Tipo de Titulación
-                </div>
-                <table class="tabla-acuse">
-                    <thead>
-                        <tr>
-                            <th>Tipo de Titulación</th>
-                            <th style="width:15%;">H</th>
-                            <th style="width:15%;">M</th>
-                            <th style="width:15%;">T</th>
-                        </tr>
-                        <tr class="subheader">
-                            <th colspan="4">Titulados y/o Graduados</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in tabla_tipo_tit %}
-                        <tr>
-                            <td>{{ fila.nombre }}</td>
-                            <td>{{ fila.hombres }}</td>
-                            <td>{{ fila.mujeres }}</td>
-                            <td><strong>{{ fila.total }}</strong></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td>Total</td>
-                            <td><strong>{{ totales_tipo_tit.hombres }}</strong></td>
-                            <td><strong>{{ totales_tipo_tit.mujeres }}</strong></td>
-                            <td><strong>{{ totales_tipo_tit.total }}</strong></td>
-                        </tr>
-                    </tfoot>
-                </table>
+        {% if tabla_modalidades %}
+        <div class="tabla-seccion">
+            <div class="tabla-titulo">
+                {{ '5. ' if exportando_pdf else '5️⃣ ' }}Modalidad
             </div>
-            {% endif %}
+            <table class="tabla-acuse">
+                <thead>
+                    <tr>
+                        <th>Modalidad</th>
+                        <th style="width:15%;">H</th>
+                        <th style="width:15%;">M</th>
+                        <th style="width:15%;">T</th>
+                    </tr>
+                    <tr class="subheader">
+                        <th colspan="4">Titulados y/o Graduados</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_modalidades %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total</td>
+                        <td><strong>{{ totales_modalidades.hombres }}</strong></td>
+                        <td><strong>{{ totales_modalidades.mujeres }}</strong></td>
+                        <td><strong>{{ totales_modalidades.total }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endif %}
 
-            {% if tabla_turnos %}
-            <div class="tabla-seccion">
-                <div class="tabla-titulo">
-                    {{ '6. ' if exportando_pdf else '6️⃣ ' }}Turno
-                </div>
-                <table class="tabla-acuse">
-                    <thead>
-                        <tr>
-                            <th>Turno</th>
-                            <th style="width:15%;">H</th>
-                            <th style="width:15%;">M</th>
-                            <th style="width:15%;">T</th>
-                        </tr>
-                        <tr class="subheader">
-                            <th colspan="4">Titulados y/o Graduados</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in tabla_turnos %}
-                        <tr>
-                            <td>{{ fila.nombre }}</td>
-                            <td>{{ fila.hombres }}</td>
-                            <td>{{ fila.mujeres }}</td>
-                            <td><strong>{{ fila.total }}</strong></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td>Total</td>
-                            <td><strong>{{ totales_turnos.hombres }}</strong></td>
-                            <td><strong>{{ totales_turnos.mujeres }}</strong></td>
-                            <td><strong>{{ totales_turnos.total }}</strong></td>
-                        </tr>
-                    </tfoot>
-                </table>
+        {% if tabla_turnos %}
+        <div class="tabla-seccion">
+            <div class="tabla-titulo">
+                {{ '6. ' if exportando_pdf else '6️⃣ ' }}Turno
             </div>
-            {% endif %}
+            <table class="tabla-acuse">
+                <thead>
+                    <tr>
+                        <th>Turno</th>
+                        <th style="width:15%;">H</th>
+                        <th style="width:15%;">M</th>
+                        <th style="width:15%;">T</th>
+                    </tr>
+                    <tr class="subheader">
+                        <th colspan="4">Titulados y/o Graduados</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_turnos %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total</td>
+                        <td><strong>{{ totales_turnos.hombres }}</strong></td>
+                        <td><strong>{{ totales_turnos.mujeres }}</strong></td>
+                        <td><strong>{{ totales_turnos.total }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endif %}
 
-        </div>{# fin columna-der #}
+    </div>{# fin columna-der #}
 
-    </div>{# fin contenedor-columnas #}
-
+</div>{# fin contenedor-columnas #}
     {# ── PIE: estado de validación + acciones ── #}
     <div class="acuse-footer">
 
