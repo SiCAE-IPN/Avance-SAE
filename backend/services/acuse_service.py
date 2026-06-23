@@ -54,7 +54,7 @@ def save_acuse_pdf_for_user(
     user_dir = get_user_acuses_dir(usuario_login)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_name = (
-        f"acuse_matricula_{_safe_slug(periodo_literal)}_{_safe_slug(unidad_sigla)}_"
+        f"{_safe_slug(periodo_literal)}_{_safe_slug(unidad_sigla)}_acuse_captura_"
         f"{ts}.pdf"
     )
     file_path = user_dir / file_name

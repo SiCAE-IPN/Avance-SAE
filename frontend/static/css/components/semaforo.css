@@ -1,0 +1,50 @@
+.pestana-semaforo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 19px;
+    border-radius: 999px;
+    border: 2px solid #ccc;
+    background-color: #f9f9f9;
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #555;
+}
+
+.semaforo-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #ccc;
+    flex-shrink: 0;
+}
+
+/* Rojo - No Capturado */
+.pestana-semaforo.semaforo-rojo {
+    border-color: #c0392b;
+    color: #c0392b;
+    background-color: #fdf0ef;
+}
+.semaforo-dot.semaforo-rojo {
+    background-color: #c0392b;
+}
+
+/* Amarillo - En Proceso */
+.pestana-semaforo.semaforo-amarillo {
+    border-color: #c9a800;
+    color: #7a6200;
+    background-color: #fffde7;
+}
+.semaforo-dot.semaforo-amarillo {
+    background-color: #e6c200;
+}
+
+/* Verde - Captura Finalizada */
+.pestana-semaforo.semaforo-verde {
+    border-color: #27ae60;
+    color: #1e8449;
+    background-color: #eafaf1;
+}
+.semaforo-dot.semaforo-verde {
+    background-color: #27ae60;
+}

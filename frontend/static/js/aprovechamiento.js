@@ -7,6 +7,7 @@ let turnosEnPantalla = [];
 let cambiosGlobales = {};
 let scrollPendiente = null;
 
+
 let estadosSemaforoPorSemestre = {};
 let semestresDisponiblesSP = [];
 const SEMAFORO_COLORES = {
@@ -14,6 +15,11 @@ const SEMAFORO_COLORES = {
     2: { color: '#f57c00', descripcion: 'Datos Parciales' },
     3: { color: '#2e7d32', descripcion: 'Datos Completos' }
 };
+
+// Variables de estado de validación (se inyectan desde el template)
+let usuario_ya_valido = false;
+let usuario_ya_rechazo = false;
+let validacionMasivaEnCurso = false;
 
 // ==========================================
 // 2. Funciones de Utilidad
@@ -85,7 +91,7 @@ function actualizarColoresPestanas() {
 }
 
 // ==========================================
-// 4. Pestanas de semestres
+// 4. Pestañas de semestres
 // ==========================================
 window.cargarSemestresTabs = function (prog, mod, semForzado = null) {
     const container = document.getElementById('semestres-tabs');
@@ -98,9 +104,16 @@ window.cargarSemestresTabs = function (prog, mod, semForzado = null) {
 
     if (semestresDisponiblesSP.length === 0) {
         const tbody = document.getElementById('tabla-body');
-        if (tbody) tbody.innerHTML = '';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:40px;">No hay semestres disponibles para esta combinación</td></tr>';
+        // Ocultar contenedor de captura
+        const capturaContainer = document.getElementById('captura-matricula-container');
+        if (capturaContainer) capturaContainer.style.display = 'none';
         return;
     }
+
+    // Mostrar el contenedor de captura ahora que hay datos
+    const capturaContainer = document.getElementById('captura-matricula-container');
+    if (capturaContainer) capturaContainer.style.display = 'block';
 
     maxSemestres = semestresDisponiblesSP[semestresDisponiblesSP.length - 1];
 
@@ -332,9 +345,9 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
         else if (s.startsWith('M')) datosAprovechamiento[sit][t].M += val;
     });
 
-    crearFilaInput(tbody, 'Inscritos',      turnos, datosInscritos,      true,  'fila-matricula',      esSemestreBloqueado);
-    crearFilaInput(tbody, 'Reincorporados', turnos, datosReincorporados, false, 'fila-matricula',      esSemestreBloqueado);
-    crearFilaTotalizador(tbody, 'Total Matricula', turnos, 'total-matricula', '#e8f5e9');
+    crearFilaInput(thead, 'Inscritos',      turnos, datosInscritos,      true,  'fila-matricula',      esSemestreBloqueado);
+    crearFilaInput(thead, 'Reincorporados', turnos, datosReincorporados, false, 'fila-matricula',      esSemestreBloqueado);
+    crearFilaTotalizador(thead,     'Total Matricula', turnos, 'total-matricula', '#e8f5e9');
 
     const trSep = document.createElement('tr');
     trSep.innerHTML = `<td colspan="${1 + turnos.length}" style="background:#dee2e6; height:6px; padding:0;"></td>`;
@@ -373,7 +386,7 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
     tr.onmouseover = () => tr.style.backgroundColor = '#f5f5f5';
     tr.onmouseout  = () => tr.style.backgroundColor = '';
 
-    let html = `<td style="font-weight:600; padding:14px 12px; border:1px solid #dee2e6; vertical-align:middle; font-size:14px; color:#333; background:#f8f9fa; white-space:normal; word-break:keep-all; min-width:160px; width:160px; max-width:160px;">${titulo}</td>`;
+    let html = `<td style="font-weight:600; text-align:center; padding:14px 12px; border:1px solid #dee2e6; vertical-align:middle; font-size:14px; color:#333; background:#f8f9fa; white-space:normal; word-break:keep-all; min-width:160px; width:160px; max-width:160px;">${titulo}</td>`;
 
     turnos.forEach((t, indexTurno) => {
         const valoresDB = datosMapa[t] || { H: 0, M: 0 };
@@ -397,16 +410,14 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
                     <input type="number" min="0"
                         class="input-matricula-nueva"
                         data-tipo="${titulo}" data-turno="${t}" data-sexo="Hombre"
-                        value="${valH}" oninput="registrarCambio(this)" ${attr}
-                        style="width:64px; padding:4px 6px; border:2px solid #2196f3; border-radius:4px; background:${bgH}; color:#1976d2; font-weight:600; text-align:center; font-size:13px;">
+                        value="${valH}" oninput="registrarCambio(this)" ${attr}>
                 </div>
                 <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px; background:#fce4ec; border-radius:6px; border:1px solid #f48fb1;">
                     <div style="font-weight:700; color:#c2185b; font-size:12px; min-width:14px; text-align:center;">M</div>
                     <input type="number" min="0"
                         class="input-matricula-nueva"
                         data-tipo="${titulo}" data-turno="${t}" data-sexo="Mujer"
-                        value="${valM}" oninput="registrarCambio(this)" ${attr}
-                        style="width:64px; padding:4px 6px; border:2px solid #e91e63; border-radius:4px; background:${bgM}; color:#c2185b; font-weight:600; text-align:center; font-size:13px;">
+                        value="${valM}" oninput="registrarCambio(this)" ${attr}>
                 </div>
             </div>
         </td>`;
@@ -415,11 +426,16 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
     tr.innerHTML = html;
     tbody.appendChild(tr);
 }
-
 function crearFilaTotalizador(tbody, titulo, turnos, idBase, colorFondo) {
     const tr = document.createElement('tr');
     tr.style.backgroundColor = colorFondo;
     tr.style.borderTop       = '2px solid #dee2e6';
+    // --- NUEVAS LÍNEAS PARA FIJAR LA FILA ---
+    tr.style.position  = 'sticky';
+    tr.style.bottom    = '0';     // Lo pega al borde inferior del contenedor
+    tr.style.zIndex    = '10';    // Asegura que no sea tapado por otras filas al hacer scroll
+    tr.style.boxShadow = '0px -3px 5px rgba(0, 0, 0, 0.05)'; 
+    // ----------------------------------------
 
     let html = `<td style="text-align:right; padding:14px 12px; font-weight:700; font-size:14px; border:1px solid #dee2e6; color:#333; background:#f8f9fa; white-space:normal; word-break:keep-all; min-width:160px; width:160px; max-width:160px;">${titulo}:</td>`;
 
@@ -429,12 +445,12 @@ function crearFilaTotalizador(tbody, titulo, turnos, idBase, colorFondo) {
         <td style="text-align:center; border:1px solid #dee2e6; ${borderRight} padding:12px 8px;">
             <div style="display:inline-flex; gap:10px; justify-content:center; align-items:center;">
                 <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#e3f2fd; border-radius:8px; border:2px solid #90caf9;">
-                    <span style="font-size:14px; color:#1976d2; font-weight:800;">H</span>
-                    <span id="${idBase}-${t}-Hombre" style="font-weight:800; color:#1976d2; font-size:26px; min-width:28px; display:inline-block; text-align:center; line-height:1;">0</span>
+                    <span style="font-size:12px; color:#1976d2; font-weight:800;">H</span>
+                    <span id="${idBase}-${t}-Hombre" style="font-weight:800; color:#1976d2; font-size:18px; min-width:18px; display:inline-block; text-align:center; line-height:1;">0</span>
                 </div>
                 <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#fce4ec; border-radius:8px; border:2px solid #f48fb1;">
-                    <span style="font-size:14px; color:#c2185b; font-weight:800;">M</span>
-                    <span id="${idBase}-${t}-Mujer" style="font-weight:800; color:#c2185b; font-size:26px; min-width:28px; display:inline-block; text-align:center; line-height:1;">0</span>
+                    <span style="font-size:12px; color:#c2185b; font-weight:800;">M</span>
+                    <span id="${idBase}-${t}-Mujer" style="font-weight:800; color:#c2185b; font-size:18px; min-width:18x; display:inline-block; text-align:center; line-height:1;">0</span>
                 </div>
             </div>
         </td>`;
@@ -443,7 +459,6 @@ function crearFilaTotalizador(tbody, titulo, turnos, idBase, colorFondo) {
     tr.innerHTML = html;
     tbody.appendChild(tr);
 }
-
 // ==========================================
 // 10. Cálculos
 // ==========================================
@@ -497,7 +512,7 @@ function hayErroresDeTotales() {
 }
 
 // ==========================================
-// 11. TOTALES + TABLA RESUMEN + SEMÁFORO
+// 11. Totales y Resumen (versión completa)
 // ==========================================
 function obtenerTotalesAprovechamiento() {
     let totalH = 0, totalM = 0;
@@ -516,16 +531,12 @@ function obtenerTotalesAprovechamiento() {
     return { totalH, totalM, porConcepto };
 }
 
-// ──────────────────────────────────────────────────────────────
-// Evalúa si TODA la unidad está en semáforo 2 (listo para validar masivo)
-// Regla: todos los semestres de todos los programas deben ser >= 2
-//        y al menos uno debe ser exactamente 2 (no todos verdes aún)
-// ──────────────────────────────────────────────────────────────
+// Estado global de la unidad (para el botón de validación masiva)
 function obtenerEstadoGlobalUnidad() {
     if (!window.aprovechamientos || window.aprovechamientos.length === 0)
         return { listoParaValidar: false, conteos: { 1:0, 2:0, 3:0 }, total: 0 };
 
-    const mapaGlobal = {};   // "PROG||MOD||SEM" -> idSemaforo máximo
+    const mapaGlobal = {};
     window.aprovechamientos.forEach(r => {
         const prog  = String(r.Nombre_Programa || '').trim().toUpperCase();
         const mod   = String(r.Modalidad || '').trim().toUpperCase();
@@ -543,22 +554,16 @@ function obtenerEstadoGlobalUnidad() {
     const conteos = { 1: 0, 2: 0, 3: 0 };
     valores.forEach(v => conteos[v] = (conteos[v] || 0) + 1);
 
-    // Listo para validar masivo si: no hay ninguno en 1 (sin datos)
-    // y hay al menos uno en 2 (parcial/completo sin validar)
     const listoParaValidar = conteos[1] === 0 && conteos[2] > 0;
-
     return { listoParaValidar, conteos, total: valores.length };
 }
 
-// ──────────────────────────────────────────────────────────────
-// Validar TODA la unidad de golpe
-// ──────────────────────────────────────────────────────────────
+// Validar toda la unidad (función que llama al backend)
 window.validarTodaLaUnidad = async function () {
     const periodoVal = document.getElementById('periodo-texto')?.textContent.trim() || '';
     const unidadVal  = document.getElementById('unidad-texto')?.textContent.trim()
                     || document.getElementById('unidad_academica')?.value?.trim() || '';
 
-    // Obtener nivel desde los datos
     let nivelVal = 'Superior';
     const fuentesNivel = [window.aprovechamientos, window.inscritos, window.reincorporados];
     for (const fuente of fuentesNivel) {
@@ -637,13 +642,12 @@ window.validarTodaLaUnidad = async function () {
         });
 
         guardarEstadoYRecargar();
-
     } catch (e) {
         Swal.fire('Error', 'Error de conexión al validar la unidad.', 'error');
     }
 };
 
-// Construye el HTML del panel semáforo con TODOS los programas/modalidades de la escuela
+// Construir panel semáforo (resumen de programas)
 function buildResumenSemaforo() {
     if (!window.aprovechamientos || window.aprovechamientos.length === 0) return '';
 
@@ -653,7 +657,6 @@ function buildResumenSemaforo() {
         3: { bar:'#639922', bg:'rgba(99,153,34,.07)',  dot:'#639922', label:'Completo',  textColor:'#3b6d11' },
     };
 
-    // Agrupar: { "PROG||MOD": { prog, mod, sems: { numSem: idSemaforo } } }
     const grupos = {};
     window.aprovechamientos.forEach(r => {
         const prog  = String(r.Nombre_Programa || '').trim();
@@ -670,13 +673,11 @@ function buildResumenSemaforo() {
     const progActual = document.getElementById('programa')?.value?.trim().toUpperCase() || '';
     const modActual  = document.getElementById('modalidad')?.value?.trim().toUpperCase() || '';
 
-    // Contadores globales
     const totales = { 1:0, 2:0, 3:0 };
     Object.values(grupos).forEach(g =>
         Object.values(g.sems).forEach(id => totales[id] = (totales[id]||0)+1)
     );
 
-    // Ordenar grupos alfabéticamente por programa
     const gruposOrdenados = Object.entries(grupos)
         .sort(([, a], [, b]) => a.prog.localeCompare(b.prog, 'es'));
 
@@ -684,7 +685,6 @@ function buildResumenSemaforo() {
         const esActivo = key === `${progActual}||${modActual}`;
         const semestresList = Object.keys(g.sems).map(Number).sort((a,b)=>a-b);
 
-        // Tarjetas mini por semestre
         const tarjetas = semestresList.map(sem => {
             const id = g.sems[sem] ?? 1;
             const c  = cfg[id] || cfg[1];
@@ -714,12 +714,10 @@ function buildResumenSemaforo() {
             ? `<span style="font-size:10px;padding:2px 8px;border-radius:100px;background:#6e0343;color:white;font-weight:600;flex-shrink:0;">Activo</span>`
             : '';
 
-        // Nombre corto del programa
         const shortProg = g.prog.length > 45 ? g.prog.slice(0,43)+'…' : g.prog;
 
         return `
         <div style="background:white;border-radius:10px;${bordeActivo} padding:12px 14px;">
-            <!-- Encabezado del bloque -->
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px;">
                 <div style="min-width:0;">
                     <div style="font-size:12px;font-weight:600;color:#333;line-height:1.3;margin-bottom:2px;" title="${g.prog}">${shortProg}</div>
@@ -727,37 +725,15 @@ function buildResumenSemaforo() {
                 </div>
                 ${badgeActivo}
             </div>
-            <!-- Grid de semestres -->
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;">
                 ${tarjetas}
             </div>
         </div>`;
     }).join('');
 
-    // Evaluar si aplica el botón de validación masiva
     const estadoGlobal = obtenerEstadoGlobalUnidad();
-    const btnValidarMasivo = estadoGlobal.listoParaValidar ? `
-        <button
-            onclick="validarTodaLaUnidad()"
-            title="Todos los programas tienen datos. Validar toda la unidad de una sola vez."
-            style="
-                display:inline-flex; align-items:center; gap:7px;
-                background:linear-gradient(135deg,#1b8a3e,#25a84f);
-                color:white; border:none; padding:8px 18px;
-                border-radius:8px; font-size:13px; font-weight:700;
-                cursor:pointer; white-space:nowrap;
-                box-shadow:0 3px 10px rgba(0,0,0,.25);
-                animation: pulseGreen 2s infinite;
-                transition:transform .15s, box-shadow .15s;
-            "
-            onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 18px rgba(0,0,0,.3)'"
-            onmouseout="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(0,0,0,.25)'"
-        >
-            <span style="font-size:16px;">✅</span>
-            Validar toda la Unidad
-        </button>` : '';
+    
 
-    // CSS animación pulso verde (se inyecta una sola vez)
     if (estadoGlobal.listoParaValidar && !document.getElementById('style-pulse-green')) {
         const styleEl = document.createElement('style');
         styleEl.id = 'style-pulse-green';
@@ -771,8 +747,6 @@ function buildResumenSemaforo() {
 
     return `
     <div style="margin-top:28px;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,.08);overflow:hidden;">
-
-        <!-- Encabezado -->
         <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A);padding:14px 20px;
                     display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
             <span style="color:white;font-size:16px;font-weight:700;">📋 Estado de captura — todos los programas</span>
@@ -780,11 +754,8 @@ function buildResumenSemaforo() {
                 <span style="font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(226,75,74,.3);color:#ffcfcf;font-weight:600;">Sin datos: ${totales[1]}</span>
                 <span style="font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(239,159,39,.3);color:#ffe8b0;font-weight:600;">Parcial: ${totales[2]}</span>
                 <span style="font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(99,153,34,.3);color:#d0edaa;font-weight:600;">Completo: ${totales[3]}</span>
-                ${btnValidarMasivo}
             </div>
         </div>
-
-        <!-- Leyenda -->
         <div style="padding:10px 20px;display:flex;gap:16px;flex-wrap:wrap;border-bottom:1px solid #f0f0f0;background:#fafafa;">
             <span style="font-size:11px;color:#888;display:flex;align-items:center;gap:4px;">
                 <span style="width:8px;height:8px;border-radius:50%;background:#e24b4a;display:inline-block;"></span>Sin datos
@@ -797,31 +768,24 @@ function buildResumenSemaforo() {
             </span>
             <span style="font-size:11px;color:#bbb;margin-left:auto;">Clic en un semestre para navegar</span>
         </div>
-
-        <!-- Grid de programas -->
         <div style="padding:16px 20px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
             ${bloques}
         </div>
-
     </div>`;
 }
 
-// Navega a un programa/modalidad/semestre específico desde el panel global
 function irASemestreGlobal(prog, mod, sem) {
     const programaSelect  = document.getElementById('programa');
     const modalidadSelect = document.getElementById('modalidad');
     if (!programaSelect || !modalidadSelect) return;
 
-    // Si el programa ya está en el select, seleccionarlo directamente
     const optProg = Array.from(programaSelect.options).find(o => o.value === prog);
     if (optProg) {
         programaSelect.value = prog;
-        // Recargar modalidades y luego seleccionar semestre
         cambiosGlobales = {}; estadosSemaforoPorSemestre = {};
         const secTot = document.getElementById('seccion-totales-aprovechamiento');
         if (secTot) secTot.remove();
 
-        // Poblar modalidades para el nuevo programa
         modalidadSelect.innerHTML = '';
         const modSet = new Set();
         window.aprovechamientos.forEach(item => {
@@ -839,7 +803,6 @@ function irASemestreGlobal(prog, mod, sem) {
 
         window.cargarSemestresTabs(prog, mod, sem);
 
-        // Scroll suave a la tabla tras breve espera
         setTimeout(() => {
             const cont = document.querySelector('.tabla-matricula-container');
             if (cont) {
@@ -883,77 +846,31 @@ function renderizarSeccionTotales() {
 
     contenedor.innerHTML = `
 
-        <!-- ── Barra de Totales Generales ── -->
-        <div style="
-            display:flex; align-items:stretch;
-            border-radius:14px; overflow:hidden;
-            box-shadow:0 6px 24px rgba(110,3,67,.18);
-            margin-bottom:28px;
-        ">
-            <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
-                font-size:17px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase;
-                padding:22px 28px; display:flex; align-items:center; justify-content:center; min-width:130px;">
-                TOTALES
-            </div>
-            <div style="flex:1; background:#e3f2fd; border:2px solid #90caf9; border-left:none; padding:18px 24px; text-align:center;">
-                <div style="font-size:12px; font-weight:700; color:#1976d2; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;">HOMBRE</div>
-                <div style="font-size:44px; font-weight:900; color:#1565c0; line-height:1;">${totalH.toLocaleString()}</div>
-            </div>
-            <div style="flex:1; background:#fce4ec; border:2px solid #f48fb1; border-left:none; padding:18px 24px; text-align:center;">
-                <div style="font-size:12px; font-weight:700; color:#c2185b; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;">MUJER</div>
-                <div style="font-size:44px; font-weight:900; color:#ad1457; line-height:1;">${totalM.toLocaleString()}</div>
-            </div>
-            <div style="flex:1; background:#e8f5e9; border:2px solid #a5d6a7; border-left:none; padding:18px 24px; text-align:center;">
-                <div style="font-size:12px; font-weight:700; color:#2e7d32; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;">TOTAL GENERAL</div>
-                <div style="font-size:44px; font-weight:900; color:#1b5e20; line-height:1;">${totalGeneral.toLocaleString()}</div>
-            </div>
-        </div>
-
-        <!-- ── Tabla Resumen ── -->
         <div style="background:white; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,.08); overflow:hidden;">
-            <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
-                padding:16px 24px; font-size:17px; font-weight:700; letter-spacing:.3px;">
-                📊 Resumen de Aprovechamiento — Semestre ${semestreActual}
-            </div>
+            <div style="background:linear-gradient(135deg,#6e0343,#8B0A4A); text-align:center;      color:white; padding:16px 24px; font-size:17px; font-weight:700; letter-spacing:.3px;">📊 Resumen de Aprovechamiento — Semestre ${semestreActual}</div>
             <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse;">
                     <thead>
-                        <tr>
-                            <th style="padding:14px 20px; text-align:left; font-size:14px; font-weight:700;
-                                background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
-                                border:1px solid rgba(255,255,255,.2);">Situación Académica</th>
-                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
-                                background:#1565c0; color:white; border:1px solid rgba(255,255,255,.2);">Hombres</th>
-                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
-                                background:#ad1457; color:white; border:1px solid rgba(255,255,255,.2);">Mujeres</th>
-                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700;
-                                background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
-                                border:1px solid rgba(255,255,255,.2);">Total</th>
+                        <tr><th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700; background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">Situación Académica</th>
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700; background:#1565c0; color:white; border:1px solid rgba(255,255,255,.2);">Hombres</th>
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700; background:#ad1457; color:white; border:1px solid rgba(255,255,255,.2);">Mujeres</th>
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700; background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">Total</th>
                         </tr>
                     </thead>
                     <tbody>${filasHTML}</tbody>
                     <tfoot>
                         <tr>
-                            <td style="padding:14px 20px; font-weight:800; font-size:15px;
-                                background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
-                                border:1px solid rgba(255,255,255,.2);">TOTAL</td>
-                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px;
-                                background:rgba(21,101,192,.85); color:white;
-                                border:1px solid rgba(255,255,255,.2);">${totalH.toLocaleString()}</td>
-                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px;
-                                background:rgba(173,20,87,.85); color:white;
-                                border:1px solid rgba(255,255,255,.2);">${totalM.toLocaleString()}</td>
-                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px;
-                                background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white;
-                                border:1px solid rgba(255,255,255,.2);">${totalGeneral.toLocaleString()}</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:800; font-size:15px; background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">TOTAL</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:rgba(21,101,192,.85); color:white; border:1px solid rgba(255,255,255,.2);">${totalH.toLocaleString()}</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:rgba(173,20,87,.85); color:white; border:1px solid rgba(255,255,255,.2);">${totalM.toLocaleString()}</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:linear-gradient(135deg,#6e0343,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">${totalGeneral.toLocaleString()}</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
         </div>
+        <!-- Agregar un simbolo de pesos {buildResumenSemaforo()} -->
 
-        <!-- ── Panel Semáforo de Semestres ── -->
-        ${buildResumenSemaforo()}
     `;
 }
 
@@ -1076,11 +993,11 @@ function guardarEstadoYRecargar() {
 // ==========================================
 window.guardarTablaUnificada = async function () {
     if (hayErroresDeTotales()) {
-        const r = await Swal.fire({ title: '⚠️ Totales no coinciden', text: '¿Deseas guardar de todos modos?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Si, guardar' });
+        const r = await Swal.fire({ title: '⚠️ Totales no coinciden', text: '¿Deseas guardar de todos modos?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, guardar' });
         if (!r.isConfirmed) return;
     }
     const claves = Object.keys(cambiosGlobales);
-    if (claves.length === 0) { Swal.fire('Informacion', 'No hay cambios pendientes.', 'info'); return; }
+    if (claves.length === 0) { Swal.fire('Información', 'No hay cambios pendientes.', 'info'); return; }
 
     const datos = prepararDatosParaEnvio(claves);
     if (datos.length === 0) return;
@@ -1106,10 +1023,15 @@ window.guardarTablaUnificada = async function () {
 };
 
 window.validarCapturaSemestre = async function () {
-    if (hayErroresDeTotales()) {
-        const r = await Swal.fire({ title: '⚠️ Error en Totales', text: '¿Forzar validacion con errores?', icon: 'error', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Si, forzar' });
-        if (!r.isConfirmed) return;
-    }
+   if (hayErroresDeTotales()) {
+    await Swal.fire({
+        icon: 'error',
+        title: 'No se puede finalizar el semestre',
+        text: 'Los totales de matrícula y aprovechamiento no coinciden. Corrija los datos antes de finalizar.',
+        confirmButtonText: 'Entendido'
+    });
+    return;
+}
 
     const programaVal   = document.getElementById('programa')?.value.trim();
     const modalidadVal  = document.getElementById('modalidad')?.value.trim();
@@ -1119,14 +1041,14 @@ window.validarCapturaSemestre = async function () {
 
     const confirmResult = await Swal.fire({
         title: `¿Finalizar ${semestreTexto} Semestre?`,
-        html: `Estas a punto de validar:<br><b>Programa:</b> ${programaVal}<br><b>Modalidad:</b> ${modalidadVal}<br>
+        html: `Estás a punto de validar:<br><b>Programa:</b> ${programaVal}<br><b>Modalidad:</b> ${modalidadVal}<br>
                <b>Semestre:</b> <span style="color:#d33; font-weight:bold;">${semestreTexto}</span><br><br>
-               El semaforo cambiara a <b>VERDE</b> y la edicion se bloqueara.`,
-        icon: 'question', showCancelButton: true, confirmButtonColor: '#198754', confirmButtonText: 'Si, Finalizar'
+               El semáforo cambiará a <b>VERDE</b> y la edición se bloqueará.`,
+        icon: 'question', showCancelButton: true, confirmButtonColor: '#198754', confirmButtonText: 'Sí, Finalizar'
     });
     if (!confirmResult.isConfirmed) return;
 
-    Swal.fire({ title: 'Validando...', html: 'Recopilando toda la informacion...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Validando...', html: 'Recopilando toda la información...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     const periodoVal = document.getElementById('periodo-texto')?.textContent.trim() || '';
     let rama = '', sigla = '', nivel = 'Superior';
@@ -1188,7 +1110,7 @@ window.validarCapturaSemestre = async function () {
 window.validarSemestre = async function () {
     const btnValidar = document.getElementById('btn-validar-semestre');
     if (btnValidar?.disabled) {
-        Swal.fire({ icon: 'warning', title: 'Accion no permitida', text: 'Ya has validado o rechazado este aprovechamiento.', confirmButtonText: 'Entendido' });
+        Swal.fire({ icon: 'warning', title: 'Acción no permitida', text: 'Ya has validado o rechazado este aprovechamiento.', confirmButtonText: 'Entendido' });
         return;
     }
     const programaVal   = document.getElementById('programa')?.value.trim();
@@ -1200,7 +1122,6 @@ window.validarSemestre = async function () {
 
     if (!programaVal || !modalidadVal) { Swal.fire('Error', 'Selecciona Programa y Modalidad', 'error'); return; }
 
-    // Obtener nivel desde los datos cargados
     let nivelVal = 'Superior';
     const fuentesNivel = [window.aprovechamientos, window.inscritos, window.reincorporados];
     for (const fuente of fuentesNivel) {
@@ -1214,11 +1135,11 @@ window.validarSemestre = async function () {
 
     const confirmResult = await Swal.fire({
         title: '✅ ¿Validar Aprovechamiento?',
-        html: `Estas a punto de <b>validar</b>:<br><b>Programa:</b> ${programaVal}<br>
+        html: `Estás a punto de <b>validar</b>:<br><b>Programa:</b> ${programaVal}<br>
                <b>Modalidad:</b> ${modalidadVal}<br>
                <b>Semestre:</b> <span style="color:#198754; font-weight:bold;">${semestreTexto}</span>`,
         icon: 'question', showCancelButton: true,
-        confirmButtonColor: '#198754', cancelButtonText: 'Cancelar', confirmButtonText: '✅ Si, Validar'
+        confirmButtonColor: '#198754', cancelButtonText: 'Cancelar', confirmButtonText: '✅ Sí, Validar'
     });
     if (!confirmResult.isConfirmed) return;
 
@@ -1246,7 +1167,7 @@ window.rechazarSemestre = function () { abrirPanelRechazo(); };
 
 window.confirmarRechazoPanel = async function () {
     const motivo = document.getElementById('motivo-rechazo-panel')?.value.trim();
-    if (!motivo || motivo.length < 10) { Swal.fire('Atencion', 'El motivo de rechazo debe tener al menos 10 caracteres.', 'warning'); return; }
+    if (!motivo || motivo.length < 10) { Swal.fire('Atención', 'El motivo de rechazo debe tener al menos 10 caracteres.', 'warning'); return; }
 
     const programaVal   = document.getElementById('programa')?.value.trim();
     const modalidadVal  = document.getElementById('modalidad')?.value.trim();
@@ -1257,7 +1178,6 @@ window.confirmarRechazoPanel = async function () {
 
     if (!programaVal || !modalidadVal) { Swal.fire('Error', 'Selecciona Programa y Modalidad', 'error'); return; }
 
-    // Obtener nivel desde los datos cargados
     let nivelVal = 'Superior';
     const fuentesNivel = [window.aprovechamientos, window.inscritos, window.reincorporados];
     for (const fuente of fuentesNivel) {
@@ -1271,11 +1191,11 @@ window.confirmarRechazoPanel = async function () {
 
     const confirmResult = await Swal.fire({
         title: '❌ ¿Confirmar Rechazo?',
-        html: `Se rechazara el aprovechamiento con el siguiente motivo:<br><br>
+        html: `Se rechazará el aprovechamiento con el siguiente motivo:<br><br>
                <blockquote style="background:#fff3cd; padding:10px; border-left:4px solid #ffc107; text-align:left; border-radius:4px;">"${motivo}"</blockquote>
-               Los datos seran devueltos al capturista para su correccion.`,
+               Los datos serán devueltos al capturista para su corrección.`,
         icon: 'warning', showCancelButton: true,
-        confirmButtonColor: '#d33', cancelButtonText: 'Cancelar', confirmButtonText: '❌ Si, Rechazar'
+        confirmButtonColor: '#d33', cancelButtonText: 'Cancelar', confirmButtonText: '❌ Sí, Rechazar'
     });
     if (!confirmResult.isConfirmed) return;
 
@@ -1363,6 +1283,520 @@ window.mostrarBannerRechazo = function () {
     }
     if (panel) panel.style.display = 'none';
 };
+// ==========================================
+// Pantalla de carga (overlay) - NUEVO
+// ==========================================
+let pantallaCarga = null;
+
+function mostrarPantallaCarga(mensaje = "Guardando cambios...") {
+    if (pantallaCarga) {
+        pantallaCarga.style.display = 'flex';
+        const msgEl = pantallaCarga.querySelector('.pantalla-carga-mensaje');
+        if (msgEl) msgEl.textContent = mensaje;
+        return;
+    }
+    const div = document.createElement('div');
+    div.id = 'pantalla-carga-overlay';
+    div.style.position = 'fixed';
+    div.style.top = '0';
+    div.style.left = '0';
+    div.style.width = '100%';
+    div.style.height = '100%';
+    div.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    div.style.display = 'flex';
+    div.style.flexDirection = 'column';
+    div.style.justifyContent = 'center';
+    div.style.alignItems = 'center';
+    div.style.zIndex = '99999';
+    div.style.backdropFilter = 'blur(3px)';
+    div.innerHTML = `
+        <div style="background: white; padding: 30px 40px; border-radius: 20px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <div style="font-size: 48px; margin-bottom: 20px;">⏳</div>
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem; margin-bottom: 20px;" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <div class="pantalla-carga-mensaje" style="font-size: 18px; font-weight: 500; color: #333;">${mensaje}</div>
+            <div style="font-size: 14px; color: #666; margin-top: 10px;">Por favor espere...</div>
+        </div>
+    `;
+    document.body.appendChild(div);
+    pantallaCarga = div;
+}
+
+function ocultarPantallaCarga() {
+    if (pantallaCarga) {
+        pantallaCarga.remove();
+        pantallaCarga = null;
+    }
+}
+function verificarTotalesSemestre() {
+    let sumaMatriculaH = 0, sumaMatriculaM = 0;
+    let sumaAprovH = 0, sumaAprovM = 0;
+    
+    // Seleccionar todos los inputs de la tabla (clase unificada)
+    const allInputs = document.querySelectorAll('#tabla-body input.input-matricula-nueva');
+    
+    allInputs.forEach(input => {
+        const val = parseInt(input.value, 10) || 0;
+        const tipoFila = input.closest('tr').className; // 'fila-matricula' o 'fila-aprovechamiento'
+        const sexo = input.dataset.sexo;
+        
+        if (tipoFila.includes('fila-matricula')) {
+            if (sexo === 'Hombre') sumaMatriculaH += val;
+            else if (sexo === 'Mujer') sumaMatriculaM += val;
+        } else if (tipoFila.includes('fila-aprovechamiento')) {
+            if (sexo === 'Hombre') sumaAprovH += val;
+            else if (sexo === 'Mujer') sumaAprovM += val;
+        }
+    });
+    
+    // Log detallado para depuración
+    console.log(`📊 Totales - Matrícula: H=${sumaMatriculaH}, M=${sumaMatriculaM} | Aprovechamiento: H=${sumaAprovH}, M=${sumaAprovM}`);
+    
+    const coincide = (sumaMatriculaH === sumaAprovH && sumaMatriculaM === sumaAprovM);
+    return { coincide, matriculaH: sumaMatriculaH, matriculaM: sumaMatriculaM, aprovH: sumaAprovH, aprovM: sumaAprovM };
+}
+// ==========================================
+// Modal de progreso circular mejorado
+// ==========================================
+let modalProgreso = null;
+
+function abrirModalProgresoCircular(total) {
+    if (modalProgreso) {
+        modalProgreso.close();
+        modalProgreso = null;
+    }
+    Swal.fire({
+        title: 'Validación Masiva en Progreso',
+        html: `
+            <div style="position: relative; width: 160px; height: 160px; margin: 0 auto;">
+                <svg viewBox="0 0 120 120" style="transform: rotate(-90deg); width: 100%; height: 100%;">
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="#e0e0e0" stroke-width="8" />
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="#28a745" stroke-width="8"
+                            stroke-dasharray="339.292" stroke-dashoffset="339.292"
+                            class="progress-ring__circle" />
+                </svg>
+                <div id="progreso-porcentaje-modal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 28px; font-weight: bold; color: #28a745;">0%</div>
+            </div>
+            <div id="progreso-texto-modal" style="margin-top: 20px; font-size: 16px; font-weight: 600; color: #333; text-align: center;">Preparando...</div>
+            <div id="progreso-detalle-modal" style="margin-top: 8px; font-size: 13px; color: #666; text-align: center;">0 / 0</div>
+        `,
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            modalProgreso = Swal.getPopup();
+            const circle = modalProgreso.querySelector('.progress-ring__circle');
+            if (circle) {
+                const radius = 54;
+                const circumference = radius * 2 * Math.PI;
+                circle.style.strokeDasharray = `${circumference} ${circumference}`;
+                circle.style.strokeDashoffset = circumference;
+                window.progressCircumference = circumference;
+            } else {
+                window.progressCircumference = 339.292;
+            }
+        }
+    });
+}
+
+function actualizarModalProgresoCircular(actual, total, texto, detalle) {
+    if (!modalProgreso) return;
+    const percent = Math.round((actual / total) * 100);
+    const circle = modalProgreso.querySelector('.progress-ring__circle');
+    if (circle && window.progressCircumference) {
+        const offset = window.progressCircumference - (percent / 100) * window.progressCircumference;
+        circle.style.strokeDashoffset = offset;
+    }
+    const porcentajeSpan = modalProgreso.querySelector('#progreso-porcentaje-modal');
+    if (porcentajeSpan) porcentajeSpan.innerText = `${percent}%`;
+    const textoDiv = modalProgreso.querySelector('#progreso-texto-modal');
+    if (textoDiv) textoDiv.innerText = texto;
+    const detalleDiv = modalProgreso.querySelector('#progreso-detalle-modal');
+    if (detalleDiv) detalleDiv.innerText = detalle;
+}
+
+function cerrarModalProgresoCircular() {
+    if (modalProgreso) {
+        Swal.close();
+        modalProgreso = null;
+    }
+}
+
+window.validarTodosLosSemestres = async function () {
+    if (validacionMasivaEnCurso) {
+        Swal.fire({ icon: 'info', title: 'En proceso', text: 'Ya hay una validación masiva en curso.' });
+        return;
+    }
+
+    const confirmacion = await Swal.fire({
+        title: 'Validación masiva de Aprovechamiento',
+        html: '<p><strong>Se validarán TODOS los semestres pendientes.</strong><br>Los campos vacíos se rellenarán automáticamente con <strong>ceros</strong> para completar la validación.</p>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, continuar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#dc3545'
+    });
+
+    if (!confirmacion.isConfirmed) return;
+
+    const periodo = document.getElementById('periodo-texto')?.textContent.trim() || '';
+    if (!periodo) {
+        await Swal.fire({ icon: 'warning', title: 'Periodo faltante', text: 'No se pudo obtener el periodo.' });
+        return;
+    }
+
+    // Obtener todos los programas y modalidades únicos
+    const progSet = new Set();
+    const progModMap = new Map();
+    (window.aprovechamientos || []).forEach(item => {
+        const prog = item.Nombre_Programa;
+        const mod = item.Modalidad;
+        if (prog && mod) {
+            progSet.add(prog);
+            if (!progModMap.has(prog)) progModMap.set(prog, new Set());
+            progModMap.get(prog).add(mod);
+        }
+    });
+    const todosLosProgramas = Array.from(progSet).map(p => ({ Nombre_Programa: p }));
+
+    if (todosLosProgramas.length === 0) {
+        await Swal.fire({ icon: 'warning', title: 'Sin programas', text: 'No hay programas disponibles.' });
+        return;
+    }
+
+    const programaSelect = document.getElementById('programa');
+    const modalidadSelect = document.getElementById('modalidad');
+    const semestreInput = document.getElementById('semestre');
+    const turnoInput = document.getElementById('turno');
+    const btnValidarTodos = document.getElementById('btn-validar-todos-semestres');
+
+    if (!programaSelect || !modalidadSelect || !semestreInput || !turnoInput || !btnValidarTodos) {
+        await Swal.fire({ icon: 'error', title: 'Error de vista', text: 'Faltan controles del formulario.' });
+        return;
+    }
+
+    const estadoOriginal = {
+        programa: programaSelect.value,
+        modalidad: modalidadSelect.value,
+        semestre: semestreInput.value,
+        turno: turnoInput.value,
+        textoBoton: btnValidarTodos.textContent
+    };
+
+    // Estructuras
+    const plan = [];          // semestres pendientes (estado != 3)
+    const resumen = [];       // para estadísticas
+    let totalSemestresPlan = 0;
+    let semestresYaCompletos = 0;
+    let semestresProcesados = 0;
+    let semestresExitosos = 0;
+    let semestresConError = 0;
+    let turnosRellenados = 0;  // contador de campos que se llenaron con cero
+    let semestresErrorTotales = 0;
+
+    btnValidarTodos.disabled = true;
+    validacionMasivaEnCurso = true;
+
+    try {
+        // 1. Construir plan (solo semestres con semáforo != 3)
+        for (const progItem of todosLosProgramas) {
+            const programaNombre = progItem.Nombre_Programa;
+            const modalidades = Array.from(progModMap.get(programaNombre) || []);
+
+            if (modalidades.length === 0) {
+                resumen.push({
+                    programaNombre,
+                    modalidadNombre: 'Sin modalidad',
+                    semestresTotal: 0,
+                    semestresOk: 0,
+                    semestresCompletos: 0,
+                    turnosOk: 0,
+                    observaciones: ['Sin modalidades configuradas']
+                });
+                continue;
+            }
+
+            for (const modalidadNombre of modalidades) {
+                // Obtener semestres para esta combinación
+                const semSet = new Set();
+                (window.aprovechamientos || []).forEach(item => {
+                    if (item.Nombre_Programa === programaNombre && item.Modalidad === modalidadNombre) {
+                        const sem = normalizarSemestre(item.Semestre || item.semestre);
+                        if (!isNaN(sem) && sem > 0) semSet.add(sem);
+                    }
+                });
+                let semestres = Array.from(semSet).sort((a,b)=>a-b);
+                
+                // Obtener estados de semáforo
+                procesarEstadosSemaforoAprovechamiento(programaNombre, modalidadNombre);
+                const semestresPendientes = [];
+                let completosCombo = 0;
+                for (const sem of semestres) {
+                    const estado = estadosSemaforoPorSemestre[sem] ?? 1;
+                    if (estado === 3) {
+                        completosCombo++;
+                        semestresYaCompletos++;
+                    } else {
+                        semestresPendientes.push(sem);
+                    }
+                }
+                plan.push({
+                    programaNombre,
+                    modalidadNombre,
+                    semestres: semestresPendientes
+                });
+                resumen.push({
+                    programaNombre,
+                    modalidadNombre,
+                    semestresTotal: semestres.length,
+                    semestresOk: 0,
+                    semestresCompletos: completosCombo,
+                    turnosOk: 0,
+                    observaciones: []
+                });
+                totalSemestresPlan += semestresPendientes.length;
+            }
+        }
+
+        if (totalSemestresPlan === 0) {
+            await Swal.fire({
+                icon: 'info',
+                title: 'Sin semestres pendientes',
+                html: `Ya hay ${semestresYaCompletos} semestre(s) completamente validados.<br>No hay semestres por procesar.`
+            });
+            return;
+        }
+
+        abrirModalProgresoCircular(totalSemestresPlan);
+        actualizarModalProgresoCircular(0, totalSemestresPlan, 'Iniciando validación masiva...', `0 de ${totalSemestresPlan} semestres`);
+
+        // Funciones auxiliares
+        async function guardarSemestreSilencioso(programa, modalidad, semestreNum) {
+            const inputs = document.querySelectorAll(
+                '#tabla-body input.input-matricula-nueva'
+            );
+            const cambiosTemp = {};
+
+            inputs.forEach(input => {
+                const val = parseInt(input.value) || 0;
+                const key = `${semestreNum}|${input.dataset.tipo}|${input.dataset.turno}|${input.dataset.sexo}`;
+                cambiosTemp[key] = val;
+                cambiosGlobales[key] = val;
+            });
+
+            const claves = Object.keys(cambiosTemp);
+            if (claves.length === 0) return;
+
+            const datos = prepararDatosParaEnvio(claves);
+            if (datos.length === 0) return;
+
+            const res = await fetch('/aprovechamiento/guardar_progreso_aprovechamiento', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(datos)
+            });
+            if (!res.ok) throw new Error('Error guardando progreso');
+            actualizarMemoriaLocalConCambios(datos);
+        }
+
+        async function finalizarSemestreSilencioso(programa, modalidad, semestreNum) {
+            const semestreTexto = semestreNumeroATexto(semestreNum);
+            const periodoVal = document.getElementById('periodo-texto')?.textContent.trim() || '';
+            let rama = '', sigla = '', nivel = 'Superior';
+            const fuentes = [window.aprovechamientos, window.inscritos, window.reincorporados];
+            for (const fuente of fuentes) {
+                if (fuente?.length) {
+                    const r = fuente.find(reg => String(reg.Nombre_Programa || reg.nombre_programa || '').trim().toUpperCase() === programa.toUpperCase());
+                    if (r) { rama = r.Nombre_Rama || r.Rama || r.rama || ''; sigla = r.Sigla || r.sigla || ''; nivel = r.Nivel || r.nivel || 'Superior'; break; }
+                }
+            }
+            const res = await fetch('/aprovechamiento/finalizar_captura_semestre', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    programa, modalidad, semestre: semestreTexto, periodo: periodoVal,
+                    rama, Nombre_Rama: rama, sigla, nivel
+                })
+            });
+            if (!res.ok) throw new Error(await res.text());
+            estadosSemaforoPorSemestre[semestreNum] = 3; // actualizar localmente
+        }
+
+        // 2. Ejecutar plan (solo semestres pendientes)
+        for (const item of plan) {
+            const resumenItem = resumen.find(r => r.programaNombre === item.programaNombre && r.modalidadNombre === item.modalidadNombre);
+            if (!item.semestres.length) continue;
+
+            programaSelect.value = item.programaNombre;
+            const changeEvent = new Event('change', { bubbles: true });
+            programaSelect.dispatchEvent(changeEvent);
+            await new Promise(r => setTimeout(r, 300));
+            modalidadSelect.value = item.modalidadNombre;
+            await new Promise(r => setTimeout(r, 300));
+
+            for (const semestreId of item.semestres) {
+                actualizarModalProgresoCircular(
+                    semestresProcesados,
+                    totalSemestresPlan,
+                    `${item.programaNombre} / ${item.modalidadNombre}`,
+                    `Procesando semestre ${semestreId} (${semestresProcesados + 1} de ${totalSemestresPlan})`
+                );
+
+                try {
+                    semestreActual = semestreId; // ← asegurar variable global correcta
+
+                    // 1. Cargar tabla y esperar render real
+                    await new Promise((resolve) => {
+                        window.cargarTablaAprovechamiento(
+                            item.programaNombre,
+                            item.modalidadNombre,
+                            semestreId
+                        );
+                        // Esperar a que el DOM tenga los inputs renderizados
+                        let intentos = 0;
+                        const interval = setInterval(() => {
+                            const inputs = document.querySelectorAll(
+                                '#tabla-body input.input-matricula-nueva'
+                            );
+                            intentos++;
+                            if (inputs.length > 0 || intentos > 30) {
+                                clearInterval(interval);
+                                resolve();
+                            }
+                        }, 100);
+                    });
+
+                    // 2. Verificar ANTES de tocar nada
+                    const { coincide, matriculaH, matriculaM, aprovH, aprovM } =
+                        verificarTotalesSemestre();
+
+                    console.log(
+                        `📊 Sem ${semestreId} — Matrícula H=${matriculaH} M=${matriculaM}` +
+                        ` | Aprov H=${aprovH} M=${aprovM} → Coinciden: ${coincide}`
+                    );
+
+                    if (!coincide) {
+                        const errorMsg =
+                            `Totales no coinciden — ` +
+                            `Matrícula H=${matriculaH} M=${matriculaM} | ` +
+                            `Aprov H=${aprovH} M=${aprovM}`;
+                        console.warn(`❌ Semestre ${semestreId}: ${errorMsg}`);
+                        semestresConError++;
+                        if (resumenItem) {
+                            resumenItem.observaciones.push(
+                                `Semestre ${semestreId}: ${errorMsg}`
+                            );
+                        }
+                        // NO guardar, NO finalizar → siguiente semestre
+                        continue;
+                    }
+
+                    // 3. Totales coinciden → guardar y finalizar
+                    await guardarSemestreSilencioso(
+                        item.programaNombre,
+                        item.modalidadNombre,
+                        semestreId
+                    );
+                    await finalizarSemestreSilencioso(
+                        item.programaNombre,
+                        item.modalidadNombre,
+                        semestreId
+                    );
+
+                    semestresExitosos++;
+                    if (resumenItem) resumenItem.semestresOk++;
+
+                } catch (semError) {
+                    console.error(`Error semestre ${semestreId}:`, semError);
+                    semestresConError++;
+                    if (resumenItem) {
+                        resumenItem.observaciones.push(
+                            `Semestre ${semestreId}: ${semError.message}`
+                        );
+                    }
+                } finally {
+                    // Siempre incrementar, pase lo que pase
+                    semestresProcesados++;
+                    actualizarModalProgresoCircular(
+                        semestresProcesados,
+                        totalSemestresPlan,
+                        `${item.programaNombre} / ${item.modalidadNombre}`,
+                        `${semestresProcesados} de ${totalSemestresPlan} semestres procesados`
+                    );
+                }
+            }
+        }
+
+        cerrarModalProgresoCircular();
+
+        // Mostrar resumen final
+        const totalProcesados = semestresExitosos + semestresConError;
+        const eficiencia = totalSemestresPlan > 0 ? Math.round((semestresExitosos / totalSemestresPlan) * 100) : 0;
+
+        const filasResumen = resumen.map(r => {
+            const estado = (r.semestresTotal > 0 && r.semestresOk === (r.semestresTotal - r.semestresCompletos)) 
+                ? 'Completado' 
+                : (r.semestresOk > 0 ? 'Parcial' : 'Pendiente');
+            const obs = r.observaciones.slice(0,2).join('; ') || '-';
+            return `<tr>
+                <td style="padding:6px;border-bottom:1px solid #eee;">${r.programaNombre}</td>
+                <td style="padding:6px;border-bottom:1px solid #eee;">${r.modalidadNombre}</td>
+                <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${r.semestresOk}/${r.semestresTotal - r.semestresCompletos} (${r.semestresCompletos} ya completos)</td>
+                <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${r.turnosOk}</td>
+                <td style="padding:6px;border-bottom:1px solid #eee;">${estado}</td>
+                <td style="padding:6px;border-bottom:1px solid #eee;max-width:260px;">${obs}</td>
+            </tr>`;
+        }).join('');
+
+        await Swal.fire({
+            icon: semestresConError === 0 ? 'success' : 'warning',
+            title: 'Resumen de Validación Masiva',
+            html: `<div style="text-align:left;">
+                <p><strong>Semestres procesados:</strong> ${semestresExitosos} / ${totalSemestresPlan} (${eficiencia}%)</p>
+                <p><strong>Semestres ya validados (omitidos):</strong> ${semestresYaCompletos}</p>
+                <p><strong>Campos rellenados con cero:</strong> ${turnosRellenados}</p>
+                ${semestresConError > 0 ? `<p style="color:#dc3545;"><strong>Semestres con error:</strong> ${semestresConError}</p>` : ''}
+                <div style="max-height:260px;overflow:auto;border:1px solid #ddd;border-radius:8px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                        <thead><tr><th>Programa</th><th>Modalidad</th><th>Semestres</th><th>Turnos OK</th><th>Estado</th><th>Observaciones</th></tr></thead>
+                        <tbody>${filasResumen}</tbody>
+                    </table>
+                </div>
+            </div>`,
+            width: '980px',
+            confirmButtonText: 'Entendido'
+        });
+
+        actualizarColoresPestanas();
+        // Mostrar pantalla de carga antes de recargar
+        mostrarPantallaCarga("Recargando información...");
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+
+
+    } catch (error) {
+        cerrarModalProgresoCircular();
+        console.error('Error en validación masiva:', error);
+        await Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'Error inesperado' });
+    } finally {
+        validacionMasivaEnCurso = false;
+        // Restaurar filtros originales
+        programaSelect.value = estadoOriginal.programa;
+        const changeEvent = new Event('change', { bubbles: true });
+        programaSelect.dispatchEvent(changeEvent);
+        await new Promise(r => setTimeout(r, 300));
+        if (Array.from(modalidadSelect.options).some(opt => opt.value === estadoOriginal.modalidad)) {
+            modalidadSelect.value = estadoOriginal.modalidad;
+        }
+        semestreInput.value = estadoOriginal.semestre;
+        turnoInput.value = estadoOriginal.turno;
+        await window.cargarTablaAprovechamiento(estadoOriginal.programa, estadoOriginal.modalidad, parseInt(estadoOriginal.semestre));
+        btnValidarTodos.textContent = estadoOriginal.textoBoton;
+        btnValidarTodos.disabled = false;
+    }
+};
 
 // ==========================================
 // 17. Inicialización
@@ -1377,6 +1811,10 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     if (!window.aprovechamientos) { console.warn('⚠️ No hay datos en window.aprovechamientos'); ocultarLoader(); return; }
+
+    // Asignar variables de validación desde el backend
+    if (typeof window.usuario_ya_valido !== 'undefined') usuario_ya_valido = window.usuario_ya_valido;
+    if (typeof window.usuario_ya_rechazo !== 'undefined') usuario_ya_rechazo = window.usuario_ya_rechazo;
 
     document.addEventListener('click', function (e) {
         const container = document.querySelector('.notificaciones-container');
@@ -1412,8 +1850,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         programaSelect.append(...opciones);
         if (opciones.length > 0) {
-            programaSelect.value = estadoGuardado?.programa || opciones[0].value;
-            cargarModalidades(programaSelect.value, estadoGuardado);
+            const progSeleccionado = estadoGuardado?.programa || opciones[0].value;
+            programaSelect.value = progSeleccionado;
+            cargarModalidades(progSeleccionado, estadoGuardado);
         }
     }
 
@@ -1421,8 +1860,10 @@ document.addEventListener('DOMContentLoaded', function () {
         modalidadSelect.innerHTML = '';
         const modSet   = new Set();
         const opciones = [];
+        const progNorm = String(prog).trim().toUpperCase();
         window.aprovechamientos.forEach(item => {
-            if (item.Nombre_Programa === prog && item.Modalidad && !modSet.has(item.Modalidad)) {
+            const itemProgNorm = String(item.Nombre_Programa || '').trim().toUpperCase();
+            if (itemProgNorm === progNorm && item.Modalidad && !modSet.has(item.Modalidad)) {
                 modSet.add(item.Modalidad);
                 const opt = document.createElement('option');
                 opt.value = item.Modalidad;
@@ -1432,8 +1873,12 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         modalidadSelect.append(...opciones);
         if (opciones.length > 0) {
-            modalidadSelect.value = estadoGuardado?.modalidad || opciones[0].value;
-            window.cargarSemestresTabs(prog, modalidadSelect.value, estadoGuardado?.semestre ?? null);
+            const modSeleccionado = estadoGuardado?.modalidad || opciones[0].value;
+            modalidadSelect.value = modSeleccionado;
+            window.cargarSemestresTabs(prog, modSeleccionado, estadoGuardado?.semestre ?? null);
+        } else {
+            const capturaContainer = document.getElementById('captura-matricula-container');
+            if (capturaContainer) capturaContainer.style.display = 'none';
         }
     }
 
@@ -1446,7 +1891,8 @@ document.addEventListener('DOMContentLoaded', function () {
     modalidadSelect.addEventListener('change', function () {
         cambiosGlobales = {}; estadosSemaforoPorSemestre = {};
         limpiarSeccionTotales();
-        window.cargarSemestresTabs(programaSelect.value, this.value);
+        const prog = document.getElementById('programa')?.value;
+        if (prog) window.cargarSemestresTabs(prog, this.value);
     });
 
     setTimeout(() => {

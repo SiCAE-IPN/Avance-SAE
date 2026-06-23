@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/css/components/matricula_consulta.css">
     <link rel="stylesheet" href="/static/css/panel-rechazo.css">
     <link rel="stylesheet" href="/static/css/components/botones_validacion.css">
+    <link rel="stylesheet" href="/static/css/components/semaforo.css">
     <link rel="stylesheet" href="/static/css/components/filtrosExcel.css">
     <style>
         /* Ocultar el submenu de categorias que viene de base.html en esta vista */
@@ -255,6 +256,104 @@
     <h2>Consulta de titulados</h2>
     {% endif %}
 
+    <div id="datos-sesion"
+        data-unidad="{{ sigla_unidad_academica }}"
+        data-periodo="{{ periodo_default_literal }}"
+        style="display:none;">
+    </div>
+
+    {% if es_rol_director %}
+    <div class="panel-filtros-superiores" id="panel-filtros-director">
+        <div class="panel-header">
+            <h3>🔍 Selección de Periodo y Nivel</h3>
+            <p>Seleccione el <strong>Periodo</strong> y el <strong>Nivel</strong> para consultar todos los programas de su <strong>Unidad Académica</strong>.</p>
+        </div>
+
+        
+        
+        <div class="filtros-superiores-container" style="grid-template-columns: 1fr 1fr 300px;">
+            <div class="filtro-superior-item">
+                <label for="select-periodo-director"><strong>1. Periodo:</strong></label>
+                <select id="select-periodo-director" name="periodo_director" required>
+                    <option value="">-- Seleccione un Periodo --</option>
+                   
+                    <option value="{{ periodo_default_literal }}" >
+                        {{periodo_default_literal}} (Activo)
+                    </option>
+                </select>
+            </div>
+
+            <div class="filtro-superior-item">
+                <label for="select-nivel-director"><strong>2. Nivel Académico:</strong></label>
+                <select id="select-nivel-director" name="nivel_director" required>
+                    <option value="">-- Seleccione un Nivel --</option>
+                  
+                    <option value="{{ nombre_nivel }}">{{ nombre_nivel }}</option>
+                   
+                </select>
+            </div>
+
+            <div class="filtro-superior-accion">
+                <button type="button" id="btn-ver-resumen-director" class="btn-consultar-superior" disabled style="background: linear-gradient(135deg, #4da5ec, #4da5ec);">
+                    <span class="btn-icon">📈</span> Consulta Titulados
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de Filtros para Roles 6-9: Periodo + Nivel + UA -->
+    {% elif es_rol_superior %}
+    <div class="panel-filtros-superiores" id="panel-filtros-superiores">
+        <div class="panel-header">
+            <h3>🔍 Selección de Periodo, Unidad Académica y Nivel</h3>
+            <p>Seleccione el <strong>Periodo</strong>, luego la <strong>Unidad Académica</strong> y finalmente el <strong>Nivel</strong> a consultar</p>
+        </div>
+        
+        <div class="filtros-superiores-container" style="grid-template-columns: 1fr 1fr 1fr 300px;">
+            <div class="filtro-superior-item">
+                <label for="select-periodo-superior"><strong>1. Periodo:</strong></label>
+                <select id="select-periodo-superior" name="periodo_superior" required>
+                    <option value="">-- Seleccione un Periodo --</option>
+                    {% for periodo in periodos %}
+                    <option value="{{ periodo.Id_Periodo }}" {% if periodo.Id_Periodo == periodo_default_id %}selected{% endif %}>
+                        {{ periodo.Periodo }}
+                        {% if periodo.Id_Estatus == 1 %}(Activo) rol  {% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="filtro-superior-item">
+                <label for="select-nivel-superior"><strong>2. Nivel Académico:</strong></label>
+                <select id="select-nivel-superior" name="nivel_superior" required>
+                    <option value="">-- Seleccione un Nivel --</option>
+                    {% for nivel in niveles_disponibles %}
+                    <option value="{{ nivel.Id_Nivel }}">{{ nivel.Nivel }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="filtro-superior-item">
+                <label for="select-ua-superior"><strong>3. Unidad Académica:</strong></label>
+                <select id="select-ua-superior" name="ua_superior" required disabled>
+                    <option value="">-- Primero seleccione un Nivel --</option>
+                </select>
+            </div>
+            
+            <div class="filtro-superior-accion">
+                <button type="button" id="btn-ver-resumen" class="btn-consultar-superior" disabled style="background: linear-gradient(135deg, #4da5ec, #4da5ec);">
+                    <span class="btn-icon">📈</span> Consultar Titulados
+                </button>
+            </div>
+        </div>
+        
+        <div id="mensaje-carga-superior" class="mensaje-carga" style="display: none;">
+            <div class="spinner"></div>
+            <p>Cargando egresados seleccionados...</p>
+        </div>
+    </div>
+    {% endif %}
+
     <div id="contenedor-matricula-principal" {% if es_rol_director or es_rol_superior %}style="display: none;"{% endif %}>
 
         <!-- Sección de Filtros Primarios -->
@@ -389,10 +488,7 @@
                         🧹 Limpiar Todo
                     </button>
                     
-                    <button id="btn-finalizar-captura" type="button" class="btn-success" onclick="finalizarCapturaEgresados()" 
-                            style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                        ✅ Finalizar Captura
-                    </button>
+                    
                     {% else %}
                     <!-- Botones para roles de validación (ID 4, 5, 6, 7, 8) -->
                     <button id="btn-validar-egresados" type="button" class="btn-success" onclick="validarEgresados()"
@@ -412,8 +508,14 @@
         
         <!-- Panel de Informe (oculto para roles 4-9) -->
         <div id="informe-panel" class="informe-container" style="{% if es_rol_director or es_rol_superior %}display:none;{% else %}display:block;{% endif %} margin-top: 30px;">
+            
             <h3 style="text-align:center; color:#6e0343;">📊 Informe de Titulados Guardados</h3>
             <p style="text-align:center; color:#666; margin-bottom: 20px;">Datos actuales guardados en la base de datos</p>
+
+            <div id="pestana-semaforo-titulados" class="pestana-semaforo" title="Estado de captura por semáforo" style="display: none;">
+                <span id="semaforo-dot-titulados" class="semaforo-dot"></span>
+                <span id="semaforo-texto-titulados">No hay datos capturados</span>
+            </div>
             
             <div style="overflow-x: auto;">
                 <table id="informe-titulados-table" style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -452,12 +554,18 @@
                         <tr>
                             <td colspan="9" style="text-align: center; padding: 30px; color: #999;">
                                 <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
-                                <div>No hay datos guardados aún. Guarde registros para ver el informe.</div>
+                                <div>Seleccione un programa y modalidad para mostrar el informe.</div>
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
+                <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                    <button id="btn-finalizar-captura" type="button" class="btn-success" onclick="finalizarCapturaTitulados()" 
+                            style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                        ✅ Finalizar Programa Modalidad
+                    </button>
+                </div>
         </div>
     
         </div> 
@@ -491,6 +599,7 @@
     }
 
     let filasTitulados = [];
+    let datosFilasFiltrados = [];
     let turnosDisponibles = [];
 
     let activeFilters = {};
@@ -500,15 +609,15 @@
     let interfazBloqueada = false;
 
 </script>
-<script src="/static/js/titulados_mapeo.js"></script>
+
 <script src="/static/js/titulados_consulta.js"></script>
 <script src="/static/js/titulados_datos.js"></script>
+<script src="/static/js/titulados_mapeo.js"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (datosFilas && datosFilas.length > 0) {
             generarCabeceraTabla();
-            renderizarTablaTitulados(datosFilas);
             initTableFilters();
         }
     });

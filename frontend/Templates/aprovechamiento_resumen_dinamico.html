@@ -1,6 +1,6 @@
 {% extends "base_pdf.html" if exportando_pdf else "base.html" %}
 
-{% block title %}Acuse de Validación - Aprovechamiento (4 tablas){% endblock %}
+{% block title %}Acuse de Validación - Aprovechamiento{% endblock  %}
 
 {% block styles %}
     {% if not exportando_pdf %}
@@ -24,7 +24,7 @@
     .tabla-titulo {
         font-size: 1.2rem;
         font-weight: bold;
-        color: #1e293b;
+        color: #ffffff;
         margin-bottom: 15px;
         border-bottom: 2px solid #e2e8f0;
         padding-bottom: 8px;
@@ -113,6 +113,24 @@
         font-weight: bold;
     }
 
+    /* Marca de agua - centrada y rotada */
+    .marca-agua {
+        position: fixed;
+        top: 50%;
+        left: -25%;
+        width: 150%;
+        text-align: center;
+        transform: rotate(-45deg);
+        font-size: 70px;
+        font-weight: bold;
+        color: rgba(128, 128, 128, 0.25);
+        text-transform: uppercase;
+        pointer-events: none;
+        z-index: 9999;
+        white-space: nowrap;
+    }
+
+    /* Estilos para impresión/PDF */
     @media print {
         .btn, .acciones-validacion, .panel-rechazo, .no-print { display: none !important; }
         body { margin: 0; padding: 0; background: white; }
@@ -124,6 +142,9 @@
 
 {% block content %}
 <div class="contenedor-acuse">
+    {% if no_validado %}
+    <div class="marca-agua"> Sin Validez Oficial </div>
+    {% endif %}
 
     <div class="acuse-header">
         <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - APROVECHAMIENTO</h1>
@@ -142,7 +163,7 @@
                 <span class="header-item-value">{{ nombre_ua }}</span>
             </div>
         </div>
-
+        
         <div class="header-info">
             <div class="header-item">
                 <span class="header-item-label">Usuario:</span>
@@ -165,12 +186,12 @@
 
         <!-- TABLA 1: PROGRAMA ACADÉMICO -->
         <div class="tabla-seccion">
-            <div class="tabla-titulo">{{ '1.' if exportando_pdf else '1️⃣ ' }}Programa Académico</div>
+            <div class="tabla-titulo" >{{ '1.' if exportando_pdf else '1️⃣ ' }}Programa Académico</div>
             <div class="tabla-wrapper">
                 <table class="tabla-dinamica" id="tbl-programa">
                     <thead>
                         <tr>
-                            <th rowspan="2">Aprovechamiento</th>
+                            <th rowspan="2"><strong>Aprovechamiento</strong></th>
                             {% for cat in tabla_programa.categorias %}
                                 <th colspan="3">{{ cat }}</th>
                             {% endfor %}
@@ -186,7 +207,7 @@
                     <tbody>
                         {% for fila in tabla_programa.filas %}
                         <tr>
-                            <td><strong>{{ fila.tipo }}</strong></td>
+                            <td>{{ fila.tipo }}</td>
                             {% for celda in fila.celdas %}
                                 <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
                             {% endfor %}
@@ -230,7 +251,7 @@
                     <tbody>
                         {% for fila in tabla_semestre.filas %}
                         <tr>
-                            <td><strong>{{ fila.tipo }}</strong></td>
+                            <td>{{ fila.tipo }}</td>
                             {% for celda in fila.celdas %}
                                 <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
                             {% endfor %}
@@ -274,7 +295,7 @@
                     <tbody>
                         {% for fila in tabla_modalidad.filas %}
                         <tr>
-                            <td><strong>{{ fila.tipo }}</strong></td>
+                            <td>{{ fila.tipo }}
                             {% for celda in fila.celdas %}
                                 <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
                             {% endfor %}
@@ -318,7 +339,7 @@
                     <tbody>
                         {% for fila in tabla_turno.filas %}
                         <tr>
-                            <td><strong>{{ fila.tipo }}</strong></td>
+                            <td>{{ fila.tipo }}</td>
                             {% for celda in fila.celdas %}
                                 <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
                             {% endfor %}
@@ -410,6 +431,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
     // Fecha actual en vista web
+    const noValidado = {{ no_validado|lower }};   // true/false desde el backend
     const fechaEl = document.getElementById('fecha-actual');
     if (fechaEl && !fechaEl.textContent.trim()) {
         fechaEl.textContent = new Date().toLocaleDateString('es-MX', {
@@ -423,30 +445,64 @@
     const idRol   = {{ id_rol }};
 
     function exportarPdf() {
-        const url = `/aprovechamiento/acuse-validacion/pdf?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}`;
+        
+        const url = `/aprovechamiento/acuse-validacion/pdf?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}&no_validado={{ no_validado|lower }}`;
         window.location.href = url;
     }
 
-    function exportarExcel() {
-        const wb = XLSX.utils.book_new();
-        const pc = periodo ? periodo.replace(/\//g, '-') : 'Periodo';
-        const nc = nivel   ? nivel.replace(/\s+/g, '_') : 'Nivel';
 
-        const ids = ['tbl-programa', 'tbl-semestre', 'tbl-modalidad', 'tbl-turno'];
-        const nombres = ['Programa', 'Semestre', 'Modalidad', 'Turno'];
-        ids.forEach((id, i) => {
-            const t = document.getElementById(id);
-            if (t) XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(t), nombres[i]);
-        });
+async function exportarExcel() {
+    const periodo = "{{ periodo }}";
+    const nivel   = "{{ nivel }}";
+    const unidad  = "{{ unidad }}";
+    const carrera = document.getElementById('selector-carrera')?.value || 'TODAS';
 
-        XLSX.writeFile(wb, `Aprovechamiento_4tablas_${unidad}_${nc}_${pc}.xlsx`);
+    let url = `/aprovechamiento/exportar-excel-aprovechamiento?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}`;
+    if (carrera !== 'TODAS') {
+        url += `&carrera=${encodeURIComponent(carrera)}`;
     }
+
+    // Mostrar loading
+    Swal.fire({
+        title: 'Generando archivo Excel',
+        text: 'Por favor espera, esto puede tomar unos segundos...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText);
+        }
+        const blob = await response.blob();
+        const link = document.createElement('a');
+        const objectUrl = URL.createObjectURL(blob);
+        link.href = objectUrl;
+        link.download = `Aprovechamiento_${unidad}_${nivel}_${periodo}.xlsx`;
+        link.click();
+        URL.revokeObjectURL(objectUrl);
+        Swal.close(); // Cerrar el loading
+    } catch (error) {
+        console.error(error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error al exportar',
+            text: 'Ocurrió un problema al generar el Excel. Revisa la consola o contacta a soporte.',
+        });
+    }
+}
+
 
     async function validarAprovechamiento() {
         const r = await Swal.fire({
             icon: 'question',
             title: '¿Validar Aprovechamiento?',
-            html: `Periodo: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br>Esta acción marcará el aprovechamiento como aprobado y bloqueará cualquier modificación futura.`,
+            html: `Período: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br>Esta acción marcará el aprovechamiento como aprobado y bloqueará cualquier modificación futura.`,
             showCancelButton: true,
             confirmButtonText: 'Sí, validar',
             cancelButtonText: 'Cancelar',
@@ -534,7 +590,7 @@
         }
         const r = await Swal.fire({
             icon: 'warning', title: '¿Rechazar Aprovechamiento?',
-            html: `Periodo: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br><b>Motivo:</b> ${motivo.substring(0,100)}${motivo.length > 100 ? '...' : ''}<br><br>Esta acción devolverá el aprovechamiento para correcciones.`,
+            html: `Período: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br><b>Motivo:</b> ${motivo.substring(0,100)}${motivo.length > 100 ? '...' : ''}<br><br>Esta acción devolverá el aprovechamiento para correcciones.`,
             showCancelButton: true,
             confirmButtonText: 'Sí, rechazar', cancelButtonText: 'Cancelar',
             confirmButtonColor: '#dc3545', cancelButtonColor: '#6c757d',
@@ -551,4 +607,4 @@
     }
 </script>
 {% endif %}
-{% endblock %}  
+{% endblock %}

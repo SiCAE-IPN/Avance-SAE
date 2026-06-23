@@ -321,7 +321,8 @@ async def obtener_contexto_aprovechamiento(
     unidad: str,
     sess,
     db: Session,
-    exportando_pdf: bool = False
+    exportando_pdf: bool = False,
+    no_validado: bool = False
 ):
     id_rol = int(getattr(sess, 'id_rol', 0) or 0)
     nombre_rol = getattr(sess, 'nombre_rol', '') or ''
@@ -451,13 +452,21 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
     periodo_aprovechamiento = PPeriodo
     Id_Unidad_Academica = int(getattr(sess, 'id_unidad_academica', 0) or 0)
     nombre_completo = getattr(sess, 'nombre_completo', '')
+    periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
 
     if Rol == "Capturista":
         aprovechamientos_limpios = []
         reincorporados_detallados = []
         inscritos_final = []
         rama = ""
+        id_nivel = int(sess.id_nivel)
+        rechazo_info = None
+        matricula_rechazada = False
+        usuario_ya_valido = False
+        usuario_ya_rechazo = False
+        
         try:
+            # ---- Obtener datos del SP de aprovechamiento ----
             query_aprov = text("""
                 SET NOCOUNT ON;
                 EXEC dbo.SP_Consulta_Aprovechamiento_Unidad_Academica
@@ -496,9 +505,78 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
             else:
                 inscritos_final = []
 
+            print(inscritos_final)
+            # ---- LÓGICA DE RECHAZO (similar a matrícula) ----
+            # Obtener periodo por defecto (ya existe PPeriodo)
+            
+            # Determinar si el último movimiento para esta UA/Periodo/Formato(2) fue rechazo
+            print(f"🔑 Parámetros para rechazo:")
+            print(f"   periodo_anterior_id = {periodo_anterior_id}")
+            print(f"   Id_Unidad_Academica = {Id_Unidad_Academica}")
+            print(f"   id_nivel (entero) = {id_nivel}")
+            print(f"   Id_Formato = 2 (Aprovechamiento)")
+            from backend.database.models.Usuario import Usuario
+            ultimo_movimiento_ua = (
+                db.query(Validacion)
+                .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
+                .filter(
+                    Validacion.Id_Periodo == periodo_anterior_id,
+                    Validacion.Id_Formato == 2,  # Formato de Aprovechamiento
+                    Usuario.Id_Unidad_Academica == Id_Unidad_Academica
+                )
+                .order_by(Validacion.Fecha.desc())
+                .first()
+            )
+            rechazo_vigente_ua = bool(ultimo_movimiento_ua and int(ultimo_movimiento_ua.Validado or 0) == 0)
+
+            # Construir rechazo_info solo para capturista
+            if rechazo_vigente_ua:
+                ultimo_rechazo = (
+                    db.query(Validacion)
+                    .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
+                    .filter(
+                        Validacion.Id_Periodo == periodo_anterior_id,
+                        Validacion.Id_Formato == 2,
+                        Validacion.Validado == 0,
+                        Usuario.Id_Unidad_Academica == Id_Unidad_Academica
+                    )
+                    .order_by(Validacion.Fecha.desc())
+                    .first()
+                )
+                if ultimo_rechazo:
+                    usuario_rechazo = db.query(Usuario).filter(Usuario.Id_Usuario == ultimo_rechazo.Id_Usuario).first()
+                    nombre_rechazo = f"{usuario_rechazo.Nombre} {usuario_rechazo.Paterno} {usuario_rechazo.Materno}".strip() if usuario_rechazo else "Validador"
+                    rechazo_info = {
+                        'motivo': ultimo_rechazo.Nota or "Sin especificar motivo",
+                        'rechazado_por': nombre_rechazo,
+                        'fecha': ultimo_rechazo.Fecha.strftime("%d/%m/%Y %H:%M") if ultimo_rechazo.Fecha else ""
+                    }
+
+            # Verificar si el capturista ya completó la captura (semáforo >= 3)
+            semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
+                SemaforoUnidadAcademica.Id_Periodo == periodo_anterior_id,
+                SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
+                SemaforoUnidadAcademica.Id_Formato == 2,
+                SemaforoUnidadAcademica.Id_Nivel == id_nivel
+            ).first()
+            estado_captura = int(semaforo_captura.Id_Semaforo or 0) if semaforo_captura else 0
+            capturista_captura_completa = estado_captura >= 3
+
+            # Si la captura está completa, ocultar cualquier rechazo histórico
+            if capturista_captura_completa:
+                rechazo_info = None
+                usuario_ya_valido = True   # Bloquear acciones
+                usuario_ya_rechazo = False
+
+            # Determinar matricula_rechazada (para validación masiva)
+            matricula_rechazada = (not capturista_captura_completa) and rechazo_vigente_ua and (rechazo_info is not None)
+
+            # ---- Procesamiento de datos de aprovechamiento (existente) ----
             if aprovechamientos_raw:
                 todos_en_tres = all(str(reg.get("Id_Semaforo")) == "3" for reg in aprovechamientos_raw)
+                print("Todos en tres:",todos_en_tres)
                 if todos_en_tres:
+                    print("W")
                     Periodoant = get_periodo_anterior_al_ultimo(db)
                     Id_Periodo_anterior = Periodoant[0]
                     semaforoUA = db.query(SemaforoUnidadAcademica).filter(
@@ -556,6 +634,9 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
         except Exception as e:
             print(f"--- ERROR DETECTADO ---\nMensaje: {e}")
 
+
+        print(f"📢 [DEBUG] rechazo_info = {rechazo_info}")
+        print(f"📢 [DEBUG] matricula_rechazada = {matricula_rechazada}")
         return templates.TemplateResponse(
             "aprovechamiento_consulta.html",
             {
@@ -568,12 +649,33 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                 "aprovechamientos": aprovechamientos_limpios,
                 "inscritos": inscritos_final,
                 "reincorporados": reincorporados_detallados,
-                "rama": rama
+                "rama": rama,
+                # Nuevas variables para el manejo de rechazo en la plantilla
+                "rechazo_info": rechazo_info,
+                "matricula_rechazada": matricula_rechazada,
+                "usuario_ya_valido": usuario_ya_valido,
+                "usuario_ya_rechazo": usuario_ya_rechazo,
             }
         )
+    
+    
+
     elif Rol == "CEGET" or Rol == "Titular":
         niveles = get_niveles_by_unidad_academica(db, Id_Unidad_Academica)
         niveles.sort(key=lambda x: x.Id_Nivel)
+        id_nivel = int(sess.id_nivel)
+        semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
+                SemaforoUnidadAcademica.Id_Periodo == periodo_anterior_id,
+                SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
+                SemaforoUnidadAcademica.Id_Formato == 2,
+                SemaforoUnidadAcademica.Id_Nivel == id_nivel
+            ).first()
+        
+        if semaforo_captura:
+            semaforo = semaforo_captura.Id_Semaforo
+            print("Semaforo:",semaforo)
+        no_validado = semaforo < 9
+        print("No validado:", no_validado)
         return templates.TemplateResponse(
             "aprovechamiento_selector.html",
             {
@@ -583,6 +685,7 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                 "unidad_academica": UUnidad_Academica,
                 "niveles": niveles,
                 "request": request,
+                "no_validado": True,
                 "session": sess
             }
         )
@@ -789,6 +892,22 @@ async def resumen_aprovechamiento_dinamico_view(
     context = await obtener_contexto_aprovechamiento(
         request, periodo, nivel, unidad, sess, db, exportando_pdf=False
     )
+
+    periodo_anterior_id,_ = get_periodo_anterior_al_ultimo(db)
+    Id_Unidad_Academica = context["session"].id_unidad_academica
+    id_nivel = context["session"].id_nivel
+
+    semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
+        SemaforoUnidadAcademica.Id_Periodo          == periodo_anterior_id,
+        SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
+        SemaforoUnidadAcademica.Id_Formato          == 2,
+        SemaforoUnidadAcademica.Id_Nivel            == id_nivel
+    ).first()
+    print(semaforo_captura.Id_Semaforo)
+    no_validado = semaforo_captura.Id_Semaforo < 9
+    print(no_validado)
+    context["no_validado"] = no_validado
+
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
 
 
@@ -806,6 +925,7 @@ async def acuse_validacion_aprovechamiento_view(
     sess=Depends(get_current_session),
     db: Session = Depends(get_db),
     exportando_pdf: bool = False,
+    no_validado: bool = False,
 ):
     """
     Vista de Acuse de Validación - Aprovechamiento.
@@ -831,8 +951,10 @@ async def acuse_validacion_aprovechamiento_view(
     print(f"{'='*70}")
 
     context = await obtener_contexto_aprovechamiento(
-        request, periodo, nivel, unidad, sess, db, exportando_pdf=exportando_pdf
+        request, periodo, nivel, unidad, sess, db, exportando_pdf=exportando_pdf, no_validado=no_validado
     )
+    if isinstance(context, dict):
+        context["no_validado"] = no_validado
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
 
 
@@ -846,25 +968,25 @@ async def exportar_aprovechamiento_pdf(
     periodo: str,
     nivel: str,
     unidad: str,
+    no_validado: str = "false",  # 👈 1. Agregar este parámetro para capturarlo de la URL
     sess=Depends(get_current_session),
     db: Session = Depends(get_db),
 ):
-    """
-    Genera el PDF del Acuse de Validación de Aprovechamiento.
-    Reutiliza la vista acuse_validacion_aprovechamiento_view con exportando_pdf=True.
-    """
     try:
         import importlib
         weasyprint = importlib.import_module("weasyprint")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"WeasyPrint no está instalado: {exc}")
 
-    # ✅ acuse_validacion_aprovechamiento_view está definida ANTES, sin NameError
+    # 2. Pasamos el valor convertido a booleano a la vista principal
+    es_no_validado = no_validado.lower() == 'true'
+
     resp = await acuse_validacion_aprovechamiento_view(
         request=request,
         periodo=periodo,
         nivel=nivel,
         unidad=unidad,
+        no_validado=es_no_validado, # 👈 3. Enviarlo al contexto del HTML
         sess=sess,
         db=db,
         exportando_pdf=True,
@@ -873,20 +995,18 @@ async def exportar_aprovechamiento_pdf(
     if isinstance(resp, RedirectResponse):
         return resp
 
-    # Decodificar el HTML renderizado
     if isinstance(resp.body, memoryview):
         html_text = resp.body.tobytes().decode('utf-8')
     else:
         html_text = bytes(resp.body).decode('utf-8')
 
-    # Ruta al CSS compartido
     base_path = Path(__file__).resolve().parents[2] / 'frontend' / 'static'
     ruta_css  = base_path / 'css' / 'components' / 'matricula_acuse.css'
 
     if not ruta_css.exists():
         raise HTTPException(
             status_code=500,
-            detail=f"No se encontró el CSS en: {ruta_css}. Verifica que 'frontend' esté al mismo nivel que 'backend'."
+            detail=f"No se encontró el CSS en: {ruta_css}."
         )
 
     try:
@@ -894,26 +1014,27 @@ async def exportar_aprovechamiento_pdf(
             stylesheets=[
                 weasyprint.CSS(filename=str(ruta_css)),
                 weasyprint.CSS(string='''
-                    @page {
-                        size: landscape;
-                        margin: 1cm;
+                    @page { size: landscape; margin: 1cm }
+
+                    /* 👈 4. CSS de la Marca de agua optimizado para WeasyPrint */
+                    .marca-agua {
+                        position: fixed;
+                        top: 45%;
+                        left: 0;
+                        right: 0;
+                        text-align: center;
+                        transform: rotate(-45deg);
+                        transform-origin: center center;
+                        font-size: 80px;
+                        font-weight: bold;
+                        color: rgba(128, 128, 128, 0.25);
+                        text-transform: uppercase;
+                        z-index: -1; /* Importante: z-index negativo para que quede de fondo real */
+                        pointer-events: none;
                     }
-                    body {
-                        font-size: 9pt;
-                        font-family: Arial, Helvetica, sans-serif;
-                    }
-                    .tabla-dinamica {
-                        font-size: 7pt;
-                    }
-                    .tabla-dinamica th,
-                    .tabla-dinamica td {
-                        padding: 2px 2px !important;
-                    }
-                    .acciones-validacion,
-                    .panel-rechazo,
-                    .btn,
-                    .estado-validacion,
-                    .mensaje-validacion {
+
+                    .acciones-validacion, .panel-rechazo, .btn,
+                    .estado-validacion, .mensaje-validacion {
                         display: none !important;
                     }
                     .tabla-seccion {
@@ -933,8 +1054,6 @@ async def exportar_aprovechamiento_pdf(
         media_type='application/pdf',
         headers={'Content-Disposition': f'attachment; filename="{filename}"'}
     )
-
-
 # ============================================================================
 # ENDPOINTS DE VALIDACIÓN / RECHAZO
 # ============================================================================
@@ -1048,3 +1167,107 @@ async def validar_unidad_completa(request: Request, sess=Depends(get_current_ses
         db.rollback()
         print(f"ERROR CRÍTICO: {str(e)}")
         return JSONResponse(status_code=500, content={"detail": str(e)})
+    
+import xlsxwriter
+from fastapi.responses import StreamingResponse
+import io
+
+@router.get("/exportar-excel-aprovechamiento")
+async def exportar_aprovechamiento_excel(
+    request: Request,
+    periodo: str,
+    nivel: str,
+    unidad: str,
+    sess=Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    """
+    Exporta a Excel los datos de:
+    - SP_Consulta_Aprovechamiento_Unidad_Academica
+    - SP_Consulta_Inscritos_Aprovechamiento
+    según los filtros proporcionados.
+    """
+    
+    # 1. Obtener la sigla de la unidad académica (el SP espera sigla)
+    ua_obj = db.query(CatUnidadAcademica).filter(
+        (CatUnidadAcademica.Nombre == unidad) | (CatUnidadAcademica.Sigla == unidad)
+    ).first()
+    if not ua_obj:
+        raise HTTPException(404, "Unidad académica no encontrada")
+    sigla_unidad = ua_obj.Sigla
+
+    usuario_login = sess.usuario
+    host = request.client.host
+
+    # 2. Ejecutar SP de aprovechamiento (igual que en /consulta)
+    query_aprov = text("""
+        SET NOCOUNT ON;
+        EXEC dbo.SP_Consulta_Aprovechamiento_Unidad_Academica
+            @UUnidad_Academica = :sigla,
+            @PPeriodo = :periodo,
+            @NNivel = :nivel,
+            @UUsuario = :usuario,
+            @HHost = :host;
+    """)
+    result_aprov = db.execute(query_aprov, {
+        "sigla": sigla_unidad,
+        "periodo": periodo,
+        "nivel": nivel,
+        "usuario": usuario_login,
+        "host": host
+    })
+    rows_aprovechamiento = [dict(row) for row in result_aprov.mappings().all()] if result_aprov.returns_rows else []
+
+    # 3. Ejecutar SP de inscritos
+    query_inscritos = text("""
+        SET NOCOUNT ON;
+        EXEC dbo.SP_Consulta_Inscritos_Aprovechamiento
+            @PPeriodo = :periodo,
+            @SSigla_Unidad_Academica = :sigla,
+            @NNivel = :nivel;
+    """)
+    result_inscritos = db.execute(query_inscritos, {
+        "periodo": periodo,
+        "sigla": sigla_unidad,
+        "nivel": nivel
+    })
+    rows_inscritos = [dict(row) for row in result_inscritos.mappings().all()] if result_inscritos.returns_rows else []
+
+    # 4. Crear archivo Excel en memoria
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+
+    # Hoja 1: Aprovechamiento
+    ws_aprov = workbook.add_worksheet("Aprovechamiento")
+    if rows_aprovechamiento:
+        headers = list(rows_aprovechamiento[0].keys())
+        for col, h in enumerate(headers):
+            ws_aprov.write(0, col, h)
+        for row_idx, row in enumerate(rows_aprovechamiento, start=1):
+            for col_idx, key in enumerate(headers):
+                ws_aprov.write(row_idx, col_idx, row.get(key, ''))
+    else:
+        ws_aprov.write(0, 0, "No hay datos de aprovechamiento para los filtros seleccionados")
+
+    # Hoja 2: Inscritos
+    ws_ins = workbook.add_worksheet("Inscritos")
+    if rows_inscritos:
+        headers = list(rows_inscritos[0].keys())
+        for col, h in enumerate(headers):
+            ws_ins.write(0, col, h)
+        for row_idx, row in enumerate(rows_inscritos, start=1):
+            for col_idx, key in enumerate(headers):
+                ws_ins.write(row_idx, col_idx, row.get(key, ''))
+    else:
+        ws_ins.write(0, 0, "No hay datos de inscritos para los filtros seleccionados")
+
+    workbook.close()
+    output.seek(0)
+
+    # Nombre del archivo
+    filename = f"Aprovechamiento_Inscritos_{sigla_unidad}_{nivel}_{periodo}.xlsx"
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
