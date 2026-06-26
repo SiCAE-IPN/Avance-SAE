@@ -90,7 +90,7 @@ async def usuarios_view(
     )
 
     # CASO ESPECIAL: Roles 7, 8, 9 pueden ver usuarios de todas las UAs (como superadmin)
-    if es_super_admin or id_rol in [7, 8, 9]:
+    if es_super_admin or id_rol in [1, 7, 8, 9]:
         nombre_ua = "Todas las Unidades Académicas"
     else:
         usuarios = [
