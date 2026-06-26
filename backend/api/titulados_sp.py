@@ -78,14 +78,19 @@ async def consulta_titulados(
     sigla_unidad_academica = sess.sigla_unidad_academica
     id_unidad_academica = int(sess.id_unidad_academica)
     nombre_nivel = sess.nombre_nivel
-
+    ua_usuario = None
+    unidad_academica_usuario = None
 
     if id_unidad_academica > 0:
             ua_usuario = db.query(Unidad_Academica).filter(
                 Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
             ).first()
 
-    unidad_academica_usuario = ua_usuario.Nombre
+    if ua_usuario:
+        unidad_academica_usuario = ua_usuario.Nombre
+    else:
+        print(f"Advertencia: No se encontró la Unidad Académica con ID {id_unidad_academica} para el usuario {nombre_usuario}.")
+
     nivel = sess.id_nivel
 
     print(unidad_academica_usuario)
@@ -150,31 +155,35 @@ async def consulta_titulados(
 
     periodos = db.query(Periodo).filter(Periodo.Id_Estatus == 1).order_by(Periodo.Id_Periodo.desc()).all()
 
-    try:
-        print(
-            f"Obteniendo titulados para UA: {sigla_unidad_academica}, "
-            f"Periodo: {periodo_default_literal}, "
-            f"Nivel: {nombre_nivel}, "
-            f"Usuario: {nombre_usuario}"
-        )
+    contexto = {}
+    filas = []
 
-        contexto, filas = obtener_titulados(
-            db=db,
-            unidad_academica=sigla_unidad_academica,
-            periodo=periodo_literal_actual,
-            nivel=nombre_nivel,
-            usuario=nombre_usuario,
-            host=host,
-        )
+    if not es_validador:
+        try:
+            print(
+                f"Obteniendo titulados para UA: {sigla_unidad_academica}, "
+                f"Periodo: {periodo_default_literal}, "
+                f"Nivel: {nombre_nivel}, "
+                f"Usuario: {nombre_usuario}"
+            )
 
-        if filas is None:
+            contexto, filas = obtener_titulados(
+                db=db,
+                unidad_academica=sigla_unidad_academica,
+                periodo=periodo_literal_actual,
+                nivel=nombre_nivel,
+                usuario=nombre_usuario,
+                host=host,
+            )
+
+            if filas is None:
+                filas = []
+
+        except Exception as e:
+            print(f"Error obteniendo titulados: {e}")
+
+            contexto = {}
             filas = []
-
-    except Exception as e:
-        print(f"Error obteniendo titulados: {e}")
-
-        contexto = {}
-        filas = []
 
     try:
         boleta = contexto.get("Boleta")
