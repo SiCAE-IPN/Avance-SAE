@@ -165,7 +165,7 @@ def _enviar_correo_bienvenida(
     <html>
     <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">
         <div style=\"max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;\">
-            <h2 style=\"color: #6e0343; text-align: center;\">Bienvenid@ al SAE</h2>
+            <h2 style=\"color: #6e0343; text-align: center;\">Bienvenid@ al SiCAE</h2>
             <p>Hola <strong>{nombre_completo}</strong>,</p>
             <p>Tu cuenta fue creada exitosamente. Aqui estan tus credenciales de acceso:</p>
             <div style=\"background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;\">
@@ -417,11 +417,25 @@ def get_usuarios_vista_sp(
                 formatos_nombres=[],
             )
 
-    usuarios_rol_5 = [u for u in usuarios_activos if int(u.Id_Rol or 0) == 5 and u.Usuario]
-    for usuario_model in usuarios_rol_5:
-        key = str(usuario_model.Usuario).strip().lower()
-        if not key or key in agrupados:
-            continue
+    # 1. Identificamos el ID de la unidad académica solicitada basándonos en su sigla
+        id_unidad_solicitada = next(
+            (id_u for id_u, sigla in unidades_map.items() if sigla == unidad_academica), 
+            None
+        )
+
+        # 2. Filtramos para agregar a los roles 4 y 5 asegurando que pertenezcan a la MISMA Unidad Académica
+        usuarios_extra_roles_4_y_5 = [
+            u for u in usuarios_activos 
+            if int(u.Id_Rol or 0) in (3, 4, 5) 
+            and u.Usuario
+            # Filtra por la unidad solicitada (si no se especifica una válida, conserva el comportamiento por defecto)
+            and (id_unidad_solicitada is None or u.Id_Unidad_Academica == id_unidad_solicitada)
+        ]
+
+        for usuario_model in usuarios_extra_roles_4_y_5:
+            key = str(usuario_model.Usuario).strip().lower()
+            if not key or key in agrupados:
+                continue
 
         formatos_info = formatos_por_usuario.get(key, {"ids": set(), "nombres": set()})
         agrupados[key] = _formatear_usuario_vista(

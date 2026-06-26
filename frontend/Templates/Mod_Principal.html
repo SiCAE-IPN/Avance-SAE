@@ -6,70 +6,117 @@
 {% block title %}Módulo Principal - SiCAE{% endblock %}
 
 {% block styles %}
-    <link rel="stylesheet" href="/static/css/mod_principal.css">
+    <link rel="stylesheet" href="/static/css/mod_principal.css?v=2.0">
 {% endblock %}
 
 {% block content %}
-    <div class="header-mod-principal">
-        <form action="/login/logout" method="get">
-            <button type="submit" class="btn-cerrar-sesion">Cerrar Sesión</button>
-        </form>
-    </div>
-    <div class="bienvenida-box">
-        <span class="bienvenida-mod-principal">Bienvenido: {{ nombre_usuario }}</span>
-    </div>
-    <div class="principal-container">
-        <h2 class="titulo"> SiCAE <br> Módulo Principal</h2>
-        <div class="botones-menu">
-            <button id="Btn_Catalogos" class="btn-menu">Catálogos</button>
-            <button id="Btn_Matricula" class="btn-menu">Matrícula</button>
-            <button id="Btn_Aprovechamiento" class="btn-menu">Aprovechamiento Académico</button>
-            <button id="Btn_Egresados" class="btn-menu">Egresados</button>
-            <button id="Btn_Titulados" class="btn-menu">Titulados</button>
-            <button id="Btn_Dashboard" class="btn-menu">DashBoard SiCAE</button>
+    <header class="sicae-topbar">
+        <div class="user-greeting">
+            <div class="greeting-text">
+                <span class="greeting-title">Bienvenido al sistema</span>
+                <span class="greeting-name">{{ nombre_usuario }}</span>
+            </div>
         </div>
-    </div>
+        <form action="/login/logout" method="get">
+            <button type="submit" class="btn-cerrar-sesion">
+                <span>Cerrar Sesión</span> 
+            </button>
+        </form>
+    </header>
+
+    <main class="dashboard-container">
+        <div class="dashboard-header">
+            <h2 class="titulo-principal">SiCAE</h2>
+            <p class="subtitulo">Módulo Principal • Selecciona una opción para comenzar</p>
+        </div>
+
+        <div class="grid-modulos">
+            <div id="Btn_Catalogos" class="card-modulo {% if not es_admin %}bloqueado{% endif %}" 
+                {% if not es_admin %} title="No tienes permisos para ver catálogos" {% endif %}>
+                <div class="card-icon">🗂️</div>
+                <h3 class="card-title">Catálogos</h3>
+                <p class="card-desc">Gestión de usuarios, Programas y Unidades Académicas.</p>
+            </div>
+
+            <div id="Btn_Matricula" class="card-modulo {% if not es_admin and 'matricula' not in formatos_permitidos %}bloqueado{% endif %}" 
+                {% if not es_admin and 'matricula' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+                <div class="card-icon">📚</div>
+                <h3 class="card-title">Matrícula</h3>
+                <p class="card-desc">Consulta y captura de información de la comunidad estudiantil.</p>
+            </div>
+
+            <div id="Btn_Aprovechamiento" class="card-modulo {% if not es_admin and 'aprovechamiento' not in formatos_permitidos and 'aprovechamiento academico' not in formatos_permitidos %}bloqueado{% endif %}"
+                {% if not es_admin and 'aprovechamiento' not in formatos_permitidos and 'aprovechamiento academico' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+                <div class="card-icon">📈</div>
+                <h3 class="card-title">Aprovechamiento Académico</h3>
+                <p class="card-desc">Estadísticas y desempeño de la comunidad estudiantil.</p>
+            </div>
+
+            <div id="Btn_Egresados" class="card-modulo {% if not es_admin and 'egresados' not in formatos_permitidos %}bloqueado{% endif %}"
+                {% if not es_admin and 'egresados' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+                <div class="card-icon">🎓</div>
+                <h3 class="card-title">Egresados</h3>
+                <p class="card-desc">Seguimiento y control de generaciones salientes.</p>
+            </div>
+
+            <div id="Btn_Titulados" class="card-modulo {% if not es_admin and 'titulados' not in formatos_permitidos %}bloqueado{% endif %}"
+                {% if not es_admin and 'titulados' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+                <div class="card-icon">📜</div>
+                <h3 class="card-title">Titulados</h3>
+                <p class="card-desc">Registro de alumnos que han obtenido su título.</p>
+            </div>
+
+            <div id="Btn_Dashboard" class="card-modulo dashboard-special">
+                <div class="card-icon">📊</div>
+                <h3 class="card-title">DashBoard SiCAE</h3>
+                <p class="card-desc">Tablero interactivo de Power BI.</p>
+            </div>
+        </div>
+    </main>
 {% endblock %}
 
 {% block scripts %}
     <script>
         // Navegar a la página de catálogos
         document.getElementById('Btn_Catalogos').addEventListener('click', function() {
+            if (this.classList.contains('bloqueado')) return; // Bloquea la acción si no tiene permiso
             window.location.href = '/usuarios/';
         });
+
         // Navegar a la página de captura de matrícula
         document.getElementById('Btn_Matricula').addEventListener('click', function() {
+            if (this.classList.contains('bloqueado')) return;
             window.location.href = '/matricula/consulta';
         });
 
         // Navegar a la página de aprovechamiento académico
         document.getElementById('Btn_Aprovechamiento').addEventListener('click', function() {
+            if (this.classList.contains('bloqueado')) return;
             window.location.href = '/aprovechamiento/consulta';
         });
 
         //Navegar a la página de egresados
         document.getElementById('Btn_Egresados').addEventListener('click', function() {
+            if (this.classList.contains('bloqueado')) return;
             window.location.href = '/egresados/consulta';
         });
 
-            // Navegar a la página de titulados
+        // Navegar a la página de titulados
         document.getElementById('Btn_Titulados').addEventListener('click', function() {
+            if (this.classList.contains('bloqueado')) return;
             window.location.href = '/titulados/consulta';
         });
 
-        // Navegar al dashboard embebido de Power BI
-        /*document.getElementById('Btn_Dashboard').addEventListener('click', function() {
-
-                <iframe 
-                title="Tablero_SiCAE"
-                width="1140" 
-                height="541.25" 
-                src="https://app.powerbi.com/reportEmbed?reportId=ff91f5a3-e10a-456b-bf89-5ba0f5d9cee0&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563%22" 
-                frameborder="0" 
-                allowFullScreen="true">
-                </iframe> 
-
-           // window.location.href = '/mod_principal/dashboard_sae';
-        });*/
+        // Navegar a la página del dashboard
+        // Abrir dashboard de Power BI en una pestaña nueva
+        document.getElementById('Btn_Dashboard').addEventListener('click', function() {
+            if (this.classList.contains('bloqueado')) return;
+            
+            // URL directa de tu Power BI
+            const urlPowerBI = 'https://app.powerbi.com/reportEmbed?reportId=ca817673-ecd1-41e6-a17c-11e728b697bb&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563';
+            
+            // Abrir en una nueva pestaña
+            window.open(urlPowerBI, '_blank');
+        });
     </script>
 {% endblock %}

@@ -25,6 +25,7 @@ from backend.services.periodo_service import get_ultimo_periodo
 from backend.schemas.Usuario import UsuarioCreate
 from sqlalchemy.orm import Session
 from backend.utils.request import get_request_host
+from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
 
 router = APIRouter()
 
@@ -33,9 +34,9 @@ PERMISOS_CREACION_ROLES = {
     1: [2, 3, 4, 5, 6, 7, 8, 9],  # Rol 1 puede crear todos menos él mismo
     4: [3, 5],  # Rol 4 puede crear roles 3 y 5
     5: [3, 4],  # Rol 5 puede crear roles 3 y 4
-    7: [4, 6, 8, 9],  # Rol 7 puede crear roles 6, 8, 9
-    8: [4, 6, 7, 9],  # Rol 8 puede crear roles 6, 7, 9
-    9: [3, 4, 5, 6, 7, 8],  # Rol 9 puede crear todos menos él mismo
+    7: [3, 4, 5, 6, 8, 9],  # Rol 7 puede crear roles 6, 8, 9
+    8: [6, 7, 9],  # Rol 8 puede crear roles 6, 7, 9
+    9: [6, 7, 8],  # Rol 9 puede crear todos menos él mismo
 }
 
 ROL_CAPTURISTA = 3
@@ -74,7 +75,8 @@ async def usuarios_view(
     tiene_permisos_admin = has_admin_permissions(db, id_rol)
 
     usuario_operador = str(getattr(sess, "usuario", "") or "sistema")
-    unidad_operador = get_unidad_academica_nombre(db, id_unidad_academica)
+    ua_obj = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Id_Unidad_Academica == id_unidad_academica).first()
+    unidad_operador = ua_obj.Sigla if ua_obj else "-"
     _, periodo_literal = get_ultimo_periodo(db)
     periodo_literal = periodo_literal or ""
     host_operador = get_request_host(request)
@@ -220,7 +222,7 @@ async def registrar_usuario_view(
             
             if usuario_existente:
                 nombre_existente = f"{usuario_existente.Nombre} {usuario_existente.Paterno} {usuario_existente.Materno}".strip()
-                rol_nombre = "Director/a de DII" if user.Id_Rol == 4 else "Jefe/a de Departamento"
+                rol_nombre = "CEGET" if user.Id_Rol == 4 else "Titular UA"
                 return JSONResponse(
                     status_code=400,
                     content={
@@ -233,7 +235,7 @@ async def registrar_usuario_view(
             usuario_existente = _usuario_activo_por_rol(db, user.Id_Rol)
             if usuario_existente:
                 nombre_existente = f"{usuario_existente.Nombre} {usuario_existente.Paterno} {usuario_existente.Materno}".strip()
-                rol_nombres = {6: "Analista", 7: "Jefe/a de División", 8: "Titular", 9: "Administrador General"}
+                rol_nombres = {6: "Analista", 7: "Jefe(a) de Departamento", 8: "Jefe(a) de División", 9: "Director(a) de la DII"}
                 return JSONResponse(
                     status_code=400,
                     content={
@@ -322,7 +324,7 @@ async def editar_usuario_ajax(
                 
                 if usuario_existente:
                     nombre_existente = f"{usuario_existente.Nombre} {usuario_existente.Paterno} {usuario_existente.Materno}".strip()
-                    rol_nombre = "Director/a de DII" if nuevo_id_rol == 4 else "Jefe/a de Departamento"
+                    rol_nombre = "CEGET" if nuevo_id_rol == 4 else "Titular UA"
                     return JSONResponse(
                         status_code=400,
                         content={

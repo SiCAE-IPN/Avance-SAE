@@ -4222,6 +4222,10 @@ async def resumen_matricula_dinamico_view(
 # ============================================================================
 
 from datetime import datetime # Asegúrate de que esto esté importado al inicio de tu archivo
+from backend.core.auth import VerificarAccesoAcuse
+
+validar_acuse=VerificarAccesoAcuse()
+
 
 @router.get('/acuse-validacion')
 async def acuse_validacion_view(
@@ -4229,7 +4233,7 @@ async def acuse_validacion_view(
     periodo: str,
     nivel: str,
     unidad: str,
-    sess=Depends(get_current_session),
+    sess=Depends(validar_acuse),    
     db: Session = Depends(get_db),
     exportando_pdf: bool = False  # NUEVO PARÁMETRO AÑADIDO
 ):
@@ -4528,7 +4532,7 @@ async def acuse_validacion_pdf(
     periodo: str,
     nivel: str,
     unidad: str,
-    sess=Depends(get_current_session),
+    sess=Depends(validar_acuse),    
     db: Session = Depends(get_db)
 ):
     try:

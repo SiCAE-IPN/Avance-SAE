@@ -399,7 +399,7 @@ def register_usuario(db: Session, user_dict: UsuarioCreate, generar_password_aut
             <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-                    <h2 style="color: #6e0343; text-align: center;">Bienvenid@ al SAE</h2>
+                    <h2 style="color: #6e0343; text-align: center;">Bienvenid@ al SiCAE</h2>
                     <h2 style="color: #6e0343; text-align: center;">"Sistema de Administración y Estadística"</h2>
                     <p>Hola <strong>{nombre_completo}</strong>,</p>
                     <p>Tu cuenta ha sido creada exitosamente. A continuación encontrarás tus credenciales de acceso:</p>
@@ -523,6 +523,10 @@ def has_admin_permissions(db: Session, id_rol: int) -> bool:
     Determina si un rol tiene permisos administrativos basándose en el nombre del rol.
     Roles con permisos: Titular, Jefe/a de División, Jefe/a de Departamento, CEGET
     """
+
+    if id_rol in ( 4, 5):
+            return True
+
     from backend.database.models.CatRoles import CatRoles
     
     try:
