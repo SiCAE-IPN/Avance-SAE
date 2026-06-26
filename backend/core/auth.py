@@ -84,7 +84,7 @@ class VerificarAccesoUA:
     ) -> SessionData:
         
         # 1. Reutilizamos tu lógica: estos roles son administradores globales en el sistema
-        es_admin = sess.id_rol == 1 #in [1, 4, 5, 6, 7, 8, 9]
+        es_admin = sess.id_rol in [1, 6, 7, 8, 9]
 
         if es_admin:
             return sess # Los administradores pueden ver cualquier URL
@@ -115,7 +115,7 @@ class VerificarAccesoInstitucional:
     ) -> SessionData:
         
         # 1. Los administradores globales tienen acceso sin restricciones
-        es_admin = sess.id_rol == 1 #in [1, 4, 5, 6, 7, 8, 9]
+        es_admin = sess.id_rol in [1, 6, 7, 8, 9]
         if es_admin:
             return sess 
 
@@ -152,7 +152,7 @@ class VerificarAccesoAcuse:
     ) -> SessionData:
         
         # 1. Tu lista de roles administradores (tienen permitido modificar la URL y ver todo)
-        es_admin = sess.id_rol == 1 #in [1, 4, 5, 6, 7, 8, 9]
+        es_admin = sess.id_rol in [1, 6, 7, 8, 9]
         if es_admin:
             return sess
 
