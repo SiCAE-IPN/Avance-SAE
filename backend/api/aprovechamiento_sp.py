@@ -23,18 +23,16 @@ from backend.database.models.CatNivel import CatNivel
 from backend.database.models.CatSemaforo import CatSemaforo
 from backend.database.models.Validacion import Validacion
 from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcademica
+from backend.database.models.Usuario import Usuario
 from backend.services.nivel_service import get_niveles_by_unidad_academica
 from backend.core.auth import get_current_session
+from backend.utils.request import get_request_host
 
 router = APIRouter()
 
 # Variable global
 HHost: str = "Test"
 
-# Función auxiliar para obtener host
-def get_request_host(request: Request) -> str:
-    client_host = request.client.host if request.client else "127.0.0.1"
-    return client_host
 
 # ============================================================================
 # MAPAS Y CONSTANTES
@@ -908,6 +906,31 @@ async def resumen_aprovechamiento_dinamico_view(
     print(no_validado)
     context["no_validado"] = no_validado
 
+    context["nombre_capturista"] = "No definido."
+    context["nombre_ceget"] = "No definido."
+    context["nombre_titular"] = "No definido."
+
+    # 2. Hacemos la consulta agregando Usuario.Id_Rol
+    usuarios = db.query(Usuario.Nombre, Usuario.Paterno, Usuario.Materno, Usuario.Id_Rol).filter(
+        Usuario.Id_Unidad_Academica == Id_Unidad_Academica,
+        Usuario.Id_Estatus == 1
+    ).all()
+
+    # 3. Recorremos los resultados y asignamos según el Id_Rol
+    for u in usuarios:
+        # Construimos el nombre completo de una vez
+        nombre_completo = f"{u.Nombre} {u.Paterno} {u.Materno}".strip()
+        
+        if u.Id_Rol == 3:
+            context["nombre_capturista"] = nombre_completo
+        elif u.Id_Rol == 4:
+            context["nombre_ceget"] = nombre_completo
+        elif u.Id_Rol == 5:
+            context["nombre_titular"] = nombre_completo
+
+
+    print(context)
+
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
 
 
@@ -926,6 +949,9 @@ async def acuse_validacion_aprovechamiento_view(
     db: Session = Depends(get_db),
     exportando_pdf: bool = False,
     no_validado: bool = False,
+    nombre_capturista: str = None,
+    nombre_ceget: str = None,
+    nombre_titular: str = None
 ):
     """
     Vista de Acuse de Validación - Aprovechamiento.
@@ -951,10 +977,13 @@ async def acuse_validacion_aprovechamiento_view(
     print(f"{'='*70}")
 
     context = await obtener_contexto_aprovechamiento(
-        request, periodo, nivel, unidad, sess, db, exportando_pdf=exportando_pdf, no_validado=no_validado
+        request, periodo, nivel, unidad, sess, db, exportando_pdf=exportando_pdf, no_validado=no_validado, 
     )
     if isinstance(context, dict):
         context["no_validado"] = no_validado
+        context["nombre_capturista"] = nombre_capturista
+        context["nombre_ceget"] = nombre_ceget       
+        context["nombre_titular"] = nombre_titular
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
 
 
@@ -968,9 +997,12 @@ async def exportar_aprovechamiento_pdf(
     periodo: str,
     nivel: str,
     unidad: str,
-    no_validado: str = "false",  # 👈 1. Agregar este parámetro para capturarlo de la URL
+    no_validado: str = "false", 
     sess=Depends(get_current_session),
     db: Session = Depends(get_db),
+    nombre_capturista: str = None,
+    nombre_ceget: str = None,
+    nombre_titular: str = None
 ):
     try:
         import importlib
@@ -990,6 +1022,9 @@ async def exportar_aprovechamiento_pdf(
         sess=sess,
         db=db,
         exportando_pdf=True,
+        nombre_capturista=nombre_capturista, 
+        nombre_ceget=nombre_ceget,          
+        nombre_titular=nombre_titular
     )
 
     if isinstance(resp, RedirectResponse):
