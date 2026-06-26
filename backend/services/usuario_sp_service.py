@@ -175,15 +175,15 @@ def _enviar_correo_bienvenida(
             <p style=\"color: #d9534f; font-weight: bold;\">Por seguridad, cambiala al iniciar sesion.</p>
             <p style=\"margin-top: 20px;\">Accede al sistema con el siguiente enlace:</p>
             <p style=\"text-align: center; margin: 30px 0;\">
-                <a href=\"http://148.204.107.39:50000\" style=\"display: inline-block; padding: 12px 30px; background-color: #6e0343; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;\">Acceder al SAE</a>
+                <a href=\"http://148.204.107.39:50000\" style=\"display: inline-block; padding: 12px 30px; background-color: #6e0343; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;\">Acceder al SiCAE</a>
             </p>
-            <p style=\"margin-top: 30px;\">Gracias,<br><strong>Equipo SAE</strong></p>
+            <p style=\"margin-top: 30px;\">Gracias,<br><strong>Equipo SiCAE</strong></p>
         </div>
     </body>
     </html>
     """
 
-    send_email(email, "Credenciales de acceso - Sistema SAE", cuerpo)
+    send_email(email, "Credenciales de acceso - Sistema SiCAE", cuerpo)
 
 
 def _registrar_bitacora_password_temporal(

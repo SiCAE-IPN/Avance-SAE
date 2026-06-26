@@ -14,7 +14,7 @@ body {
     background-color: white;
     padding: 0.5in;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    font-family: var(--sae-font-primary);
+    font-family: var(--SiCAE-font-primary);
     font-size: 11px;
     line-height: 1.2;
     color: #333;

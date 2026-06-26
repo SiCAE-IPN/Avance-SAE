@@ -182,7 +182,7 @@ def generar_acuse_matricula_pdf(
     canvas.drawCentredString(width / 2, 1.8 * cm, cargo_firmante)
 
     # Metadatos de referencia para trazabilidad
-    canvas.setAuthor("SAE")
+    canvas.setAuthor("SiCAE")
     canvas.setTitle(f"Acuse de Matricula - {sigla}")
     canvas.setSubject(f"Evento de captura/validacion del {evento.strftime('%d/%m/%Y %H:%M:%S')}")
 
@@ -250,7 +250,7 @@ def generar_acuse_matricula_pdf_en_memoria(
     canvas.setFont(FONT_BOLD, 11)
     canvas.drawCentredString(width / 2, 1.8 * cm, cargo_firmante)
 
-    canvas.setAuthor("SAE")
+    canvas.setAuthor("SiCAE")
     canvas.setTitle(f"Acuse de Matricula - {sigla}")
     canvas.setSubject(f"Evento de captura/validacion del {evento.strftime('%d/%m/%Y %H:%M:%S')}")
 

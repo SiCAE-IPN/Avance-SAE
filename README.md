@@ -1,4 +1,4 @@
-# SAE - Sistema de Administración Escolar
+# SiCAE - Sistema de Administración Escolar
 
 Sistema web desarrollado con FastAPI y Jinja2 para la gestión de usuarios académicos.
 
@@ -64,8 +64,8 @@ Sistema web desarrollado con FastAPI y Jinja2 para la gestión de usuarios acad�
 
 #### Opción A: Clonar desde GitHub
 ```bash
-git clone https://github.com/Emmanuel270114/SAE.git
-cd SAE
+git clone https://github.com/Emmanuel270114/SiCAE.git
+cd SiCAE
 ```
 
 #### Opción B: Descargar ZIP
@@ -127,8 +127,8 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_USER=tu_correo@gmail.com
 SMTP_PASS=tu_contraseña_de_aplicacion
-SMTP_FROM=Sistema SAE <no-reply@tudominio.com>
-SMTP_SUBJECT_PREFIX=SAE
+SMTP_FROM=Sistema SiCAE <no-reply@tudominio.com>
+SMTP_SUBJECT_PREFIX=SiCAE
 ```
 
 ### Paso 5: Verificar Configuración
@@ -173,7 +173,7 @@ En Windows también puedes ejecutar `start_backend.bat`, que usa directamente el
 2. **Generar contraseña de aplicación:**
    - Ir a Configuración de Google → Seguridad
    - Contraseñas de aplicaciones
-   - Crear nueva contraseña para "SAE"
+   - Crear nueva contraseña para "SiCAE"
 3. **Usar la contraseña generada** en `SMTP_PASS`
 
 ### Configurar Firewall (Para acceso desde otras computadoras)
@@ -181,7 +181,7 @@ En Windows también puedes ejecutar `start_backend.bat`, que usa directamente el
 **Windows:**
 ```bash
 # Ejecutar como Administrador
-netsh advfirewall firewall add rule name="SAE-FastAPI" dir=in action=allow protocol=TCP localport=8000
+netsh advfirewall firewall add rule name="SiCAE-FastAPI" dir=in action=allow protocol=TCP localport=8000
 ```
 
 **O manualmente:**
@@ -248,7 +248,7 @@ pip install pydantic-settings
 ## 📊 Estructura del Proyecto
 
 ```
-SAE/
+SiCAE/
 ├── backend/
 │   ├── api/           # Endpoints de la API
 │   ├── core/          # Configuración central

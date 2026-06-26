@@ -1,7 +1,7 @@
 /* static/css/style.css */
 
 body {
-    font-family: var(--sae-font-primary);
+    font-family: var(--SiCAE-font-primary);
     background: linear-gradient(135deg, #6e0343 60%, #ffffff 100%);
     min-height: 100vh;
     margin: 0;
@@ -32,7 +32,7 @@ h2 {
     color: var(--ipn-morado);
 }
 
-button, .sae-btn {
+button, .SiCAE-btn {
     background: var(--ipn-morado);
     color: var(--ipn-oro);
     border: none;
@@ -47,7 +47,7 @@ button, .sae-btn {
     box-shadow: 0 2px 8px rgba(110,3,67,0.10);
     letter-spacing: 2px;
 }
-button:hover:not(.btn-success):not(.btn-danger):not(.btn-info), .sae-btn:hover {
+button:hover:not(.btn-success):not(.btn-danger):not(.btn-info), .SiCAE-btn:hover {
     background: var(--ipn-oro);
     color: var(--ipn-morado);
 }
@@ -472,7 +472,7 @@ button.btn-danger:hover,
     border: 2px solid #d1d5db;
     border-radius: 8px;
     font-size: 0.95rem;
-    font-family: var(--sae-font-primary);
+    font-family: var(--SiCAE-font-primary);
     resize: vertical;
     min-height: 110px;
     transition: all 0.3s ease;

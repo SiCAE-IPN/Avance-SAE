@@ -3099,8 +3099,8 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
                 SELECT sua.Id_Unidad_Academica, sua.Id_Periodo, sua.Id_Formato,
                        CASE WHEN COL_LENGTH('Semaforo_Unidad_Academica','Id_Nivel') IS NOT NULL THEN sua.Id_Nivel ELSE NULL END AS Id_Nivel,
                        sua.Id_Semaforo, sua.Fecha_Modificacion
-                FROM [SAE].[dbo].[Semaforo_Unidad_Academica] sua
-                WHERE sua.Id_Unidad_Academica = :ua AND sua.Id_Periodo = (SELECT Id_Periodo FROM [SAE].[dbo].[Cat_Periodo] WHERE Periodo = :p) AND sua.Id_Formato = 1
+                FROM [SiCAE].[dbo].[Semaforo_Unidad_Academica] sua
+                WHERE sua.Id_Unidad_Academica = :ua AND sua.Id_Periodo = (SELECT Id_Periodo FROM [SiCAE].[dbo].[Cat_Periodo] WHERE Periodo = :p) AND sua.Id_Formato = 1
                 """
             ), {'ua': id_unidad_objetivo, 'p': periodo_literal}).fetchall()
             print("📊 Semaforo_UA registros para UA+Periodo (formato=1):")

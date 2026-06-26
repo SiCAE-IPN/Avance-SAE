@@ -39,10 +39,10 @@
 }
 
 :root {
-    --sae-font-primary: 'Noto Sans', sans-serif;
+    --SiCAE-font-primary: 'Noto Sans', sans-serif;
 }
 
 html,
 body {
-    font-family: var(--sae-font-primary);
+    font-family: var(--SiCAE-font-primary);
 }

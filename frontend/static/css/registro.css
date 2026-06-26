@@ -1,5 +1,5 @@
 body {
-    font-family: var(--sae-font-primary);
+    font-family: var(--SiCAE-font-primary);
     background: linear-gradient(135deg, #6e0343 60%, #ffffff 100%);
     min-height: 100vh;
     margin: 0;

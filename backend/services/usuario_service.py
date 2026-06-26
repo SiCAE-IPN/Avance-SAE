@@ -175,11 +175,11 @@ def reset_password(db: Session, username: str, email: str, request = None) -> bo
                 <p style="color: #d9534f; font-weight: bold;">⚠️ Por seguridad, cámbiela después de Iniciar Sesión.</p>
                 <p style="margin-top: 20px;">Para acceder al sistema, haz clic en el siguiente enlace:</p>
                 <p style="text-align: center; margin: 30px 0;">
-                    <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #6e0343; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SAE</a>
+                    <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #6e0343; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SiCAE</a>
                 </p>
                 <p style="color: #666; font-size: 12px;">O copia y pega este enlace en tu navegador:<br>
                 <a href="http://148.204.107.39:50000" style="color: #6e0343;">http://148.204.107.39:50000</a></p>
-                <p style="margin-top: 30px;">Gracias,<br><strong>Sistema SAE</strong></p>
+                <p style="margin-top: 30px;">Gracias,<br><strong>Sistema SiCAE</strong></p>
             </div>
         </body>
         </html>
@@ -415,17 +415,17 @@ def register_usuario(db: Session, user_dict: UsuarioCreate, generar_password_aut
                     </ul>
                     <p style="margin-top: 20px;">Para acceder al sistema, haz clic en el siguiente enlace:</p>
                     <p style="text-align: center; margin: 30px 0;">
-                        <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #6e0343; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SAE</a>
+                        <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #6e0343; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SiCAE</a>
                     </p>
                     <p style="color: #666; font-size: 12px;">O copia y pega este enlace en tu navegador:<br>
                     <a href="http://148.204.107.39:50000" style="color: #6e0343;">http://148.204.107.39:50000</a></p>
-                    <p style="margin-top: 30px;">Gracias,<br><strong>Equipo del Sistema SAE</strong></p>
+                    <p style="margin-top: 30px;">Gracias,<br><strong>Equipo del Sistema SiCAE</strong></p>
                 </div>
             </body>
             </html>
             """
             try:
-                send_email(user.Email, "Credenciales de acceso - Sistema SAE", cuerpo)
+                send_email(user.Email, "Credenciales de acceso - Sistema SiCAE", cuerpo)
                 print(f"✅ Correo enviado exitosamente a {user.Email}")
             except EmailSendError as email_error:
                 print(f"❌ Error al enviar correo: {email_error}")

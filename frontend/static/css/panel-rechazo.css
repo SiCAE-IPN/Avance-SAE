@@ -1,6 +1,6 @@
 /* ========================================
    ESTILOS PARA PANEL DE RECHAZO Y NOTIFICACIONES
-   Sistema de Matrícula - SAE
+   Sistema de Matrícula - SiCAE
    ======================================== */
 
 /* ========================================
@@ -813,7 +813,7 @@ button.btn-success:disabled:hover,
     border: 2px solid #d1d5db;
     border-radius: 8px;
     font-size: 0.95rem;
-    font-family: var(--sae-font-primary);
+    font-family: var(--SiCAE-font-primary);
     resize: vertical;
     min-height: 110px;
     transition: all 0.3s ease;

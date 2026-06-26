@@ -502,7 +502,7 @@ def execute_sp_valida_matricula(
     try:
         # Si es numérico, buscar el nombre
         nivel_id = int(nivel)
-        r = db.execute(text("SELECT Nivel FROM [SAE].[dbo].[Cat_Nivel] WHERE Id_Nivel = :id"), {'id': nivel_id}).fetchone()
+        r = db.execute(text("SELECT Nivel FROM [SiCAE].[dbo].[Cat_Nivel] WHERE Id_Nivel = :id"), {'id': nivel_id}).fetchone()
         nivel_literal = str(r[0]) if r else str(nivel)
     except Exception:
         # Ya es un nombre; usarlo tal cual
@@ -587,7 +587,7 @@ def execute_sp_rechaza_matricula(
     # Este SP también usa el nombre del nivel; resolver a nombre si viene Id
     try:
         nivel_id = int(nivel)
-        r = db.execute(text("SELECT Nivel FROM [SAE].[dbo].[Cat_Nivel] WHERE Id_Nivel = :id"), {'id': nivel_id}).fetchone()
+        r = db.execute(text("SELECT Nivel FROM [SiCAE].[dbo].[Cat_Nivel] WHERE Id_Nivel = :id"), {'id': nivel_id}).fetchone()
         nivel_literal = str(r[0]) if r else str(nivel)
     except Exception:
         nivel_literal = str(nivel)
