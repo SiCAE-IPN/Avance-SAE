@@ -345,9 +345,9 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
         else if (s.startsWith('M')) datosAprovechamiento[sit][t].M += val;
     });
 
-    crearFilaInput(thead, 'Inscritos',      turnos, datosInscritos,      true,  'fila-matricula',      esSemestreBloqueado);
-    crearFilaInput(thead, 'Reincorporados', turnos, datosReincorporados, false, 'fila-matricula',      esSemestreBloqueado);
-    crearFilaTotalizador(thead,     'Total Matricula', turnos, 'total-matricula', '#e8f5e9');
+    crearFilaInput(tbody, 'Inscritos',      turnos, datosInscritos,      true,  'fila-matricula',      esSemestreBloqueado);
+    crearFilaInput(tbody, 'Reincorporados', turnos, datosReincorporados, false, 'fila-matricula',      esSemestreBloqueado);
+    crearFilaTotalizador(tbody, 'Total Matricula', turnos, 'total-matricula', '#e8f5e9');
 
     const trSep = document.createElement('tr');
     trSep.innerHTML = `<td colspan="${1 + turnos.length}" style="background:#dee2e6; height:6px; padding:0;"></td>`;
@@ -1283,51 +1283,21 @@ window.mostrarBannerRechazo = function () {
     }
     if (panel) panel.style.display = 'none';
 };
-// ==========================================
-// Pantalla de carga (overlay) - NUEVO
-// ==========================================
 let pantallaCarga = null;
 
 function mostrarPantallaCarga(mensaje = "Guardando cambios...") {
-    if (pantallaCarga) {
-        pantallaCarga.style.display = 'flex';
-        const msgEl = pantallaCarga.querySelector('.pantalla-carga-mensaje');
-        if (msgEl) msgEl.textContent = mensaje;
-        return;
-    }
-    const div = document.createElement('div');
-    div.id = 'pantalla-carga-overlay';
-    div.style.position = 'fixed';
-    div.style.top = '0';
-    div.style.left = '0';
-    div.style.width = '100%';
-    div.style.height = '100%';
-    div.style.backgroundColor = 'rgba(0,0,0,0.7)';
-    div.style.display = 'flex';
-    div.style.flexDirection = 'column';
-    div.style.justifyContent = 'center';
-    div.style.alignItems = 'center';
-    div.style.zIndex = '99999';
-    div.style.backdropFilter = 'blur(3px)';
-    div.innerHTML = `
-        <div style="background: white; padding: 30px 40px; border-radius: 20px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
-            <div style="font-size: 48px; margin-bottom: 20px;">⏳</div>
-            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem; margin-bottom: 20px;" role="status">
-                <span class="visually-hidden">Cargando...</span>
-            </div>
-            <div class="pantalla-carga-mensaje" style="font-size: 18px; font-weight: 500; color: #333;">${mensaje}</div>
-            <div style="font-size: 14px; color: #666; margin-top: 10px;">Por favor espere...</div>
-        </div>
-    `;
-    document.body.appendChild(div);
-    pantallaCarga = div;
+    Swal.fire({
+            title: 'Cargando información...',
+            html: 'Consultando datos de aprovechamiento.<br>Por favor espere.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => { Swal.showLoading(); }
+    });
 }
 
 function ocultarPantallaCarga() {
-    if (pantallaCarga) {
-        pantallaCarga.remove();
-        pantallaCarga = null;
-    }
+    Swal.close();
 }
 function verificarTotalesSemestre() {
     let sumaMatriculaH = 0, sumaMatriculaM = 0;
