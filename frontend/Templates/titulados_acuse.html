@@ -20,6 +20,39 @@
         grid-template-columns: 1fr 1fr;
         gap: 1.5rem;
     }
+    .firmas-container {
+        display: table;
+        width: 100%;
+        margin-top: 50px;
+        margin-bottom: 30px;
+        page-break-inside: avoid; /* Evita que las firmas se partan entre dos páginas */
+    }
+
+    .firma-box {
+        display: table-cell;
+        width: 33.33%;
+        text-align: center;
+        padding: 0 15px;
+        vertical-align: bottom;
+    }
+
+    .firma-linea {
+        border-bottom: 1px solid #333;
+        height: 40px;
+        margin-bottom: 8px;
+    }
+
+    .firma-nombre {
+        font-weight: bold;
+        font-size: 12px;
+        color: #333;
+    }
+
+    .firma-rol {
+        font-size: 11px;
+        color: #666;
+        margin-top: 2px;
+    }
     </style>
     {% endif %}
 {% endblock %}
@@ -36,37 +69,13 @@
     <div class="acuse-header">
         <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - TITULADOS</h1>
 
-        <div class="header-info">
-            <div class="header-item">
-                <span class="header-item-label">Período:</span>
-                <span class="header-item-value">{{ periodo }}</span>
-            </div>
-            <div class="header-item">
-                <span class="header-item-label">Nivel:</span>
-                <span class="header-item-value">{{ nivel }}</span>
-            </div>
-            <div class="header-item">
-                <span class="header-item-label">Unidad:</span>
-                <span class="header-item-value">{{ unidad }}</span>
-            </div>
+        <div style="text-align: center; font-size: 13px; margin-top: 12px; margin-bottom: 25px; color: #333;">
+            <strong>Período:</strong> {{ periodo }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+            <strong>Nivel:</strong> {{ nivel }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+            <strong>Unidad:</strong> {{ unidad }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+            <strong>Fecha:</strong> <span id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
         </div>
 
-        <div class="header-info">
-            <div class="header-item">
-                <span class="header-item-label">Usuario:</span>
-                <span class="header-item-value">{{ nombre_usuario }}</span>
-            </div>
-            <div class="header-item">
-                <span class="header-item-label">Rol:</span>
-                <span class="header-item-value">{{ nombre_rol }}</span>
-            </div>
-            <div class="header-item">
-                <span class="header-item-label">Fecha:</span>
-                <span class="header-item-value" id="fecha-actual">
-                    {{ fecha_hoy if exportando_pdf else '' }}
-                </span>
-            </div>
-        </div>
 
         <div class="total-resumen">
             <div class="total-resumen-numero">{{ total_t }}</div>
@@ -93,9 +102,7 @@
                         <th style="width:15%;">M</th>
                         <th style="width:15%;">T</th>
                     </tr>
-                    <tr class="subheader">
-                        <th colspan="4">Titulados y/o Graduados</th>
-                    </tr>
+                  
                 </thead>
                 <tbody>
                     {% for fila in tabla_tipo_tit %}
@@ -131,9 +138,7 @@
                         <th style="width:15%;">M</th>
                         <th style="width:15%;">T</th>
                     </tr>
-                    <tr class="subheader">
-                        <th colspan="4">Titulados y/o Graduados</th>
-                    </tr>
+                    
                 </thead>
                 <tbody>
                     {% for fila in tabla_boletas %}
@@ -168,9 +173,6 @@
                         <th style="width:15%;">H</th>
                         <th style="width:15%;">M</th>
                         <th style="width:15%;">T</th>
-                    </tr>
-                    <tr class="subheader">
-                        <th colspan="4">Titulados y/o Graduados</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -212,9 +214,6 @@
                         <th style="width:15%;">M</th>
                         <th style="width:15%;">T</th>
                     </tr>
-                    <tr class="subheader">
-                        <th colspan="4">Titulados y/o Graduados</th>
-                    </tr>
                 </thead>
                 <tbody>
                     {% for fila in tabla_programas %}
@@ -249,9 +248,6 @@
                         <th style="width:15%;">H</th>
                         <th style="width:15%;">M</th>
                         <th style="width:15%;">T</th>
-                    </tr>
-                    <tr class="subheader">
-                        <th colspan="4">Titulados y/o Graduados</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -289,9 +285,6 @@
                         <th style="width:15%;">M</th>
                         <th style="width:15%;">T</th>
                     </tr>
-                    <tr class="subheader">
-                        <th colspan="4">Titulados y/o Graduados</th>
-                    </tr>
                 </thead>
                 <tbody>
                     {% for fila in tabla_turnos %}
@@ -319,6 +312,24 @@
 
 </div>{# fin contenedor-columnas #}
     {# ── PIE: estado de validación + acciones ── #}
+
+        <div class="firmas-container">
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-nombre">{{ nombre_capturista }}</div>
+            <div class="firma-rol">Capturista</div>
+        </div>
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-nombre">{{ nombre_ceget }}</div>
+            <div class="firma-rol">CEGET</div>
+        </div>
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-nombre">{{ nombre_titular }}</div>
+            <div class="firma-rol">Titular de la Unidad Académica</div>
+        </div>
+    </div>
     <div class="acuse-footer">
 
         {% if usuario_ya_valido %}
@@ -410,8 +421,8 @@
         usuarioYaRechazo,
         noReloadOnSuccess: true,
         endpoints: {
-            validar:  '/titulados/validar_semestre_rol',
-            rechazar: '/titulados/rechazar_semestre_rol'
+            validar:  '/titulados/validar',
+            rechazar: '/titulados/rechazar'
         },
         buildValidarPayload: () => ({
             periodo, unidad, nivel,
