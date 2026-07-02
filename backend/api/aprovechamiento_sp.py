@@ -892,6 +892,7 @@ async def resumen_aprovechamiento_dinamico_view(
     )
 
     periodo_anterior_id,_ = get_periodo_anterior_al_ultimo(db)
+    print("Contexto: ",context)
     Id_Unidad_Academica = context["session"].id_unidad_academica
     id_nivel = context["session"].id_nivel
 
