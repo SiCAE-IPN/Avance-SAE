@@ -6,6 +6,8 @@ from typing import Iterable, Optional
 
 from fastapi import Cookie, Depends, HTTPException, Request, status
 from fastapi.responses import Response
+from fastapi import Query
+
 
 from backend.core.session_store import SessionData, session_store
 
@@ -137,8 +139,6 @@ class VerificarAccesoInstitucional:
 
         return sess
     
-from fastapi import Query
-
 class VerificarAccesoAcuse:
     """
     Dependencia para validar los Query Params de la URL del acuse (?unidad=...&nivel=...)

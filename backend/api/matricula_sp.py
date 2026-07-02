@@ -53,6 +53,8 @@ from backend.database.models.Temp_Matricula import Temp_Matricula
 from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
 
+from backend.services.envio_correo_service import notificar_rechazo_global
+
 router = APIRouter()
 
 
@@ -707,6 +709,10 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
             nombre_rechazo = "Validador"
             if usuario_rechazo:
                 nombre_rechazo = f"{usuario_rechazo.Nombre} {usuario_rechazo.Paterno} {usuario_rechazo.Materno}".strip()
+
+            rol_rechazo = db.query(CatRoles).filter(
+                CatRoles.Id_Rol == usuario_rechazo.Id_Rol if usuario_rechazo else 0
+            ).first()
             
             # Prioridad: usar nota del SP, si no está, usar la nota de la tabla Validacion
             motivo_rechazo = (nota_rechazo_sp or ultimo_rechazo.Nota or "Sin especificar motivo")
@@ -714,6 +720,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
             rechazo_info = {
                 'motivo': motivo_rechazo,
                 'rechazado_por': nombre_rechazo,
+                'rol_rechazo': rol_rechazo.Rol if rol_rechazo else "",
                 'fecha': ultimo_rechazo.Fecha.strftime("%d/%m/%Y %H:%M") if ultimo_rechazo.Fecha else "",
                 'periodo': periodo_default_literal,
                 'unidad': unidad_actual.Nombre if unidad_actual else ""
@@ -722,6 +729,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
             print(f"📋 Información de rechazo COMPLETA:")
             print(f"   Motivo (de {'SP' if nota_rechazo_sp else 'Validacion'}): {motivo_rechazo[:100] if motivo_rechazo else 'N/A'}...")
             print(f"   Rechazado por: {rechazo_info['rechazado_por']}")
+            print(f"   Rol del validador: {rechazo_info['rol_rechazo']}")
             print(f"   Fecha: {rechazo_info['fecha']}")
         else:
             if ultimo_rechazo and not rechazo_vigente_ua:
@@ -3311,6 +3319,44 @@ async def ejecutar_sp_finalizar_captura(request: Request, sess=Depends(get_curre
             "error": f"Error al ejecutar SP de finalización: {str(e)}"
         }
 
+def obtener_correos_involucrados(
+    db: Session, 
+    id_unidad: int, 
+    id_nivel: int
+) -> Dict[str, str]:
+    """
+    Busca en la base de datos los correos del Capturista, CEGET y Titular
+    basándose en la Unidad Académica y el Nivel.
+    """
+    ROLES_NOTIFICACION = {
+        3: 'capturista', # 3 es Capturista
+        4: 'ceget',      # 4 es CEGET
+        5: 'titular'     # 5 es Titular
+    }
+    
+    # Consultamos a los usuarios que pertenezcan a la UA, Nivel y tengan los roles que buscamos
+    usuarios = db.query(Usuario).filter(
+        Usuario.Id_Unidad_Academica == id_unidad,
+        Usuario.Id_Nivel == id_nivel,
+        Usuario.Id_Rol.in_(ROLES_NOTIFICACION.keys()),
+        Usuario.Id_Estatus == 1
+    ).all()
+
+    # Inicializamos el diccionario vacío
+    correos = {
+        'capturista': "",
+        'ceget': "",
+        'titular': ""
+    }
+
+    # Poblamos el diccionario con los correos encontrados
+    for u in usuarios:
+        if u.Email: # Verificamos que el usuario realmente tenga un correo registrado
+            rol_clave = ROLES_NOTIFICACION.get(u.Id_Rol)
+            if rol_clave:
+                correos[rol_clave] = u.Email
+                
+    return correos
 
 @router.post("/rechazar_semestre_rol")
 async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
@@ -3480,6 +3526,22 @@ async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_sessi
         
         print(f"✅ Matrícula rechazada exitosamente")
         
+        # 1. Obtenemos los correos reales filtrados por la UA y Nivel objetivo
+        diccionario_correos = obtener_correos_involucrados(
+            db=db, 
+            id_unidad=id_unidad_objetivo, 
+            id_nivel=id_nivel_objetivo
+        )
+        
+        print(f"📧 Correos obtenidos para notificación: {diccionario_correos}")
+
+        # 2. Llamamos a nuestra función global pasándole los correos encontrados
+        notificar_rechazo_global(
+            modulo_rechazado="Matrícula",
+            id_rol_que_rechaza=id_rol,
+            correos=diccionario_correos
+        )
+        # =========================================================
         return {
             "success": True,
             "mensaje": f"Matrícula rechazada",

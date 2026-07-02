@@ -104,7 +104,7 @@ async def register_user_endpoint(
             ).first()
             if usuario_existente:
                 nombre_existente = f"{usuario_existente.Nombre} {usuario_existente.Paterno} {usuario_existente.Materno}".strip()
-                rol_nombres = {6: "Analista", 7: "Jefe/a de División", 8: "Titular", 9: "Administrador General"}
+                rol_nombres = {6: "Analista", 7: "Jefe/a de División", 8: "Titular", 9: "Director(a) DII"}
                 raise ValueError(
                     f"Ya existe un {rol_nombres.get(user.Id_Rol, 'usuario')} activo: {nombre_existente}"
                 )

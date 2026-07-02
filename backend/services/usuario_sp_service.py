@@ -17,7 +17,7 @@ from backend.utils.email import EmailSendError, send_email
 from backend.utils.security import generate_random_password, hash_password
 
 
-ROLES_SIN_NIVEL = {6, 7, 8, 9}
+ROLES_SIN_NIVEL = {4, 5, 6, 7, 8, 9}
 ROL_CAPTURISTA = 3
 
 

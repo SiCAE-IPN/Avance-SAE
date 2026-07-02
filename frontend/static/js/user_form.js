@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectRol = document.getElementById('id_rol');
     const selectNivel = document.getElementById('id_nivel');
     const ROL_CAPTURISTA = '3';
-    const ROLES_SIN_NIVEL = new Set(['6', '7', '8', '9']);
+    const ROLES_SIN_NIVEL = new Set(['4', '5', '6', '7', '8', '9']);
 
     function esRolSinNivel(idRol) {
         return ROLES_SIN_NIVEL.has(String(idRol || ''));
