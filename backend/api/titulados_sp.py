@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text 
-
+from sqlalchemy import select
+from collections import defaultdict
 
 from backend.api import unidad_academica
 from backend.database.connection import get_db
@@ -19,6 +20,10 @@ from backend.database.models.CatUnidadAcademica import CatUnidadAcademica as Uni
 from backend.database.models.Usuario import Usuario
 from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcademica
 from backend.database.models.CatRoles import CatRoles
+from backend.database.models.CatNivel import CatNivel as Nivel
+from backend.database.models.UnidadProgramaModalidad import CatUnidadProgramaModalidad
+from backend.database.models.CatProgramas import CatProgramas
+from backend.database.models.ProgramaModalidad import ProgramaModalidad
 from backend.database.models.Validacion import Validacion
 from pydantic import BaseModel
 from typing import List, Optional
@@ -64,9 +69,6 @@ async def consulta_titulados(
     db: Session = Depends(get_db)
 ):
     
-    contexto = {}
-    filas = []
-   
     id_rol = int(sess.id_rol)
     nombre_rol = sess.nombre_rol
     
@@ -153,7 +155,40 @@ async def consulta_titulados(
 
     periodos = []
 
-    periodos = db.query(Periodo).filter(Periodo.Id_Estatus == 1).order_by(Periodo.Id_Periodo.desc()).all()
+    periodos = db.query(Periodo).order_by(Periodo.Id_Periodo.desc()).all()
+    
+    niveles = db.query(Nivel).filter(Nivel.Id_Estatus == 1).order_by(Nivel.Id_Nivel).all()
+    
+
+    query = (
+        select(Unidad_Academica.Sigla , Unidad_Academica.Nombre, Nivel.Nivel)
+        .distinct()
+        .join(CatUnidadProgramaModalidad, CatUnidadProgramaModalidad.Id_Unidad_Academica == Unidad_Academica.Id_Unidad_Academica)
+        .join(ProgramaModalidad, ProgramaModalidad.Id_Modalidad_Programa == CatUnidadProgramaModalidad.Id_Modalidad_Programa)
+        .join(CatProgramas, CatProgramas.Id_Programa == ProgramaModalidad.Id_Programa)
+        .join(Nivel, Nivel.Id_Nivel == CatProgramas.Id_Nivel)
+        .order_by(Nivel.Nivel.desc())
+    )
+
+    rows = db.execute(query).all()
+
+    resultado = defaultdict(list)
+    for sigla, nombre, nivel in rows:
+        resultado[nivel].append({"sigla": sigla, "nombre": nombre})
+    resultado = dict(resultado)
+
+    periodosDisponibles = [periodo.Periodo for periodo in periodos]
+    nombres_niveles = [n.Nivel for n in niveles]
+    print()
+
+    print("Todos los periodos:")
+    print(periodosDisponibles)
+
+    print()
+
+
+    print("Todas las unidades:")
+    print(resultado)
 
     contexto = {}
     filas = []
@@ -222,7 +257,9 @@ async def consulta_titulados(
             {"request": request,
              "nombre_usuario": nombre_usuario,
              "periodo_default_literal": periodo_default_literal,
-             "periodos" : periodos,
+             "periodos" : periodosDisponibles,
+             "niveles" : nombres_niveles,
+             "unidades": resultado,
              "unidad_academica" : unidad_academica_usuario,
              "sigla_unidad_academica" : sigla_unidad_academica,
              "nombre_rol": nombre_rol,
@@ -450,7 +487,10 @@ async def acuse_titulados_view(
             nombre_titular = nombre_completo
     periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
     print("EK* id:",periodo_anterior_id)
+    
     id_nivel = str(sess.id_nivel)
+
+    print("Nivle: ", id_nivel)
     
     semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
         SemaforoUnidadAcademica.Id_Periodo == periodo_anterior_id,
@@ -458,10 +498,17 @@ async def acuse_titulados_view(
         SemaforoUnidadAcademica.Id_Formato == 2,
         SemaforoUnidadAcademica.Id_Nivel == id_nivel
     ).first()
-        
+    
+    print("Semaforo Captura:", semaforo_captura)
+
+    semaforo = 0
+
     if semaforo_captura:
         semaforo = semaforo_captura.Id_Semaforo
         print("Semaforo:",semaforo)
+    
+    print("Semaforo:", semaforo)
+
     no_validado = semaforo < 9
 
 

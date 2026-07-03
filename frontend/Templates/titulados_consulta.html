@@ -315,10 +315,9 @@
                 <select id="select-periodo-superior" name="periodo_superior" required>
                     <option value="">-- Seleccione un Periodo --</option>
                     {% for periodo in periodos %}
-                    <option value="{{ periodo.Id_Periodo }}" {% if periodo.Id_Periodo == periodo_default_id %}selected{% endif %}>
-                        {{ periodo.Periodo }}
-                        {% if periodo.Id_Estatus == 1 %}(Activo) rol  {% endif %}
-                    </option>
+                        <option value="{{ periodo }}" >
+                            {{ periodo }} 
+                        </option>
                     {% endfor %}
                 </select>
             </div>
@@ -327,22 +326,27 @@
                 <label for="select-nivel-superior"><strong>2. Nivel Académico:</strong></label>
                 <select id="select-nivel-superior" name="nivel_superior" required>
                     <option value="">-- Seleccione un Nivel --</option>
-                    {% for nivel in niveles_disponibles %}
-                    <option value="{{ nivel.Id_Nivel }}">{{ nivel.Nivel }}</option>
+                    {% for nivel in niveles %}
+                        <option value="{{ nivel }}">{{ nivel }}</option>
                     {% endfor %}
                 </select>
             </div>
             
             <div class="filtro-superior-item">
                 <label for="select-ua-superior"><strong>3. Unidad Académica:</strong></label>
-                <select id="select-ua-superior" name="ua_superior" required disabled>
+                <select id="select-ua-superior" name="ua_superior" required>
                     <option value="">-- Primero seleccione un Nivel --</option>
+
+                    {% for unidad in unidades %}
+                        <option value="{{ unidad }}">{{ unidad }}</option>
+                    {% endfor %}
+
                 </select>
             </div>
             
             <div class="filtro-superior-accion">
-                <button type="button" id="btn-ver-resumen" class="btn-consultar-superior" disabled style="background: linear-gradient(135deg, #4da5ec, #4da5ec);">
-                    <span class="btn-icon">📈</span> Consultar Titulados
+                <button type="button" id="btn-ver-resumen-director" class="btn-consultar-superior" disabled style="background: linear-gradient(135deg, #4da5ec, #4da5ec);">
+                    <span class="btn-icon">📈</span> Consulta Titulados
                 </button>
             </div>
         </div>
@@ -583,6 +587,8 @@
     const boletas = JSON.parse('{{ boletas | tojson | safe }}');
     
     const periodoDefault = JSON.parse('{{ periodo_default_literal | tojson | safe }}');
+    const unidadesPorNivel = JSON.parse('{{ unidades | tojson }}');
+
 
     function obtenerValorOrdenEdad(edad) {
     const str = String(edad).trim();

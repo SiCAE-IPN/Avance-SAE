@@ -263,28 +263,52 @@ document.addEventListener('DOMContentLoaded', function () {
     const selectPeriodo = document.getElementById('select-periodo-director');
     const selectNivel   = document.getElementById('select-nivel-director');
 
+    const selectPeriodoSuperior = document.getElementById('select-periodo-superior');
+    const selectNivelSuperior   = document.getElementById('select-nivel-superior');
+    const selectUnidadAcademicaSuperior = document.getElementById('select-ua-superior');
+
     // Habilitar botón solo cuando ambos selects tienen valor
     function verificarFiltros() {
-        const listo = selectPeriodo.value !== '' && selectNivel.value !== '';
-        btnConsultar.disabled = !listo;
+        
+        const listo = selectPeriodo && selectNivel
+            ? selectPeriodo.value !== '' && selectNivel.value !== ''
+            : false; // Se hace false en caso de que alguno de los selects no exista en el DOM
+    
+        const listoSuperior = selectPeriodoSuperior && selectNivelSuperior && selectUnidadAcademicaSuperior
+            ? selectPeriodoSuperior.value !== '' && selectNivelSuperior.value !== '' && selectUnidadAcademicaSuperior.value !== ''
+            : false;
+    
+        btnConsultar.disabled = !(listo || listoSuperior);
     }
-
-    selectPeriodo.addEventListener('change', verificarFiltros);
-    selectNivel.addEventListener('change', verificarFiltros);
-
+    
+    // Filtramos los que no existen antes de agregar el listener
+    [selectPeriodo, selectNivel, selectPeriodoSuperior, selectNivelSuperior, selectUnidadAcademicaSuperior]
+        .filter(select => select !== null) // Se filtran los que estan distintos de null
+        .forEach(select => select.addEventListener('change', verificarFiltros));
+    
     // Al hacer clic, navegar al acuse de titulados
     btnConsultar.addEventListener('click', function () {
-        const periodo = selectPeriodo.value;
-        const nivel   = selectNivel.value;
-        const unidad = document.getElementById('datos-sesion').dataset.unidad; // viene del contexto Jinja2
-
-        if (!periodo || !nivel) return;
-
+        let periodo, nivel, unidad;
+    
+        if (selectPeriodo && selectNivel) {
+            // Flujo director
+            periodo = selectPeriodo.value;
+            nivel = selectNivel.value;
+            unidad = document.getElementById('datos-sesion').dataset.unidad; // viene del contexto Jinja2
+        } else if (selectPeriodoSuperior && selectNivelSuperior && selectUnidadAcademicaSuperior) {
+            // Flujo superior
+            periodo = selectPeriodoSuperior.value;
+            nivel = selectNivelSuperior.value;
+            unidad = selectUnidadAcademicaSuperior.value;
+        }
+    
+        if (!periodo || !nivel || !unidad) return;
+    
         const url = `/titulados/acuse-validacion`
             + `?periodo=${encodeURIComponent(periodo)}`
             + `&nivel=${encodeURIComponent(nivel)}`
             + `&unidad=${encodeURIComponent(unidad)}`;
-
+    
         window.location.href = url;
     });
 

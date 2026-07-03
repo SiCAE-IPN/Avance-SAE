@@ -4,6 +4,14 @@ const selectBoleta = document.getElementById('filtro-boleta');
 const selectTipoTitulacion = document.getElementById('filtro-generacion');
 const contenedor = document.getElementById("tabla-edades-seleccion");
 
+
+// Select nivel para roles superiores
+
+const selectNivel = document.getElementById('select-nivel-superior');
+const selectUnidadAcademica = document.getElementById('select-ua-superior');
+
+selectUnidadAcademica.disabled = true;
+
 selectModalidad.disabled = true;
 selectBoleta.disabled = true;
 selectTipoTitulacion.disabled = true;
@@ -134,6 +142,30 @@ function llenarSelect(select, opciones) {
         select.appendChild(opt);
     });
 }
+
+selectNivel.addEventListener('change', function () {
+    const nivelSeleccionado = this.value;
+
+    // Limpiar opciones previas
+    selectUnidadAcademica.innerHTML = '<option value="">Seleccione una unidad académica</option>';
+
+    if (!nivelSeleccionado || !unidadesPorNivel[nivelSeleccionado]) {
+        selectUnidadAcademica.disabled = true;
+        return;
+    }
+
+    const unidades = unidadesPorNivel[nivelSeleccionado];
+
+    unidades.forEach(function (unidad) {
+        const option = document.createElement('option');
+        option.value = unidad.sigla;
+        option.textContent = unidad.nombre;
+        selectUnidadAcademica.appendChild(option);
+    });
+
+    selectUnidadAcademica.disabled = false;
+});
+
 
 selectPrograma.addEventListener('change', function() {
     const programaSeleccionado = this.value;
