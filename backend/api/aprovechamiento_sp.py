@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import false, text
 from typing import List, Dict, Any
 from fastapi.responses import JSONResponse
 from collections import defaultdict
@@ -883,17 +883,20 @@ async def resumen_aprovechamiento_dinamico_view(
     request: Request,
     periodo: str = "",
     nivel: str = "",
+    unidad_id: int = 0,
     unidad: str = "",
     sess=Depends(get_current_session),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db)
 ):
     context = await obtener_contexto_aprovechamiento(
-        request, periodo, nivel, unidad, sess, db, exportando_pdf=False
+        request, periodo, nivel, unidad, sess, db,  exportando_pdf=False
     )
+    context["unidad_id"] = unidad_id
 
     periodo_anterior_id,_ = get_periodo_anterior_al_ultimo(db)
     print("Contexto: ",context)
-    Id_Unidad_Academica = context["session"].id_unidad_academica
+    Id_Unidad_Academica = context["unidad_id"] 
+    print("Id Unidad:",Id_Unidad_Academica)
     id_nivel = context["session"].id_nivel
 
     semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
@@ -902,9 +905,14 @@ async def resumen_aprovechamiento_dinamico_view(
         SemaforoUnidadAcademica.Id_Formato          == 2,
         SemaforoUnidadAcademica.Id_Nivel            == id_nivel
     ).first()
-    print(semaforo_captura.Id_Semaforo)
-    no_validado = semaforo_captura.Id_Semaforo < 9
-    print(no_validado)
+    
+    if semaforo_captura is None:
+        no_validado = True   # o False, o lo que tenga sentido de negocio si no hay dato aún
+    else:
+        print(semaforo_captura.Id_Semaforo)
+        no_validado = semaforo_captura.Id_Semaforo < 9
+
+    print("Valor de no validado: ",no_validado)
     context["no_validado"] = no_validado
 
     context["nombre_capturista"] = "No definido."
@@ -930,7 +938,6 @@ async def resumen_aprovechamiento_dinamico_view(
             context["nombre_titular"] = nombre_completo
 
 
-    print(context)
 
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
 

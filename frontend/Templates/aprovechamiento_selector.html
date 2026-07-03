@@ -284,20 +284,29 @@
     });
 
     {% else %}
+
     // ========================================================
     // LÓGICA ROLES 6-9: Periodo + Nivel + UA (todas las UAs)
     // ========================================================
-    const unidadesPorNivel = {
-        {% for nivel in niveles %}
-    "{{ nivel.Nivel }}": [
+    const unidadesPorNivel = {};
+    {% for nivel in niveles %}
+        unidadesPorNivel["{{ nivel.Nivel }}"] = [
         {% for unidad in unidades %}
-    {% if nivel.Id_Nivel in unidad.niveles %}
-    { "siglas": "{{ unidad.Sigla }}", "nombre": "{{ unidad.Nombre_Unidad_Academica }}" },
-    {% endif %}
+            {% if nivel.Id_Nivel in unidad.niveles %}
+                { "siglas": "{{ unidad.Sigla }}", "nombre": "{{ unidad.Nombre_Unidad_Academica }}", "id": "{{ unidad.Id_Unidad_Academica }}" },
+            {% endif %}
+        {% endfor %}
+        ];
     {% endfor %}
-        ],
-    {% endfor %}
-    };
+
+    // Limpiar arrays vacíos y eliminar el último comma si existe
+    for (let nivel in unidadesPorNivel) {
+        if (unidadesPorNivel[nivel].length === 0) {
+            // Si está vacío, lo dejamos como array vacío
+        }
+        // Eliminar posibles undefined
+        unidadesPorNivel[nivel] = unidadesPorNivel[nivel].filter(item => item !== undefined);
+    }
 
     const selectPeriodoSuperior = document.getElementById('select-periodo-superior');
     const selectNivelSuperior = document.getElementById('select-nivel-superior');
@@ -306,26 +315,41 @@
 
     function actualizarUAsPorNivel() {
         const nivelSeleccionado = selectNivelSuperior.value;
-
-        if (!nivelSeleccionado) {
+        console.log('Nivel seleccionado:', nivelSeleccionado);
+        console.log('Unidades disponibles:', unidadesPorNivel);
+        
+        if (!nivelSeleccionado || !unidadesPorNivel[nivelSeleccionado]) {
             selectUASuperior.disabled = true;
             selectUASuperior.innerHTML = '<option value="">-- Primero seleccione un Nivel --</option>';
             btnVerResumen.disabled = true;
             return;
         }
 
-        const unidades = (unidadesPorNivel[nivelSeleccionado] || []).slice();
-        unidades.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+        let unidades = unidadesPorNivel[nivelSeleccionado] || [];
+        console.log('Unidades para este nivel:', unidades);
+        
+        // Eliminar duplicados por siglas
+        const uniqueUnidades = [];
+        const seenSiglas = new Set();
+        for (let u of unidades) {
+            if (!seenSiglas.has(u.siglas)) {
+                seenSiglas.add(u.siglas);
+                uniqueUnidades.push(u);
+            }
+        }
+        
+        uniqueUnidades.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
-        selectUASuperior.disabled = unidades.length === 0;
-        selectUASuperior.innerHTML = unidades.length === 0
+        selectUASuperior.disabled = uniqueUnidades.length === 0;
+        selectUASuperior.innerHTML = uniqueUnidades.length === 0
             ? '<option value="">-- Este Nivel no tiene UAs --</option>'
             : '<option value="">-- Seleccione una Unidad Académica --</option>';
 
-        unidades.forEach(u => {
+        uniqueUnidades.forEach(u => {
             const opt = document.createElement('option');
             opt.value = u.siglas;
             opt.textContent = `${u.siglas} - ${u.nombre}`;
+            opt.dataset.id = u.id;
             selectUASuperior.appendChild(opt);
         });
 
@@ -333,33 +357,53 @@
     }
 
     function verificarSeleccion() {
-        btnVerResumen.disabled = !(
-            selectPeriodoSuperior.value &&
-            selectNivelSuperior.value &&
-            selectUASuperior.value
-        );
+        const periodoOk = selectPeriodoSuperior.value && selectPeriodoSuperior.value !== '';
+        const nivelOk = selectNivelSuperior.value && selectNivelSuperior.value !== '';
+        const uaOk = selectUASuperior.value && selectUASuperior.value !== '';
+        
+        btnVerResumen.disabled = !(periodoOk && nivelOk && uaOk);
     }
 
-    selectPeriodoSuperior.addEventListener('change', verificarSeleccion);
-    selectNivelSuperior.addEventListener('change', function () {
+    // Event Listeners
+    selectPeriodoSuperior.addEventListener('change', function() {
+        verificarSeleccion();
+    });
+
+    selectNivelSuperior.addEventListener('change', function() {
+        console.log('Cambio de nivel detectado');
         actualizarUAsPorNivel();
     });
-    selectUASuperior.addEventListener('change', verificarSeleccion);
 
-    // ▶ Si el periodo activo ya viene preseleccionado, disparar verificación inicial
-    document.addEventListener('DOMContentLoaded', verificarSeleccion);
+    selectUASuperior.addEventListener('change', function() {
+        verificarSeleccion();
+    });
+
+    // Inicialización
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM cargado, inicializando...');
+        // Si el nivel ya tiene un valor seleccionado, actualizar UAs
+        if (selectNivelSuperior.value) {
+            actualizarUAsPorNivel();
+        }
+        verificarSeleccion();
+    });
 
     btnVerResumen.addEventListener('click', async function () {
         const periodoValor = selectPeriodoSuperior.value;
         const nivelValor = selectNivelSuperior.value;
         const uaValor = selectUASuperior.value;
+        const uaIdValor = selectUASuperior.options[selectUASuperior.selectedIndex]?.dataset?.id || '';
 
         if (!periodoValor || !nivelValor || !uaValor) {
-            Swal.fire({ icon: 'warning', title: 'Campos incompletos', text: 'Por favor seleccione Periodo, Nivel y Unidad Académica.', confirmButtonColor: '#6e0343' });
+            Swal.fire({ 
+                icon: 'warning', 
+                title: 'Campos incompletos', 
+                text: 'Por favor seleccione Periodo, Nivel y Unidad Académica.',
+                confirmButtonColor: '#6e0343' 
+            });
             return;
         }
 
-        // Pantalla de carga
         Swal.fire({
             title: 'Cargando información...',
             html: 'Consultando datos de aprovechamiento.<br>Por favor espere.',
@@ -372,7 +416,7 @@
         btnVerResumen.disabled = true;
 
         const periodoTexto = selectPeriodoSuperior.options[selectPeriodoSuperior.selectedIndex].text.replace('(Activo)', '').trim();
-        const url = `/aprovechamiento/resumen-dinamico?periodo=${encodeURIComponent(periodoTexto)}&nivel=${encodeURIComponent(nivelValor)}&unidad=${encodeURIComponent(uaValor)}`;
+        const url = `/aprovechamiento/resumen-dinamico?periodo=${encodeURIComponent(periodoTexto)}&nivel=${encodeURIComponent(nivelValor)}&unidad=${encodeURIComponent(uaValor)}&unidad_id=${encodeURIComponent(uaIdValor)}`;
         window.location.href = url;
     });
     {% endif %}
