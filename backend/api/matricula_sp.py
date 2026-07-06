@@ -1,3 +1,4 @@
+from backend.api import unidad_academica
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import RedirectResponse, FileResponse, Response
 from sqlalchemy.orm import Session
@@ -51,30 +52,13 @@ from backend.utils.acuse_pdf import generar_acuse_matricula_pdf_en_memoria
 from backend.utils.email import send_email, EmailSendError
 from backend.database.models.Temp_Matricula import Temp_Matricula
 from backend.database.models.CatRoles import CatRoles
-from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
+from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo, get_periodo_anterior_al_ultimo
 
-from backend.services.envio_correo_service import notificar_rechazo_global
+from backend.services.envio_correo_service import notificar_rechazo_global, html_correo_acuse
 
 router = APIRouter()
 
-
-def _html_correo_acuse(*, nombre_completo: str, periodo: str, unidad_sigla: str, folio: str) -> str:
-    return f"""
-    <html>
-      <body style=\"font-family: Arial, sans-serif; color: #222;\">
-        <h2 style=\"color: #6e0343;\">Acuse de Matricula generado</h2>
-        <p>Hola <strong>{nombre_completo}</strong>,</p>
-        <p>Se genero un nuevo acuse de matricula con los siguientes datos:</p>
-        <ul>
-          <li><strong>Periodo:</strong> {periodo}</li>
-          <li><strong>Unidad Academica:</strong> {unidad_sigla}</li>
-          <li><strong>Folio:</strong> {folio}</li>
-        </ul>
-        <p>Se adjunta el PDF de acuse para su consulta.</p>
-      </body>
-    </html>
-    """
-
+html_correo_acuse = html_correo_acuse  # Importar la función desde envio_correo_service.py
 
 @router.get('/acuses')
 async def matricula_acuses_view(request: Request, sess=Depends(get_current_session)):
@@ -3049,16 +3033,21 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
                     "download_url": acuse_guardado.relative_url,
                 }
 
+                # Obtener el periodo anterior al ultimo pero en string no id
+                _, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
+                periodo_anterior_literal = periodo_anterior_literal or "N/A"
+
                 usuario_db = db.query(Usuario).filter(Usuario.Id_Usuario == id_usuario).first()
                 correo_destino = str(usuario_db.Email or "").strip() if usuario_db else ""
                 if correo_destino:
                     try:
                         send_email(
                             to_email=correo_destino,
-                            subject="Acuse de Matricula",
-                            html_body=_html_correo_acuse(
+                            subject="Conclusión de Captura de Información - SiCAE",
+                            html_body=html_correo_acuse(
                                 nombre_completo=nombre_completo,
-                                periodo=periodo_literal,
+                                periodo_activo=periodo_literal,
+                                periodo_anterior= periodo_anterior_literal,
                                 unidad_sigla=unidad_sigla,
                                 folio=folio_acuse,
                             ),
