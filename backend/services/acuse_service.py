@@ -52,10 +52,8 @@ def save_acuse_pdf_for_user(
     pdf_bytes: bytes,
 ) -> AcuseGenerado:
     user_dir = get_user_acuses_dir(usuario_login)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_name = (
-        f"{_safe_slug(periodo_literal)}_{_safe_slug(unidad_sigla)}_acuse_captura_"
-        f"{ts}.pdf"
+        f"{_safe_slug(folio)}.pdf"
     )
     file_path = user_dir / file_name
     file_path.write_bytes(pdf_bytes)

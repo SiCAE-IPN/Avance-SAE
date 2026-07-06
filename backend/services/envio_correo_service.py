@@ -84,3 +84,31 @@ def notificar_rechazo_global(
         print(f"📧 Correo de rechazo enviado exitosamente a: {correos_str}")
     except Exception as e:
         print(f"❌ Error al enviar el correo de rechazo: {str(e)}")
+
+
+def html_correo_acuse( nombre_completo: str, periodo_activo: str,periodo_anterior: str, unidad_sigla: str, folio: str) -> str:
+    """
+    Genera el HTML para el correo de acuse de recibo.
+    """
+    return f"""
+    <html>
+    <body style="font-family: NotoSans, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+            <h2 style="color: #6e0343; text-align: center;">Acuse de Conclusión de Captura - SiCAE</h2>
+            <p>A quien corresponda,</p>
+            <p>Se le informa que concluyó la captura de información en el SiCAE conforme a lo siguiente:</p>
+                    <ul>
+                    <li><strong>Inicio:</strong> {periodo_activo} - <strong>Fin:</strong> {periodo_anterior}</li>
+                    <li><strong>Unidad Academica:</strong> {unidad_sigla}</li>
+                    <li><strong>Folio:</strong> {folio}</li>
+                    </ul>
+                        
+            <p style="margin-top: 20px;">Por favor, guarde su acuse como comprobante de conclusión de captura.</p>
+            <p style="margin-top: 30px; font-size: 12px; color: #777;">
+                Este es un mensaje automático generado por SiCAE. Por favor, no responda a este correo.<br>
+                <strong>SiCAE</strong>
+            </p>
+        </div>
+    </body>
+    </html>
+    """
