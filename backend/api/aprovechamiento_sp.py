@@ -25,7 +25,7 @@ from backend.database.models.Validacion import Validacion
 from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcademica
 from backend.database.models.Usuario import Usuario
 from backend.services.nivel_service import get_niveles_by_unidad_academica
-from backend.core.auth import get_current_session
+from backend.core.auth import VerificarAccesoAcuse, get_current_session
 from backend.utils.request import get_request_host
 
 router = APIRouter()
@@ -947,13 +947,15 @@ async def resumen_aprovechamiento_dinamico_view(
 #    Debe estar ANTES del endpoint PDF para que Python la tenga en memoria.
 # ----------------------------------------------------------------------------
 
+validar_acuse = VerificarAccesoAcuse()
+
 @router.get('/acuse-validacion', response_class=HTMLResponse)
 async def acuse_validacion_aprovechamiento_view(
     request: Request,
     periodo: str,
     nivel: str,
     unidad: str,
-    sess=Depends(get_current_session),
+    sess=Depends(validar_acuse),
     db: Session = Depends(get_db),
     exportando_pdf: bool = False,
     no_validado: bool = False,
@@ -1006,7 +1008,7 @@ async def exportar_aprovechamiento_pdf(
     nivel: str,
     unidad: str,
     no_validado: str = "false", 
-    sess=Depends(get_current_session),
+    sess=Depends(validar_acuse),
     db: Session = Depends(get_db),
     nombre_capturista: str = None,
     nombre_ceget: str = None,
