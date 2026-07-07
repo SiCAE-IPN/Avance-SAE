@@ -25,7 +25,7 @@ from backend.database.models.Validacion import Validacion
 from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcademica
 from backend.database.models.Usuario import Usuario
 from backend.services.nivel_service import get_niveles_by_unidad_academica
-from backend.core.auth import get_current_session
+from backend.core.auth import VerificarAccesoAcuse, get_current_session
 from backend.utils.request import get_request_host
 from datetime import datetime
 from backend.core.auth import VerificarAccesoAcuse
@@ -957,6 +957,8 @@ async def resumen_aprovechamiento_dinamico_view(
 # ✅ NUEVA VISTA: Acuse de Validación - Aprovechamiento
 #    Debe estar ANTES del endpoint PDF para que Python la tenga en memoria.
 # ----------------------------------------------------------------------------
+
+validar_acuse = VerificarAccesoAcuse()
 
 @router.get('/acuse-validacion', response_class=HTMLResponse)
 async def acuse_validacion_aprovechamiento_view(
