@@ -146,8 +146,8 @@ class VerificarAccesoAcuse:
     """
     async def __call__(
         self,
-        unidad: str = Query(...), # Captura de forma obligatoria el parámetro 'unidad'
-        nivel: str = Query(...),  # Captura de forma obligatoria el parámetro 'nivel'
+        unidad: str = Query(None),
+        nivel: str = Query(None),
         sess: SessionData = Depends(get_current_session)
     ) -> SessionData:
         
@@ -156,17 +156,20 @@ class VerificarAccesoAcuse:
         if es_admin:
             return sess
 
+        search_unidad = unidad if (unidad and unidad.strip()) else sess.sigla_unidad_academica
+        search_nivel = nivel if (nivel and nivel.strip()) else sess.nombre_nivel
+
         # 2. Si no es admin, validar la Unidad Académica contra sus siglas en la sesión
-        if sess.sigla_unidad_academica.strip().lower() != unidad.strip().lower():
-            print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL a la unidad: {unidad}")
+        if sess.sigla_unidad_academica.strip().lower() != search_unidad.strip().lower():
+            print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL a la unidad: {search_unidad}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Acceso denegado: No tienes permisos para consultar esta Unidad Académica."
             )
 
         # 3. Validar el Nivel Académico contra el nombre del nivel en la sesión
-        if sess.nombre_nivel.strip().lower() != nivel.strip().lower():
-            print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL al nivel: {nivel}")
+        if sess.nombre_nivel.strip().lower() != search_nivel.strip().lower():
+            print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL al nivel: {search_nivel}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Acceso denegado: No tienes permisos para consultar este nivel académico."

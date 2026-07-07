@@ -34,6 +34,7 @@ from backend.utils.request import get_request_host
 from backend.database.models.Temp_Egresados import Temp_Egresados
 from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo, get_periodo_anterior_al_ultimo
+from backend.core.auth import VerificarAccesoAcuse
 
 router = APIRouter()
 
@@ -2106,16 +2107,22 @@ async def obtener_estados_semaforo_por_turnos(request: Request, sess=Depends(get
         traceback.print_exc()
         return {"success": False, "error": str(e)}
 
+validar_acuse = VerificarAccesoAcuse()
 
 @router.get('/resumen-dinamico')
 async def resumen_egresados_dinamico_view(
     request: Request, 
-    periodo: str,
-    nivel: str,
-    unidad: str, sess=Depends(get_current_session),
+    periodo: str = None,
+    nivel: str = None,
+    unidad: str = None, 
+    sess=Depends(validar_acuse),
     db: Session = Depends(get_db),
     vista: str = 'resumen'
 ):
+
+    final_unidad = unidad if (unidad and unidad.strip()) else sess.sigla_unidad_academica
+    final_nivel = nivel if (nivel and nivel.strip()) else sess.nombre_nivel
+
     """
     Vista de resumen dinámico de egresados con estructura adaptativa.
     Muestra por Programa → Modalidad → Boletas → Generaciones → Tipo (Regular/Extemporáneo) → Género (H/M/T).
@@ -2140,7 +2147,7 @@ async def resumen_egresados_dinamico_view(
 
     print(f"\n{'='*60}")
     print(f"RESUMEN DINÁMICO DE EGRESADOS")
-    print(f"Periodo: {periodo}, Nivel: {nivel}, Unidad: {unidad}")
+    print(f"Periodo: {periodo}, Nivel: {final_nivel}, Unidad: {final_unidad}")
     print(f"Usuario: {nombre_completo} ({nombre_rol})")
     print(f"{'='*60}")
 
@@ -2164,9 +2171,9 @@ async def resumen_egresados_dinamico_view(
         
         egresados_data, nota_rechazo = execute_egresados_sp(
             db=db,
-            unidad_sigla=unidad,
+            unidad_sigla=final_unidad,
             periodo_literal=periodo,
-            nivel_nombre=nivel,
+            nivel_nombre=final_nivel,
             usuario=nombre_completo,
             host=host
         )
@@ -2247,8 +2254,8 @@ async def resumen_egresados_dinamico_view(
                 "id_rol": id_rol,
                 "periodo": periodo,
                 "periodo_id": periodo_id,
-                "nivel": nivel,
-                "unidad": unidad,
+                "nivel": final_nivel,
+                "unidad": final_unidad,
                 "datos_resumen": [],
                 "generaciones": [],
                 "boletas_columnas": [],
@@ -2784,8 +2791,8 @@ async def resumen_egresados_dinamico_view(
             "periodo": periodo,
             "periodo_id": periodo_id,
             "periodo_anterior": periodo_anterior_literal,
-            "nivel": nivel,
-            "unidad": unidad,
+            "nivel": final_nivel,
+            "unidad": final_unidad,
             "datos_resumen": datos_resumen,
             "generaciones": generaciones,
             "boletas_columnas": boletas_columnas,
@@ -2824,8 +2831,8 @@ async def resumen_egresados_dinamico_view(
             "periodo": periodo,
             "periodo_id": None,
             "periodo_anterior": None,
-            "nivel": nivel,
-            "unidad": unidad,
+            "nivel": final_nivel,
+            "unidad": final_unidad,
             "datos_resumen": [],
             "generaciones": [],
             "boletas_columnas": [],

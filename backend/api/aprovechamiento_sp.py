@@ -27,6 +27,9 @@ from backend.database.models.Usuario import Usuario
 from backend.services.nivel_service import get_niveles_by_unidad_academica
 from backend.core.auth import get_current_session
 from backend.utils.request import get_request_host
+from datetime import datetime
+from backend.core.auth import VerificarAccesoAcuse
+
 
 router = APIRouter()
 
@@ -877,26 +880,32 @@ async def finalizar_captura_semestre(request: Request, data: Dict[str, Any], ses
         print(f"❌ ERROR SQL DETECTADO: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+validar_acuse = VerificarAccesoAcuse()
 
 @router.get("/resumen-dinamico", response_class=HTMLResponse)
 async def resumen_aprovechamiento_dinamico_view(
     request: Request,
-    periodo: str = "",
-    nivel: str = "",
+    periodo: str = None,
+    nivel: str = None,
     unidad_id: int = 0,
-    unidad: str = "",
-    sess=Depends(get_current_session),
+    unidad: str = None,
+    sess=Depends(validar_acuse),
     db: Session = Depends(get_db)
 ):
+    # Forzamos los valores seguros de la sesión si vienen vacíos en la URL
+    final_unidad = unidad if (unidad and unidad.strip()) else sess.sigla_unidad_academica
+    final_nivel = nivel if (nivel and nivel.strip()) else sess.nombre_nivel
+
+    # Pasamos los valores resueltos y seguros a la función del contexto
     context = await obtener_contexto_aprovechamiento(
-        request, periodo, nivel, unidad, sess, db,  exportando_pdf=False
+        request, periodo, final_nivel, final_unidad, sess, db, exportando_pdf=False
     )
     context["unidad_id"] = unidad_id
 
-    periodo_anterior_id,_ = get_periodo_anterior_al_ultimo(db)
-    print("Contexto: ",context)
+    periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
+    print("Contexto: ", context)
     Id_Unidad_Academica = context["unidad_id"] 
-    print("Id Unidad:",Id_Unidad_Academica)
+    print("Id Unidad:", Id_Unidad_Academica)
     id_nivel = context["session"].id_nivel
 
     semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
@@ -907,12 +916,12 @@ async def resumen_aprovechamiento_dinamico_view(
     ).first()
     
     if semaforo_captura is None:
-        no_validado = True   # o False, o lo que tenga sentido de negocio si no hay dato aún
+        no_validado = True   
     else:
         print(semaforo_captura.Id_Semaforo)
         no_validado = semaforo_captura.Id_Semaforo < 9
 
-    print("Valor de no validado: ",no_validado)
+    print("Valor de no validado: ", no_validado)
     context["no_validado"] = no_validado
 
     context["nombre_capturista"] = "No definido."
@@ -927,7 +936,6 @@ async def resumen_aprovechamiento_dinamico_view(
 
     # 3. Recorremos los resultados y asignamos según el Id_Rol
     for u in usuarios:
-        # Construimos el nombre completo de una vez
         nombre_completo = f"{u.Nombre} {u.Paterno} {u.Materno}".strip()
         
         if u.Id_Rol == 3:
@@ -937,8 +945,11 @@ async def resumen_aprovechamiento_dinamico_view(
         elif u.Id_Rol == 5:
             context["nombre_titular"] = nombre_completo
 
+    # Inyectamos de forma segura las variables normalizadas dentro del diccionario del contexto
+    context["unidad"] = final_unidad
+    context["nivel"] = final_nivel
 
-
+    # Retornamos pasando el diccionario 'context' limpio como segundo argumento posicional
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
 
 
@@ -953,7 +964,7 @@ async def acuse_validacion_aprovechamiento_view(
     periodo: str,
     nivel: str,
     unidad: str,
-    sess=Depends(get_current_session),
+    sess=Depends(validar_acuse),
     db: Session = Depends(get_db),
     exportando_pdf: bool = False,
     no_validado: bool = False,
@@ -1006,7 +1017,7 @@ async def exportar_aprovechamiento_pdf(
     nivel: str,
     unidad: str,
     no_validado: str = "false", 
-    sess=Depends(get_current_session),
+    sess=Depends(validar_acuse),
     db: Session = Depends(get_db),
     nombre_capturista: str = None,
     nombre_ceget: str = None,
