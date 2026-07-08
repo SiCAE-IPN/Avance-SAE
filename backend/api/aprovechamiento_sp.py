@@ -671,7 +671,7 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                 SemaforoUnidadAcademica.Id_Formato == 2,
                 SemaforoUnidadAcademica.Id_Nivel == id_nivel
             ).first()
-        
+        semaforo = 0
         if semaforo_captura:
             semaforo = semaforo_captura.Id_Semaforo
             print("Semaforo:",semaforo)
