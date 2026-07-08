@@ -1,3 +1,4 @@
+from backend.services.encargado_ua_service import obtener_encargados
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from sqlalchemy.orm import Session
@@ -924,30 +925,13 @@ async def resumen_aprovechamiento_dinamico_view(
     print("Valor de no validado: ", no_validado)
     context["no_validado"] = no_validado
 
-    context["nombre_capturista"] = "No definido."
-    context["nombre_ceget"] = "No definido."
-    context["nombre_titular"] = "No definido."
 
-    # 2. Hacemos la consulta agregando Usuario.Id_Rol
-    usuarios = db.query(Usuario.Nombre, Usuario.Paterno, Usuario.Materno, Usuario.Id_Rol).filter(
-        Usuario.Id_Unidad_Academica == Id_Unidad_Academica,
-        Usuario.Id_Estatus == 1
-    ).all()
 
-    # 3. Recorremos los resultados y asignamos según el Id_Rol
-    for u in usuarios:
-        nombre_completo = f"{u.Nombre} {u.Paterno} {u.Materno}".strip()
-        
-        if u.Id_Rol == 3:
-            context["nombre_capturista"] = nombre_completo
-        elif u.Id_Rol == 4:
-            context["nombre_ceget"] = nombre_completo
-        elif u.Id_Rol == 5:
-            context["nombre_titular"] = nombre_completo
-
-    # Inyectamos de forma segura las variables normalizadas dentro del diccionario del contexto
-    context["unidad"] = final_unidad
-    context["nivel"] = final_nivel
+    encargados = obtener_encargados(db, Id_Unidad_Academica, 2)
+    context["nombre_capturista"] = encargados['nombre_capturista']
+    context["nombre_ceget"] = encargados['nombre_ceget']
+    context["nombre_titular"] = encargados['nombre_titular']
+    print("Encargados Obtenidos : ",encargados)
 
     # Retornamos pasando el diccionario 'context' limpio como segundo argumento posicional
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
