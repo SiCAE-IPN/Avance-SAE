@@ -174,5 +174,5 @@ class VerificarAccesoAcuse:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Acceso denegado: No tienes permisos para consultar este nivel académico."
             )
-
+        
         return sess
