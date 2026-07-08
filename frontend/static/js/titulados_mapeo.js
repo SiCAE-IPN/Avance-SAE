@@ -10,7 +10,10 @@ const contenedor = document.getElementById("tabla-edades-seleccion");
 const selectNivel = document.getElementById('select-nivel-superior');
 const selectUnidadAcademica = document.getElementById('select-ua-superior');
 
-selectUnidadAcademica.disabled = true;
+if (selectUnidadAcademica) {
+    selectUnidadAcademica.disabled = true;
+}
+
 
 selectModalidad.disabled = true;
 selectBoleta.disabled = true;
@@ -143,31 +146,37 @@ function llenarSelect(select, opciones) {
     });
 }
 
-selectNivel.addEventListener('change', function () {
-    const nivelSeleccionado = this.value;
+if (selectNivel){    
+    
+    selectNivel.addEventListener('change', function () {
+        const nivelSeleccionado = this.value;
 
-    // Limpiar opciones previas
-    selectUnidadAcademica.innerHTML = '<option value="">Seleccione una unidad académica</option>';
+        // Limpiar opciones previas
+        selectUnidadAcademica.innerHTML = '<option value="">Seleccione una unidad académica</option>';
 
-    if (!nivelSeleccionado || !unidadesPorNivel[nivelSeleccionado]) {
-        selectUnidadAcademica.disabled = true;
-        return;
-    }
+        if (!nivelSeleccionado || !unidadesPorNivel[nivelSeleccionado]) {
+            selectUnidadAcademica.disabled = true;
+            return;
+        }
 
-    const unidades = unidadesPorNivel[nivelSeleccionado];
+        const unidades = unidadesPorNivel[nivelSeleccionado];
 
-    unidades.forEach(function (unidad) {
-        const option = document.createElement('option');
-        option.value = unidad.sigla;
-        option.textContent = unidad.nombre;
-        selectUnidadAcademica.appendChild(option);
+        unidades.forEach(function (unidad) {
+            const option = document.createElement('option');
+            option.value = unidad.sigla;
+            option.textContent = unidad.nombre;
+            selectUnidadAcademica.appendChild(option);
+        });
+
+        selectUnidadAcademica.disabled = false;
     });
-
-    selectUnidadAcademica.disabled = false;
-});
-
+    
+}
 
 selectPrograma.addEventListener('change', function() {
+
+    console.log('¡Evento disparado!', this.value);
+
     const programaSeleccionado = this.value;
     const filtrosSecundarios = document.getElementById('filtros-secundarios');
     const pill = document.getElementById('pestana-semaforo-titulados');

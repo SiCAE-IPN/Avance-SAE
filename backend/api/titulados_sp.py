@@ -461,12 +461,16 @@ async def acuse_titulados_view(
 
     print ("Muchas tablas")
 
-    nombre_nivel = sess.nombre_nivel
     id_rol = int(sess.id_rol)
     nombre_capturista = "No definido."
     nombre_ceget = "No definido."
     nombre_titular = "No definido."
-    Id_Unidad_Academica = int(sess.id_unidad_academica)
+    Id_Unidad_Academica = db.query(Unidad_Academica.Id_Unidad_Academica).filter(
+        Unidad_Academica.Sigla == unidad,
+        Unidad_Academica.Id_Estatus == 1
+    ).scalar()
+
+    print("ID unidad academica", Id_Unidad_Academica)
 
     # 2. Hacemos la consulta agregando Usuario.Id_Rol
     usuarios = db.query(Usuario.Nombre, Usuario.Paterno, Usuario.Materno, Usuario.Id_Rol).filter(
@@ -488,14 +492,14 @@ async def acuse_titulados_view(
     periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
     print("EK* id:",periodo_anterior_id)
     
-    id_nivel = str(sess.id_nivel)
+    id_nivel = db.query(Nivel.Id_Nivel).filter(Nivel.Nivel == nivel).scalar()
 
     print("Nivle: ", id_nivel)
     
     semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
         SemaforoUnidadAcademica.Id_Periodo == periodo_anterior_id,
         SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
-        SemaforoUnidadAcademica.Id_Formato == 2,
+        SemaforoUnidadAcademica.Id_Formato == 4,
         SemaforoUnidadAcademica.Id_Nivel == id_nivel
     ).first()
     
@@ -526,19 +530,21 @@ async def acuse_titulados_view(
             ).first()
 
             estado_semaforo = semaforo_unidad.Id_Semaforo if semaforo_unidad else None
-
+            print()
+            print()
+            print(f"Estado del semáforo para la unidad {unidad} en el periodo {periodo_anterior_id}: {semaforo}")
             # Regla de jerarquía real (alineada a los SPs de Validar/Rechazar):
             # SP_Valida_Titulados y SP_Rechaza_Titulados validan que:
             #   sua.Id_Semaforo == (Id_Rol del usuario) - 1
             # Esto permite pasos distintos para 6,7,8,9 en vez de agruparlos.
             semaforo_esperado = id_rol - 1
 
-            if estado_semaforo is not None:
-                if estado_semaforo == semaforo_esperado:
+            if semaforo is not None:
+                if semaforo == semaforo_esperado:
                     puede_validar = True
                     usuario_ya_valido = False
                     usuario_ya_rechazo = False
-                elif estado_semaforo > semaforo_esperado:
+                elif semaforo > semaforo_esperado:
                     usuario_ya_valido = True
                 else:
                     # Aún no toca este nivel
@@ -549,7 +555,7 @@ async def acuse_titulados_view(
                         if estado_semaforo in [1, 2]:
                             esperando_por_rol = "Capturista"
                         else:
-                            rol_esperado_id = int(estado_semaforo) + 1
+                            rol_esperado_id = int(semaforo) + 1
                             rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == rol_esperado_id).first()
                             esperando_por_rol = rol_obj.Rol if rol_obj else "Capturista"
                     except Exception:
@@ -583,7 +589,7 @@ async def acuse_titulados_view(
         "request"       : request,
         "periodo"       : contexto_sp.get("Periodo"),
         "unidad"        : contexto_sp.get("Sigla"),
-        "nivel"         : nombre_nivel,
+        "nivel"         : nivel,
         "exportando_pdf": exportando_pdf,
         "nombre_capturista" : nombre_capturista,
         "nombre_ceget"  : nombre_ceget,
