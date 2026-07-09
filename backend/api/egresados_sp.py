@@ -36,6 +36,8 @@ from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo, get_periodo_anterior_al_ultimo
 from backend.core.auth import VerificarAccesoAcuse
 from backend.services.encargado_ua_service import obtener_encargados
+from backend.core.session_store import SessionData,session_store
+
 
 router = APIRouter()
 
@@ -2250,6 +2252,17 @@ async def resumen_egresados_dinamico_view(
         # Id de la UA que esta siendo evaluada no de la sesión del usuario, sino de la captura que se está mostrando
         id_unidad_academica = 0
 
+        if unidad and unidad.strip():
+            # Buscamos en tu modelo de Unidad Académica
+            ua_obj = db.query(Unidad_Academica).filter(
+                (Unidad_Academica.Sigla == unidad.strip()) | 
+                (Unidad_Academica.Nombre == unidad.strip())
+            ).first()
+            if ua_obj:
+                id_unidad_academica = ua_obj.Id_Unidad_Academica
+            if not id_unidad_academica:
+                id_unidad_academica = int(sess.id_unidad_academica) if getattr(sess, 'id_unidad_academica', None) else 0
+
         usuarios_registrados = obtener_encargados(db, id_unidad_academica,3)
         nombre_capturista = usuarios_registrados["nombre_capturista"]
         nombre_ceget = usuarios_registrados["nombre_ceget"]
@@ -2873,3 +2886,30 @@ async def resumen_egresados_dinamico_view(
             "session": sess
         })
 
+@router.post("/fijar-nivel-temporal")
+async def fijar_nivel_temporal(
+    request: Request, 
+    data: dict, 
+    sess: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    id_nuevo_raw = data.get("id_nivel")
+    nombre_nuevo = data.get("nombre_nivel")
+    
+    id_nuevo = 0
+    try:
+        id_nuevo = int(id_nuevo_raw)
+    except (ValueError, TypeError):
+        nivel_obj = db.query(Nivel).filter(Nivel.Nivel == nombre_nuevo).first()
+        if nivel_obj:
+            id_nuevo = nivel_obj.Id_Nivel
+            
+    from dataclasses import replace
+    nueva_sesion = replace(sess, id_nivel=id_nuevo, nombre_nivel=nombre_nuevo)
+    
+    session_id = request.cookies.get("session_id")
+    if session_id:
+        session_store.update_data(session_id, nueva_sesion)
+        return {"status": "ok"}
+    
+    raise HTTPException(status_code=400, detail="Sesión no encontrada")

@@ -2216,7 +2216,7 @@
                 selectPeriodoDirector.addEventListener('change', verificarSeleccionDirector);
                 selectNivelDirector.addEventListener('change', verificarSeleccionDirector);
 
-                btnVerResumenDirector.addEventListener('click', function() {
+                btnVerResumenDirector.addEventListener('click', async function() {
                     const idNivel = selectNivelDirector.value;
                     const idPeriodo = selectPeriodoDirector.value;
 
@@ -2237,6 +2237,23 @@
 
                     mostrarCargaSeleccion('Cargando egresados seleccionados...');
                     btnVerResumenDirector.disabled = true;
+
+                    // =======================================================
+                    // PASO 3: GUARDAR NIVEL EN SESIÓN (EGRESADOS)
+                    // =======================================================
+                    try {
+                        await fetch('/egresados/fijar-nivel-temporal', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                id_nivel: idNivel, 
+                                nombre_nivel: nivelTexto
+                            })
+                        });
+                    } catch (error) {
+                        console.error("Error al fijar el nivel en sesión:", error);
+                    }
+                    // =======================================================
 
                     const url = `/egresados/resumen-dinamico?periodo=${encodeURIComponent(periodoTexto)}&nivel=${encodeURIComponent(nivelTexto)}&unidad=${encodeURIComponent(uaFijaSiglaDirector)}`;
                     setTimeout(() => {
