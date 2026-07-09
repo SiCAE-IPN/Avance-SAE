@@ -10,6 +10,7 @@ from backend.api import unidad_academica
 from backend.database.connection import get_db
 from backend.core.templates import templates
 from backend.schemas import Nivel
+from backend.services import notificacion
 from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados, preparar_datos_temp_titulados_desde_db, procesar_titulados
 from backend.crud.ConsultaTitulados import insertar_temp_titulados, insertar_titulados_sp, finalizar_captura_programa_modalidad, verificar_todos_programas_finalizados, finalizar_unidad_academica
 from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo, get_ultimo_periodo
@@ -28,6 +29,7 @@ from backend.database.models.Validacion import Validacion
 from pydantic import BaseModel
 from typing import List, Optional
 from backend.utils.request import get_request_host
+from backend.services.encargado_ua_service import obtener_encargados
 import traceback
 
 host = "Test"
@@ -179,19 +181,11 @@ async def consulta_titulados(
 
     periodosDisponibles = [periodo.Periodo for periodo in periodos]
     nombres_niveles = [n.Nivel for n in niveles]
-    print()
-
-    print("Todos los periodos:")
-    print(periodosDisponibles)
-
-    print()
-
-
-    print("Todas las unidades:")
-    print(resultado)
-
+  
     contexto = {}
     filas = []
+    rechazo_info = {}
+
 
     if not es_validador:
         try:
@@ -199,8 +193,17 @@ async def consulta_titulados(
                 f"Obteniendo titulados para UA: {sigla_unidad_academica}, "
                 f"Periodo: {periodo_default_literal}, "
                 f"Nivel: {nombre_nivel}, "
+                f"Periodo anterior (id): {periodo_id}" 
                 f"Usuario: {nombre_usuario}"
             )
+
+            rechazo_info = notificacion.notificacion_rechazo(
+                db=db,
+                periodo_anterior_id=periodo_id,
+                Id_Unidad_Academica=id_unidad_academica,
+                id_formato=4)
+            
+            print("Esta es la info de rechzo: ", rechazo_info)
 
             contexto, filas = obtener_titulados(
                 db=db,
@@ -255,6 +258,7 @@ async def consulta_titulados(
     return templates.TemplateResponse(
             "titulados_consulta.html", 
             {"request": request,
+             "rechazo_info" : rechazo_info,
              "nombre_usuario": nombre_usuario,
              "periodo_default_literal": periodo_default_literal,
              "periodos" : periodosDisponibles,
@@ -478,6 +482,10 @@ async def acuse_titulados_view(
         Usuario.Id_Estatus == 1
     ).all()
 
+    encargados = obtener_encargados(db, Id_Unidad_Academica, 4)
+ 
+    print("Encargados Obtenidos : ",encargados)
+
     # 3. Recorremos los resultados y asignamos según el Id_Rol
     for u in usuarios:
         # Construimos el nombre completo de una vez
@@ -552,7 +560,7 @@ async def acuse_titulados_view(
                     try:
                         # El primer rol por defecto debe ser Capturista (Id_Rol 2)
                         # Si el semáforo está en 1 o 2, está esperando al Capturista
-                        if estado_semaforo in [1, 2]:
+                        if semaforo in [1, 2]:
                             esperando_por_rol = "Capturista"
                         else:
                             rol_esperado_id = int(semaforo) + 1
