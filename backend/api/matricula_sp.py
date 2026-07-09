@@ -55,6 +55,8 @@ from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo, get_periodo_anterior_al_ultimo
 
 from backend.services.envio_correo_service import notificar_rechazo_global, html_correo_acuse
+from backend.services.encargado_ua_service import obtener_encargados
+from backend.core.session_store import SessionData,session_store
 
 router = APIRouter()
 
@@ -107,7 +109,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
     # Obtener datos del usuario logueado desde las cookies
     id_unidad_academica = int(sess.id_unidad_academica)
     
-    # Manejar id_nivel que puede ser None para usuarios sin nivel (ej: directores)
+    # Manejar id_nivel que puede ser None para usuarios sin nivel
     id_nivel = int(getattr(sess, 'id_nivel', 0) or 0)
     
     id_rol = int(sess.id_rol)
@@ -4483,54 +4485,16 @@ async def acuse_validacion_view(
         # Modificar el '9' para el semaforo en que se desee ya no mostrar la marca de agua en el acuse
         no_validado = estado_semaforo_actual < 9
 
-        # =================================================================
-        # REPOSITORIO DE NOMBRES PARA FIRMAS (SÚPER SEGURO ANTE CUALQUIER BD)
-        # =================================================================
-        nombre_capturista = "No asignado"
-        nombre_ceget = "No asignado"
-        nombre_titular = "No asignado"
+        # ===================================
+        # REPOSITORIO DE NOMBRES PARA FIRMAS
+        # ===================================
 
-        try:
-            query_usuarios = text("""
-                SELECT Id_Rol, Nombre, Paterno, Materno 
-                FROM Usuarios 
-                WHERE Id_Unidad_Academica = :id_ua 
-                  AND Id_Rol IN (3, 4, 5)
-            """)
-            
-            usuarios_registrados = db.execute(query_usuarios, {
-                "id_ua": id_unidad_academica
-            }).fetchall()
+        usuarios_registrados = obtener_encargados(db, id_unidad_academica,1)
+        nombre_capturista = usuarios_registrados["nombre_capturista"]
+        nombre_ceget = usuarios_registrados["nombre_ceget"]
+        nombre_titular = usuarios_registrados["nombre_titular"]
 
-            # 🔍 Imprime en tu consola cuántos usuarios encontró para esta UA
-            print(f"📢 [DEBUG FIRMAS] Se encontraron {len(usuarios_registrados)} usuarios con roles (3,4,5) para la UA ID: {id_unidad_academica}")
-
-            for usuario in usuarios_registrados:
-                # 🛠️ TRUCO MAESTRO: Convertimos todas las llaves a minúsculas.
-                # Esto soluciona para siempre si la BD responde 'Id_Rol' o 'id_rol'.
-                u_dict = {k.lower(): v for k, v in usuario._mapping.items()}
-                
-                u_rol = u_dict.get('id_rol')
-                u_nombre = u_dict.get('nombre') or ''
-                u_paterno = u_dict.get('paterno') or ''
-                u_materno = u_dict.get('materno') or ''
-
-                # Armamos el nombre completo limpiando espacios en blanco
-                partes = [str(p).strip() for p in [u_nombre, u_paterno, u_materno] if p]
-                nombre_armado = " ".join(partes).strip()
-
-                if u_rol == 3:   # 3 = Capturista
-                    nombre_capturista = nombre_armado
-                elif u_rol == 4: # 4 = CEGET
-                    nombre_ceget = nombre_armado
-                elif u_rol == 5: # 5 = Titular
-                    nombre_titular = nombre_armado
-
-            print(f"📢 [DEBUG RESULTADO] Capturista: {nombre_capturista} | CEGET: {nombre_ceget} | Titular: {nombre_titular}")
-
-        except Exception as e_firmas:
-            # Si algo truena (por ejemplo, que la tabla se llame 'usuarios' en minúsculas en tu BD), aquí lo verás
-            print(f"❌ [ERROR FIRMAS] No se pudieron cargar los nombres: {str(e_firmas)}")
+        print(f"Capturista: {nombre_capturista}, CEGET: {nombre_ceget}, Titular: {nombre_titular}")
 
         return templates.TemplateResponse("matricula_acuse_nuevo.html", {
             "request": request, "nombre_usuario": nombre_completo, "nombre_rol": nombre_rol, "id_rol": id_rol,
@@ -4543,11 +4507,11 @@ async def acuse_validacion_view(
             "totales_conceptos": totales_conceptos, "totales_programas": totales_programas,
             "id_unidad_academica": id_unidad_academica, "id_nivel": id_nivel,
             "puede_validar": puede_validar, "usuario_ya_valido": usuario_ya_valido, "usuario_ya_rechazo": usuario_ya_rechazo,
-            "exportando_pdf": exportando_pdf, # PASADO AL TEMPLATE
-            "estado_semaforo_actual": estado_semaforo_actual, # PASADO AL TEMPLATE
+            "exportando_pdf": exportando_pdf,
+            "estado_semaforo_actual": estado_semaforo_actual,
             "pendiente_validacion": pendiente_validacion,
-            "no_validado": no_validado, # PASADO AL TEMPLATE
-            "fecha_hoy": datetime.now().strftime("%d/%m/%Y"), # FECHA DEL SISTEMA
+            "no_validado": no_validado,
+            "fecha_hoy": datetime.now().strftime("%d/%m/%Y"),
             "nombre_capturista": nombre_capturista,
             "nombre_ceget": nombre_ceget,
             "nombre_titular": nombre_titular,
@@ -4627,3 +4591,38 @@ async def acuse_validacion_pdf(
     return Response(content=pdf_bytes, media_type='application/pdf', headers={
         'Content-Disposition': f'attachment; filename="{filename}"'
     })
+
+@router.post("/fijar-nivel-temporal")
+async def fijar_nivel_temporal(
+    request: Request, 
+    data: dict, 
+    sess: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db)  # <-- Aseguramos tener acceso a la BD
+):
+    id_nuevo_raw = data.get("id_nivel")
+    nombre_nuevo = data.get("nombre_nivel")
+    
+    # 1. Intentar convertir el ID a entero de forma segura
+    id_nuevo = 0
+    try:
+        # Si es un número (ej. "2"), esto funcionará bien
+        id_nuevo = int(id_nuevo_raw)
+    except (ValueError, TypeError):
+        # Si el frontend mandó texto (ej. "Medio Superior"), atrapamos el error
+        # y buscamos el ID real en la base de datos.
+        # (Asegúrate de que 'Nivel' sea el nombre del modelo importado en tu archivo)
+        nivel_obj = db.query(Nivel).filter(Nivel.Nivel == nombre_nuevo).first()
+        if nivel_obj:
+            id_nuevo = nivel_obj.Id_Nivel
+            
+    # 2. Actualizamos la sesión con el ID correcto garantizado
+    from dataclasses import replace
+    nueva_sesion = replace(sess, id_nivel=id_nuevo, nombre_nivel=nombre_nuevo)
+    
+    # 3. Guardar en el session_store
+    session_id = request.cookies.get("session_id")
+    if session_id:
+        session_store.update_data(session_id, nueva_sesion)
+        return {"status": "ok"}
+    
+    raise HTTPException(status_code=400, detail="Sesión no encontrada")

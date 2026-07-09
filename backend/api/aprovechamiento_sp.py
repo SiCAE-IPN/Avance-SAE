@@ -938,7 +938,7 @@ async def resumen_aprovechamiento_dinamico_view(
 
 
 # ----------------------------------------------------------------------------
-# ✅ NUEVA VISTA: Acuse de Validación - Aprovechamiento
+#    NUEVA VISTA: Acuse de Validación - Aprovechamiento
 #    Debe estar ANTES del endpoint PDF para que Python la tenga en memoria.
 # ----------------------------------------------------------------------------
 

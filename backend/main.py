@@ -6,7 +6,7 @@ from backend.api import mod_principal
 from backend.api import unidad_academica
 from backend.api import matricula_sp
 from backend.api import aprovechamiento_sp
-from backend.api import egresados_sp  # Comentado temporalmente por error de indentación
+from backend.api import egresados_sp
 from backend.api import titulados_sp
 from backend.api import recuperacion
 from backend.api.catalogos import domicilios, estatus, periodos, programas, roles, semaforo, modulos, objetos, egresados

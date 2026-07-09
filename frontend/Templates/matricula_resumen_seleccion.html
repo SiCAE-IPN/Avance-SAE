@@ -249,7 +249,6 @@
             Swal.close();
         }
     }
-
     // ========================================================
     // LÓGICA ROLES 4-5: Solo Periodo + Nivel (UA = la propia)
     // ========================================================
@@ -267,9 +266,9 @@
     selectPeriodoDirector.addEventListener('change', verificarSeleccionDirector);
     selectNivelDirector.addEventListener('change', verificarSeleccionDirector);
 
-    btnDirector.addEventListener('click', function() {
+    btnDirector.addEventListener('click', async function() {
         const periodoValor = selectPeriodoDirector.value;
-        const nivelValor   = selectNivelDirector.value;
+        const nivelValor   = selectNivelDirector.value; // ID o nombre del nivel
 
         if (!periodoValor || !nivelValor) {
             alert('Por favor, seleccione Periodo y Nivel');
@@ -279,8 +278,25 @@
         mostrarCargaSeleccion('Cargando matrícula seleccionada...');
         btnDirector.disabled = true;
 
+        try {
+            // Obtenemos el texto visible del select (ej. "Nivel Superior")
+            const nivelTexto = selectNivelDirector.options[selectNivelDirector.selectedIndex].text;
+            
+            await fetch('/matricula/fijar-nivel-temporal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id_nivel: nivelValor, 
+                    nombre_nivel: nivelTexto
+                })
+            });
+        } catch (error) {
+            console.error("Error al fijar el nivel en sesión:", error);
+        }
+
         const periodoTexto = selectPeriodoDirector.options[selectPeriodoDirector.selectedIndex].text.replace('(Activo)', '').trim();
         const url = `/matricula/resumen-dinamico?periodo=${encodeURIComponent(periodoTexto)}&nivel=${encodeURIComponent(nivelValor)}&unidad=${encodeURIComponent(miUnidadSigla)}`;
+        
         setTimeout(() => {
             window.location.href = url;
         }, 80);

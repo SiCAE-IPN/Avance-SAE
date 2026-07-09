@@ -144,17 +144,12 @@ class VerificarAccesoAcuse:
     Dependencia para validar los Query Params de la URL del acuse (?unidad=...&nivel=...)
     frente a los datos guardados en la sesión del usuario.
     """
-    async def __call__(
-        self,
-        unidad: str = Query(None),
-        nivel: str = Query(None),
-        sess: SessionData = Depends(get_current_session)
-    ) -> SessionData:
-        
+    async def __call__(self, unidad: str = Query(None), nivel: str = Query(None), sess: SessionData = Depends(get_current_session)):
+
         # 1. Tu lista de roles administradores (tienen permitido modificar la URL y ver todo)
         es_admin = sess.id_rol in [1, 6, 7, 8, 9]
         if es_admin:
-            return sess
+            return sess 
 
         search_unidad = unidad if (unidad and unidad.strip()) else sess.sigla_unidad_academica
         search_nivel = nivel if (nivel and nivel.strip()) else sess.nombre_nivel

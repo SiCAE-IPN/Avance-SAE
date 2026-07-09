@@ -35,6 +35,7 @@ from backend.database.models.Temp_Egresados import Temp_Egresados
 from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo, get_periodo_anterior_al_ultimo
 from backend.core.auth import VerificarAccesoAcuse
+from backend.services.encargado_ua_service import obtener_encargados
 
 router = APIRouter()
 
@@ -1751,7 +1752,7 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
 
             db.commit()
 
-# =========================================================================
+            # =========================================================================
             # NUEVA LÓGICA AUTOMÁTICA: Verificar si todos los semáforos están en 3 (Completado)
             # =========================================================================
             try:
@@ -2154,7 +2155,7 @@ async def resumen_egresados_dinamico_view(
     vista_normalizada = str(vista or '').strip().lower()
     es_vista_acuse = vista_normalizada == 'acuse'
     es_rol_con_acuse = id_rol in [4, 5, 6, 7, 8, 9]
-    nombre_template = "egresados_acuse_nuevo.html" if (es_vista_acuse or es_rol_con_acuse) else "egresados_resumen_dinamico.html"
+    nombre_template = "egresados_acuse_nuevo.html" if (es_vista_acuse or es_rol_con_acuse) else "egresados_resumen_dinamico.html"  
 
     try:
         # ------------------------------------------------------------
@@ -2246,6 +2247,16 @@ async def resumen_egresados_dinamico_view(
             # Si algo falla, solo no mostramos estado (UI seguirá normal)
             pass
 
+        # Id de la UA que esta siendo evaluada no de la sesión del usuario, sino de la captura que se está mostrando
+        id_unidad_academica = 0
+
+        usuarios_registrados = obtener_encargados(db, id_unidad_academica,3)
+        nombre_capturista = usuarios_registrados["nombre_capturista"]
+        nombre_ceget = usuarios_registrados["nombre_ceget"]
+        nombre_titular = usuarios_registrados["nombre_titular"]
+
+        print(f"Capturista: {nombre_capturista}, CEGET: {nombre_ceget}, Titular: {nombre_titular}")
+
         if not egresados_data:
             return templates.TemplateResponse(nombre_template, {
                 "request": request,
@@ -2268,6 +2279,9 @@ async def resumen_egresados_dinamico_view(
                 "filas_edad_turno": [],
                 "programa_counts_edad": {},
                 "total_general": {"boletas": {}, "total_h": 0, "total_m": 0, "total_t": 0},
+                "nombre_capturista": nombre_capturista,
+                "nombre_ceget": nombre_ceget,
+                "nombre_titular": nombre_titular,
                 "puede_validar": puede_validar,
                 "usuario_ya_valido": usuario_ya_valido,
                 "usuario_ya_rechazo": usuario_ya_rechazo,
@@ -2641,7 +2655,6 @@ async def resumen_egresados_dinamico_view(
         filas_boleta_modalidad = []
         programa_counts = {}
         
-
         for programa in sorted(data_boleta.keys()):
             reg_boletas = _sort_mixed_numbers(list(data_boleta[programa].get('regular', {}).keys()))
             ext_boletas = _sort_mixed_numbers(list(data_boleta[programa].get('extemporaneo', {}).keys()))
@@ -2814,6 +2827,9 @@ async def resumen_egresados_dinamico_view(
             "totales_tabla2": totales_tabla2,
             "subtotales_generacion_tabla1": subtotales_generacion_tabla1,
             "subtotales_generacion_tabla2": subtotales_generacion_tabla2,
+            "nombre_capturista": nombre_capturista,
+            "nombre_ceget": nombre_ceget,
+            "nombre_titular": nombre_titular,
             "estado_semaforo_actual": estado_semaforo if ('estado_semaforo' in locals() and estado_semaforo is not None) else 0,
             "error_message": None,
             "session": sess
@@ -2850,6 +2866,9 @@ async def resumen_egresados_dinamico_view(
             "usuario_ya_rechazo": False,
             "esperando_por_rol": None,
             "tablas_filas": [],
+            "nombre_capturista": None,
+            "nombre_ceget": None,
+            "nombre_titular": None,
             "error_message": f"Error al procesar datos: {str(e)}",
             "session": sess
         })
