@@ -685,6 +685,7 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                 "nombre_usuario": nombre_completo,
                 "periodo_activo_literal": PPeriodo,
                 "unidad_academica": UUnidad_Academica,
+                "mi_unidad_id": id_nivel,
                 "niveles": niveles,
                 "request": request,
                 "no_validado": True,
@@ -904,7 +905,6 @@ async def resumen_aprovechamiento_dinamico_view(
     context["unidad_id"] = unidad_id
 
     periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
-    print("Contexto: ", context)
     Id_Unidad_Academica = context["unidad_id"] 
     print("Id Unidad:", Id_Unidad_Academica)
     id_nivel = context["session"].id_nivel
@@ -924,11 +924,13 @@ async def resumen_aprovechamiento_dinamico_view(
 
     print("Valor de no validado: ", no_validado)
     context["no_validado"] = no_validado
-
-
+    
+    id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+    if(id_rol == 4 or id_rol ==5):
+        Id_Unidad_Academica=int(getattr(sess, 'id_unidad_academica', 0) or 0)
 
     encargados = obtener_encargados(db, Id_Unidad_Academica, 2)
-    context["nombre_capturista"] = encargados['nombre_capturista']
+    context["nombre_capturista"] = encargados['nombre_capturista'] 
     context["nombre_ceget"] = encargados['nombre_ceget']
     context["nombre_titular"] = encargados['nombre_titular']
     print("Encargados Obtenidos : ",encargados)
