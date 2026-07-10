@@ -55,12 +55,12 @@ from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo, get_periodo_anterior_al_ultimo
 
 from backend.services.envio_correo_service import notificar_rechazo_global, html_correo_acuse
-from backend.services.encargado_ua_service import obtener_encargados
+from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 from backend.core.session_store import SessionData,session_store
 
 router = APIRouter()
 
-html_correo_acuse = html_correo_acuse  # Importar la función desde envio_correo_service.py
+html_correo_acuse = html_correo_acuse
 
 @router.get('/acuses')
 async def matricula_acuses_view(request: Request, sess=Depends(get_current_session)):
@@ -75,14 +75,12 @@ async def matricula_acuses_view(request: Request, sess=Depends(get_current_sessi
         },
     )
 
-
 @router.get('/acuses/listado')
 async def listar_acuses_usuario(sess=Depends(get_current_session)):
     return {
         "success": True,
         "items": list_user_acuses(sess.usuario),
     }
-
 
 @router.get('/acuses/download/{file_name}')
 async def descargar_acuse(file_name: str, sess=Depends(get_current_session)):
@@ -129,6 +127,19 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
             "session": sess
         })
     
+    if id_rol == 3:  # Solo aplicamos la restricción al capturista
+        try:
+            # ID 1 corresponde a Matrícula
+            verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=1)
+        except HTTPException as e:
+            # Capturamos el 403 y mostramos la plantilla de error
+            return templates.TemplateResponse("error.html", {
+                "request": request,
+                "error_message": e.detail,
+                "redirect_url": "/mod_principal/",
+                "session": sess
+            })
+    
     # Determinar el modo de vista según el rol efectivo.
     # En modo camaleón, algunos flujos pueden traer inconsistencias temporales en id_rol;
     # usamos también el nombre de rol para conservar la experiencia de captura.
@@ -173,7 +184,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
                 periodo_default_id = None
                 periodo_default_literal = None
         
-        print(f"   Periodo para verificación: {periodo_default_literal} (ID: {periodo_default_id})")
+        print(f"Periodo para verificación: {periodo_default_literal} (ID: {periodo_default_id})")
         
         # Consultar el estado del semáforo para esta unidad académica
         semaforo = db.query(SemaforoUnidadAcademica).filter(
@@ -1620,6 +1631,9 @@ async def guardar_captura_completa(request: Request, sess=Depends(get_current_se
     Convierte el formato del frontend al modelo Temp_Matricula.
     """
     try:
+        if int(sess.id_rol) == 3:
+            verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=1)
+
         data = await request.json()
         print(f"\n=== GUARDANDO CAPTURA COMPLETA ===")
         print(f"Datos recibidos: {data}")
@@ -1919,6 +1933,9 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
     la tabla Matricula con los datos de Temp_Matricula y luego limpiar la tabla temporal.
     """
     try:
+        if int(sess.id_rol) == 3:
+            verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=1)
+
         # Obtener datos del usuario desde cookies
         nombre_usuario = sess.nombre_usuario
         apellidoP_usuario = sess.apellidoP_usuario
@@ -2347,6 +2364,10 @@ async def preparar_turno(request: Request, sess=Depends(get_current_session), db
     cuando todos los turnos del semestre estén validados.
     """
     try:
+        # Validar permisos si el usuario es capturista (Id_Rol = 3)
+        if int(sess.id_rol) == 3:
+            verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=1)
+            
         # Obtener datos del request
         data = await request.json()
         
