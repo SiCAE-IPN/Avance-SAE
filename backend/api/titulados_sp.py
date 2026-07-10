@@ -81,20 +81,44 @@ async def consulta_titulados(
     nombre_usuario = sess.usuario
     sigla_unidad_academica = sess.sigla_unidad_academica
     id_unidad_academica = int(sess.id_unidad_academica)
+   
     nombre_nivel = sess.nombre_nivel
+    
     ua_usuario = None
+    
     unidad_academica_usuario = None
+
+    niveles_unidad = None
+    niveles_por_unidad = None
 
     if id_unidad_academica > 0:
             ua_usuario = db.query(Unidad_Academica).filter(
                 Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
             ).first()
 
+            niveles_unidad = (
+                db.query(
+                    Unidad_Academica.Nombre,
+                    Nivel.Nivel
+                )
+                .select_from(CatUnidadProgramaModalidad)
+                .join(Unidad_Academica, Unidad_Academica.Id_Unidad_Academica == CatUnidadProgramaModalidad.Id_Unidad_Academica)
+                .join(ProgramaModalidad, ProgramaModalidad.Id_Modalidad_Programa == CatUnidadProgramaModalidad.Id_Modalidad_Programa)
+                .join(CatProgramas, CatProgramas.Id_Programa == ProgramaModalidad.Id_Programa)
+                .join(Nivel, Nivel.Id_Nivel == CatProgramas.Id_Nivel)
+                .filter(CatUnidadProgramaModalidad.Id_Unidad_Academica == id_unidad_academica)
+                .distinct()
+                .all()
+            )
+
     if ua_usuario:
         unidad_academica_usuario = ua_usuario.Nombre
     else:
         print(f"Advertencia: No se encontró la Unidad Académica con ID {id_unidad_academica} para el usuario {nombre_usuario}.")
 
+    if niveles_unidad:
+        niveles_por_unidad = [row.Nivel for row in niveles_unidad]
+    
     nivel = sess.id_nivel
 
     print(unidad_academica_usuario)
@@ -263,6 +287,7 @@ async def consulta_titulados(
              "periodo_default_literal": periodo_default_literal,
              "periodos" : periodosDisponibles,
              "niveles" : nombres_niveles,
+             "niveles_por_unidad" : niveles_por_unidad,
              "unidades": resultado,
              "unidad_academica" : unidad_academica_usuario,
              "sigla_unidad_academica" : sigla_unidad_academica,

@@ -355,9 +355,11 @@
                 <label for="select-nivel-director"><strong>2. Nivel Académico:</strong></label>
                 <select id="select-nivel-director" name="nivel_director" required>
                     <option value="">-- Seleccione un Nivel --</option>
-                  
-                    <option value="{{ nombre_nivel }}">{{ nombre_nivel }}</option>
-                   
+                    
+                    {% for nivel in niveles_por_unidad %}
+                        <option value="{{ nivel }}">{{ nivel }}</option>
+                    {% endfor %}
+                    
                 </select>
             </div>
 
