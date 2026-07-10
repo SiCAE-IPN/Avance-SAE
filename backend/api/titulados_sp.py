@@ -29,7 +29,7 @@ from backend.database.models.Validacion import Validacion
 from pydantic import BaseModel
 from typing import List, Optional
 from backend.utils.request import get_request_host
-from backend.services.encargado_ua_service import obtener_encargados
+from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 import traceback
 
 host = "Test"
@@ -77,7 +77,10 @@ async def consulta_titulados(
     nombre = sess.nombre_usuario
     apellidoP_usuario = sess.apellidoP_usuario
     apellidoM_usuario = sess.apellidoM_usuario
+    id_usuario = sess.id_usuario
     
+    print("id usuario: ", id_usuario)
+
     nombre_usuario = sess.usuario
     sigla_unidad_academica = sess.sigla_unidad_academica
     id_unidad_academica = int(sess.id_unidad_academica)
@@ -90,6 +93,8 @@ async def consulta_titulados(
 
     niveles_unidad = None
     niveles_por_unidad = None
+
+    verificar_permiso_formato(db, id_usuario, 4)
 
     if id_unidad_academica > 0:
             ua_usuario = db.query(Unidad_Academica).filter(
