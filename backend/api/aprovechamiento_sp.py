@@ -1,4 +1,4 @@
-from backend.services.encargado_ua_service import obtener_encargados
+from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from sqlalchemy.orm import Session
@@ -466,6 +466,8 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
         matricula_rechazada = False
         usuario_ya_valido = False
         usuario_ya_rechazo = False
+        id_usuario= int(getattr(sess, 'id_usuario', 0) or 0)
+        verificar_permiso_formato(db, id_usuario, 2)
         
         try:
             # ---- Obtener datos del SP de aprovechamiento ----
