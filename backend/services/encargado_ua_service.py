@@ -86,6 +86,7 @@ def verificar_permiso_formato(db: Session, usuario_id: int, formato_id: int):
     ).first()
 
     if not permiso_existe:
+        
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acceso denegado: No tienes permisos institucionales para consultar este Formato."

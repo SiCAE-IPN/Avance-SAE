@@ -467,7 +467,17 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
         usuario_ya_valido = False
         usuario_ya_rechazo = False
         id_usuario= int(getattr(sess, 'id_usuario', 0) or 0)
-        verificar_permiso_formato(db, id_usuario, 2)
+        
+        try:
+            verificar_permiso_formato(db, id_usuario, 2)
+        except HTTPException as e:
+            return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": e.detail,
+            "redirect_url": "/mod_principal/",
+            "session": sess
+            })
+
         
         try:
             # ---- Obtener datos del SP de aprovechamiento ----
