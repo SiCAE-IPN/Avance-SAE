@@ -81,8 +81,8 @@ def verificar_permiso_formato(db: Session, usuario_id: int, formato_id: int):
     Si no existe, lanza una excepción HTTP 403 de FastAPI inmediatamente.
     """
     permiso_existe = db.query(FormatoUsuario).filter(
-        FormatoUsuario.Id_Formato == usuario_id,
-        FormatoUsuario.Id_Usuario == formato_id
+        FormatoUsuario.Id_Formato == formato_id,
+        FormatoUsuario.Id_Usuario == usuario_id
     ).first()
 
     if not permiso_existe:
