@@ -621,6 +621,8 @@ async def validar_titulados(request: Request, sess=Depends(get_current_session),
     Valida los datos de Titulados.
     Ejecuta el SP [dbo].[SP_Valida_Titulados] (Formato 4) para avanzar semáforo y registrar en Validacion.
     """
+
+    print("Se esta validando titulados")
     try:
         # NOTA: Evitamos hacer await request.json() dos veces seguidas para no congelar la petición
         body = await request.json()
@@ -629,6 +631,8 @@ async def validar_titulados(request: Request, sess=Depends(get_current_session),
         periodo_in = body.get("periodo")
         unidad_in = body.get("unidad")    # 👈 El nombre/sigla de la escuela que estás viendo
         nivel_in = body.get("nivel")      # 👈 El nivel que estás viendo
+
+        print(f"Datos recibidos para validación: periodo={periodo_in}, unidad={unidad_in}, nivel={nivel_in}")
 
         nota_in = (body.get('nota') or '').strip()
 
@@ -678,7 +682,7 @@ async def validar_titulados(request: Request, sess=Depends(get_current_session),
             sem_actual = None
 
         # 🔍 IMPRESIÓN DETALLADA ANTES DE EXECUTAR EL SP
-        print(f"\n🚀 {'='*60}")
+        print(f"\n {'='*60}")
         print("📊 PREPARANDO EJECUCIÓN DE STORED PROCEDURE")
         print(f"{'='*60}")
         print(f" SQL: EXEC [dbo].[SP_Valida_Titulados]")
