@@ -94,7 +94,16 @@ async def consulta_titulados(
     niveles_unidad = None
     niveles_por_unidad = None
 
-    verificar_permiso_formato(db, id_usuario, 4)
+    try:
+        verificar_permiso_formato(db, id_usuario, 4)
+    except HTTPException as e:
+        return templates.TemplateResponse("error.html", {
+        "request": request,
+        "error_message": e.detail,
+        "redirect_url": "/mod_principal/",
+        "session": sess
+        })
+
 
     if id_unidad_academica > 0:
             ua_usuario = db.query(Unidad_Academica).filter(
