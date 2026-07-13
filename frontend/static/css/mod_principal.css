@@ -160,16 +160,33 @@ body {
     opacity: 0.5;
 }
 
-/* Tarjeta especial para el Dashboard */
-.dashboard-special {
-    background: linear-gradient(135deg, #6e0343 0%, #900458 100%);
+/* El contenedor envuelve a ambos, eliminamos el padding interno de la tarjeta padre */
+.dual-card-wrapper {
+    display: flex;
+    padding: 0 !important; /* Limpiamos para que los hijos ocupen todo */
+    overflow: hidden;
 }
 
-.dashboard-special .card-title, 
-.dashboard-special .card-desc {
-    color: #ffffff;
+/* Cada lado ocupa el 50% */
+.split-side {
+    flex: 1;
+    padding: 30px 20px;
+    transition: background 0.3s ease;
 }
 
-.dashboard-special:hover:not(.bloqueado) {
-    box-shadow: 0 15px 30px rgba(110, 3, 67, 0.3);
+/* Efecto al pasar el mouse por un lado específico */
+.split-side:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+/* Línea divisoria muy sutil */
+.split-divider {
+    width: 1px;
+    background: #000000;
+    margin: 10px 0;
+}
+
+/* Asegurar que si solo hay uno, ocupe todo */
+.split-side:only-child {
+    flex: 100%;
 }

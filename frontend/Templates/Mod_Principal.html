@@ -66,12 +66,24 @@
                 <p class="card-desc">Registro de alumnos que han obtenido su título.</p>
             </div>
 
-            <div id="Btn_Dashboard" class="card-modulo dashboard-special">
-                <div class="card-icon">📊</div>
-                <h3 class="card-title">DashBoard SiCAE</h3>
-                <p class="card-desc">Tablero interactivo de Power BI.</p>
+            <div class="card-modulo dual-card-wrapper">
+    
+                <div id="Btn_Dashboard" class="split-side clickable">
+                    <div class="card-icon">📊</div>
+                    <h3 class="card-title">Dashboard SiCAE</h3>
+                    <p class="card-desc">Tablero interactivo.</p>
+                </div>
+
+                <div class="split-divider"></div>
+
+                {% if es_admin or session.id_rol in [6, 7, 8, 9] %}
+                <div id="Btn_Seguimiento" class="split-side clickable">
+                    <div class="card-icon">📈</div>
+                    <h3 class="card-title">Seguimiento Estadística</h3>
+                    <p class="card-desc">Tablero de control.</p>
+                </div>
+                {% endif %}
             </div>
-        </div>
     </main>
 {% endblock %}
 
@@ -118,5 +130,19 @@
             // Abrir en una nueva pestaña
             window.open(urlPowerBI, '_blank');
         });
+
+        // NUEVO: Navegar al tablero de Seguimiento a la Estadística
+        const container = document.querySelector('.dashboard-split-container');
+        const btnSeguimiento = document.getElementById('Btn_Seguimiento');
+        if (btnSeguimiento) {
+            btnSeguimiento.addEventListener('click', function() {
+                if (this.classList.contains('bloqueado')) return;
+                const urlSeguimiento = 'https://app.powerbi.com/reportEmbed?reportId=edb81cbe-02ee-47fb-9339-174643c48f68&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563';
+                window.open(urlSeguimiento, '_blank');
+            });
+        }
+        if (!btnSeguimiento) {
+            document.getElementById('Btn_Dashboard').style.flex = "100%";
+        }       
     </script>
 {% endblock %}
