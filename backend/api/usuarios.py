@@ -67,7 +67,15 @@ async def usuarios_view(
     apellidoP_usuario = sess.apellidoP_usuario
     apellidoM_usuario = sess.apellidoM_usuario
     nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
-    
+
+
+    if id_rol == 3:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": "No tienes permisos para acceder a este formato.", 
+            "redirect_url": "/mod_principal/",
+            "session": sess
+        })
     # Verificar si es super admin
     es_super_admin = is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
     

@@ -25,9 +25,7 @@ const menuConfig = {
         items: [
             { label: 'Usuarios', icon: '👥', url: '/usuarios' },
             { label: 'Unidad Academica', icon: '🏢', url: '/domicilios' },
-            { label: 'Periodos', icon: '📅', url: '/periodos' },
-            { label: 'Programas', icon: '📚', url: '/programas' },
-            { label: 'Semaforo', icon: '🚦', url: '/semaforo' }
+            { label: 'Periodos', icon: '📅', url: '/periodos' }
         ]
     },
     domicilios: {
@@ -35,9 +33,7 @@ const menuConfig = {
         items: [
             { label: 'Usuarios', icon: '👥', url: '/usuarios' },
             { label: 'Unidad Academica', icon: '🏢', url: '/domicilios' },
-            { label: 'Periodos', icon: '📅', url: '/periodos' },
-            { label: 'Programas', icon: '📚', url: '/programas' },
-            { label: 'Semaforo', icon: '🚦', url: '/semaforo' }
+            { label: 'Periodos', icon: '📅', url: '/periodos' }
         ]
     },
     periodos: {
@@ -45,29 +41,7 @@ const menuConfig = {
         items: [
             { label: 'Usuarios', icon: '👥', url: '/usuarios' },
             { label: 'Unidad Academica', icon: '🏢', url: '/domicilios' },
-            { label: 'Periodos', icon: '📅', url: '/periodos' },
-            { label: 'Programas', icon: '📚', url: '/programas' },
-            { label: 'Semaforo', icon: '🚦', url: '/semaforo' }
-        ]
-    },
-    programas: {
-        nombre: 'Catalogos',
-        items: [
-            { label: 'Usuarios', icon: '👥', url: '/usuarios' },
-            { label: 'Unidad Academica', icon: '🏢', url: '/domicilios' },
-            { label: 'Periodos', icon: '📅', url: '/periodos' },
-            { label: 'Programas', icon: '📚', url: '/programas' },
-            { label: 'Semaforo', icon: '🚦', url: '/semaforo' }
-        ]
-    },
-    semaforo: {
-        nombre: 'Catalogos',
-        items: [
-            { label: 'Usuarios', icon: '👥', url: '/usuarios' },
-            { label: 'Unidad Academica', icon: '🏢', url: '/domicilios' },
-            { label: 'Periodos', icon: '📅', url: '/periodos' },
-            { label: 'Programas', icon: '📚', url: '/programas' },
-            { label: 'Semaforo', icon: '🚦', url: '/semaforo' }
+            { label: 'Periodos', icon: '📅', url: '/periodos' }
         ]
     }
 };

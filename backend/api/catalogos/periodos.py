@@ -7,20 +7,33 @@ from backend.database.connection import get_db
 from backend.core.templates import templates
 from backend.core.auth import get_current_session
 from backend.services.periodo_service import get_ultimo_periodo, get_periodo_activo
+from backend.utils.request import get_request_host  # Importamos la utilidad del host
 
 router = APIRouter()
 
-HHost: str = "Emmanuel-Laptop"
 
 @router.get("/periodos", response_class=HTMLResponse)
-def domicilios_view(
-    request: Request, sess=Depends(get_current_session),
+def periodos_view(
+    request: Request, 
+    sess=Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
+    # 1. Obtener el Host dinámicamente desde la petición
+    HHost = get_request_host(request)
     
     UUsuario = str(sess.nombre_usuario)
     Rol = str(sess.nombre_rol)
+    id_rol = int(sess.id_rol)  # Obtenemos el id_rol de la sesión
 
+    # 2. Validación directa del id_rol == 3
+    if id_rol == 3:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": "No tienes permisos para acceder a este formato.",
+            "redirect_url": "/mod_principal/",
+            "session": sess
+        })
+    
     # Obtener periodo dinámico (priorizar activo)
     _, PPeriodo = get_periodo_activo(db) or get_ultimo_periodo(db)
     if not PPeriodo:
@@ -64,10 +77,22 @@ def domicilios_view(
         }
     )
 
+
 @router.post("/nuevo_periodo")  
-def nuevo_periodo(request: Request, data: dict, sess=Depends(get_current_session), db: Session = Depends(get_db)):
-    # Obtener información del usuario desde las cookies
+def nuevo_periodo(
+    request: Request, 
+    data: dict, 
+    sess=Depends(get_current_session), 
+    db: Session = Depends(get_db)
+):
+    # Obtener el Host dinámicamente para la bitácora del SP
+    HHost = get_request_host(request)
     UUsuario = str(sess.usuario)
+    id_rol = int(sess.id_rol)
+
+    # También validamos el rol aquí por seguridad si intentan hacer POST directamente
+    if id_rol == 3:
+        return {"status": "error", "message": "No tienes permisos para realizar esta acción."}
     
     print(f"Creando periodo: {data['periodo']} por usuario: {UUsuario}")
     print(f"Fecha inicial: {data.get('fecha_inicial')}, Fecha final: {data.get('fecha_final')}")
@@ -75,7 +100,6 @@ def nuevo_periodo(request: Request, data: dict, sess=Depends(get_current_session
     try:
         # PASO 1: Ejecutar el SP para crear el nuevo periodo
         print("📝 Creando nuevo periodo...")
-        #Imprimir los parámetros que se van a enviar al SP para verificar su formato
         print(f"Parámetros para SP_Inicia_periodo:")
         print(f"  @PPeriodo = {data['periodo']}")
         print(f"  @FFecha_Inicial = {data['fecha_inicial']}")
@@ -104,5 +128,6 @@ def nuevo_periodo(request: Request, data: dict, sess=Depends(get_current_session
         print("✅ Periodo creado exitosamente.")
         return {"status": "success", "message": "Periodo creado exitosamente."}
     except Exception as e:
+        db.rollback()  # Añadido rollback en caso de fallo en la base de datos
         print("Error al crear nuevo periodo:", e)
         return {"status": "error", "message": "Error al crear nuevo periodo."}
