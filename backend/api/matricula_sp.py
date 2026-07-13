@@ -2367,7 +2367,7 @@ async def preparar_turno(request: Request, sess=Depends(get_current_session), db
         # Validar permisos si el usuario es capturista (Id_Rol = 3)
         if int(sess.id_rol) == 3:
             verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=1)
-            
+
         # Obtener datos del request
         data = await request.json()
         
