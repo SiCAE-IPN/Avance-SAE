@@ -24,7 +24,19 @@ def domicilios_view(
     """
     UUsuario = getattr(sess, 'usuario', '') or ''
     Rol = str(sess.nombre_rol)
+    id_rol = int(sess.id_rol)
+
+    # Cambiamos la función por la validación directa del id_rol
+    if id_rol == 3:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": "No tienes permisos para acceder a este formato.", 
+            "redirect_url": "/mod_principal/",
+            "session": sess
+        })
     
+
+
     # Obtener periodo dinámico (priorizar activo)
     _, PPeriodo = get_periodo_activo(db) or get_ultimo_periodo(db)
     if not PPeriodo:
