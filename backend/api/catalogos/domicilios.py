@@ -7,26 +7,44 @@ from backend.database.connection import get_db
 from backend.core.templates import templates
 from backend.core.auth import get_current_session
 from backend.services.periodo_service import get_ultimo_periodo, get_periodo_activo
+from backend.utils.request import get_request_host
 
 router = APIRouter()
 
+# --- Funciones auxiliares para catálogos ---
+def consultaRama(db: Session):
+    try:
+        query = text("""EXEC dbo.SP_Consulta_Catalogo_Rama""")
+        resultado = db.execute(query)
+        return [dict(row) for row in resultado.mappings().all()]
+    except Exception as e:
+        return {"error": str(e)}
+    
+def consultaEntidad(db: Session):
+    try:
+        query = text("""EXEC dbo.SP_Consulta_Catalogo_Entidad""")
+        resultado = db.execute(query)
+        return [dict(row) for row in resultado.mappings().all()]
+    except Exception as e:
+        return {"error": str(e)}
 
-HHost: str = "Test"
-
+# --- Endpoints ---
 
 @router.get("/domicilios", response_class=HTMLResponse)
 def domicilios_view(
-    request: Request, sess=Depends(get_current_session),
+    request: Request, 
+    sess=Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
     """
     Vista para consultar los domicilios mediante un Stored Procedure.
     """
-    UUsuario = getattr(sess, 'usuario', '') or ''
-    Rol = str(sess.nombre_rol)
-    id_rol = int(sess.id_rol)
 
-    # Cambiamos la función por la validación directa del id_rol
+    HHost = get_request_host(request) 
+    UUsuario = getattr(sess, 'usuario', '') or ''
+    id_rol = int(sess.id_rol)
+    Rol = str(sess.nombre_rol)
+
     if id_rol == 3:
         return templates.TemplateResponse("error.html", {
             "request": request,
@@ -35,14 +53,12 @@ def domicilios_view(
             "session": sess
         })
     
-
-
-    # Obtener periodo dinámico (priorizar activo)
+    # Obtener periodo dinámico
     _, PPeriodo = get_periodo_activo(db) or get_ultimo_periodo(db)
     if not PPeriodo:
-        PPeriodo = ""  # Valor vacío si no hay periodo
+        PPeriodo = ""
+
     try:
-        # Ejecutar el Stored Procedure con parámetros nombrados
         query = text("""
             EXEC dbo.SP_Consulta_Catalogo_Unidad_Academica
                 @UUsuario = :UUsuario,
@@ -55,21 +71,14 @@ def domicilios_view(
             "PPeriodo": PPeriodo
         })
 
-        # Convertir el resultado a lista de diccionarios
         data = [dict(row) for row in resultado.mappings().all()]
-        #print(data)
         Rama = consultaRama(db)
-        #print(Rama)
         Entidad = consultaEntidad(db)
-        #print(Entidad)
 
     except Exception as e:
         print("Error al ejecutar SP_Consulta_Catalogo_Unidad_Academica:", e)
-        data = []
-        Rama = []
-        Entidad = []
+        data, Rama, Entidad = [], [], []
         
-    # Renderizar la plantilla HTML con los resultados
     return templates.TemplateResponse(
         "catalogos/domicilios.html",
         {
@@ -83,35 +92,21 @@ def domicilios_view(
     )
 
 
-def consultaRama(db: Session):
-    try:
-        #Ejecutamos el SP
-        query = text("""EXEC dbo.SP_Consulta_Catalogo_Rama""")
-        resultado = db.execute(query, )
-        # Convertir el resultado a lista de diccionarios
-        data = [dict(row) for row in resultado.mappings().all()]
-        return data  
-    except Exception as e:
-        return {"error": str(e)}
-    
-def consultaEntidad(db: Session):
-    try:
-        #Ejecutamos el SP
-        query = text("""EXEC dbo.SP_Consulta_Catalogo_Entidad""")
-        resultado = db.execute(query, )
-        # Convertir el resultado a lista de diccionarios
-        data = [dict(row) for row in resultado.mappings().all()]
-        return data  
-    except Exception as e:
-        return {"error": str(e)}
-    
-
 @router.post("/registrarUA")
-def registrar_ua(data: dict, request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
-    print("Datos recibidos en REGISTRAR:")
-    print(data)  # <-- imprime todo el JSON recibido
+def registrar_ua(
+    data: dict, 
+    request: Request, 
+    sess=Depends(get_current_session), 
+    db: Session = Depends(get_db)
+):
+    print("Datos recibidos en REGISTRAR:", data)
     try:
+        # Obtener valores en tiempo de ejecución
+        HHost = get_request_host(request) 
+        _, PPeriodo = get_periodo_activo(db) or get_ultimo_periodo(db)
+        PPeriodo = PPeriodo or ""
         UUsuario = getattr(sess, 'usuario', '') or ''
+        
         query = text("""
             EXEC [dbo].[SP_Alta_Catalogo_Unidad_Academica]
                 @UUnidad_Academica = :unidad_academica,
@@ -139,7 +134,7 @@ def registrar_ua(data: dict, request: Request, sess=Depends(get_current_session)
             "entidad": data.get("entidad"),
             "municipio": data.get("municipio"),
             "calle": data.get("calle"),
-            "numero":  int(data.get("numero")) if data.get("numero") else "SN",
+            "numero": int(data.get("numero")) if data.get("numero") else "SN",
             "colonia": data.get("colonia"),
             "cp": data.get("cp"),
             "usuario": UUsuario,
@@ -147,24 +142,30 @@ def registrar_ua(data: dict, request: Request, sess=Depends(get_current_session)
             "periodo": PPeriodo
         })
         db.commit()
-        
         print("UA registrada correctamente")
     except Exception as e:
         db.rollback()
         print("Error al registrar UA:", e)
         return {"status": "error", "msg": "Error al registrar UA"}
 
-
     return {"status": "ok", "msg": "UA registrada correctamente"}
 
 
 @router.put("/actualizarUA/")
-def actualizar_ua(data: dict, request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
-
-    print("\nDatos recibidos en ACTUALIZAR:")
-    print("Body recibido:", data)
+def actualizar_ua(
+    data: dict, 
+    request: Request, 
+    sess=Depends(get_current_session), 
+    db: Session = Depends(get_db)
+):
+    print("Body recibido en ACTUALIZAR:", data)
     try:
+        # Obtener valores en tiempo de ejecución
+        HHost = get_request_host(request)
+        _, PPeriodo = get_periodo_activo(db) or get_ultimo_periodo(db)
+        PPeriodo = PPeriodo or ""
         UUsuario = getattr(sess, 'usuario', '') or ''
+        
         query = text("""
             EXEC [dbo].[SP_Modifica_Catalogo_Unidad_Academica]
                 @UUnidad_Academica = :unidad_academica,
@@ -189,8 +190,6 @@ def actualizar_ua(data: dict, request: Request, sess=Depends(get_current_session
             "host": HHost,
             "periodo": PPeriodo
         })
-
-
         db.commit()
         print("UA actualizada correctamente")
     except Exception as e:
@@ -198,35 +197,37 @@ def actualizar_ua(data: dict, request: Request, sess=Depends(get_current_session
         print("Error al actualizar UA:", e)
         return {"status": "error", "msg": "Error al actualizar UA"}
     
-
     return {"status": "ok",  "msg": "UA actualizada correctamente"}
 
 
-
-
 @router.delete("/eliminarUA/{sigla}")
-def eliminar_ua(sigla: str, request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
-    print("\nDatos recibidos en ELIMINAR:")
-    print("Sigla:", sigla)
-
-    
+def eliminar_ua(
+    sigla: str, 
+    request: Request, 
+    sess=Depends(get_current_session), 
+    db: Session = Depends(get_db)
+):
+    print("Sigla a ELIMINAR:", sigla)
     try:
+        # Obtener valores en tiempo de ejecución
+        HHost = get_request_host(request)
+        _, PPeriodo = get_periodo_activo(db) or get_ultimo_periodo(db)
+        PPeriodo = PPeriodo or ""
         UUsuario = getattr(sess, 'usuario', '') or ''
+        
         query = text("""
             EXEC [dbo].[SP_Baja_Catalogo_Unidad_Academica]
                 @UUnidad_Academica = :unidad_academica,
                 @UUsuario = :usuario,
-                @HHost = :host  ,
+                @HHost = :host,
                 @PPeriodo = :periodo
         """)    
-            
         db.execute(query, {
-                "unidad_academica": sigla,
-                "usuario": UUsuario,
-                "host": HHost,
-                "periodo": PPeriodo
-            }
-        )
+            "unidad_academica": sigla,
+            "usuario": UUsuario,
+            "host": HHost,
+            "periodo": PPeriodo
+        })
         db.commit()
         print("UA eliminada correctamente")
     except Exception as e:
@@ -235,6 +236,3 @@ def eliminar_ua(sigla: str, request: Request, sess=Depends(get_current_session),
         return {"status": "error", "msg": str(e)}
 
     return {"status": "ok", "msg": "UA eliminada correctamente"}
-
-
-

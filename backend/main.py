@@ -9,7 +9,7 @@ from backend.api import aprovechamiento_sp
 from backend.api import egresados_sp
 from backend.api import titulados_sp
 from backend.api import recuperacion
-from backend.api.catalogos import domicilios, periodos, programas, semaforo, egresados
+from backend.api.catalogos import domicilios, periodos, egresados
 from backend.core.templates import static
 from fastapi.staticfiles import StaticFiles as _StaticFiles
 
@@ -35,8 +35,6 @@ app.include_router(egresados_sp.router , prefix="/egresados")
 app.include_router(titulados_sp.router , prefix="/titulados")
 app.include_router(domicilios.router)
 app.include_router(periodos.router)
-app.include_router(programas.router)
-app.include_router(semaforo.router)
 app.include_router(egresados.router)
 
 
