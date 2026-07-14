@@ -9,7 +9,7 @@
 }
 
 .registro-container h3 {
-    color: #6e0343;
+    color: #750946;
     margin-top: 0;
     margin-bottom: 18px;
     font-size: 1.3em;
@@ -63,7 +63,7 @@
 
 /* Botones del formulario */
 #btn-guardar {
-    background: #6e0343;
+    background: #750946;
     color: #fff;
     border: none;
     padding: 10px 24px;
@@ -89,7 +89,7 @@
 }
 
 #btn-cancelar:hover {
-    background: #6e0343;
+    background: #750946;
 }
 
 #btn-limpiar {
@@ -104,11 +104,11 @@
 }
 
 #btn-limpiar:hover {
-    background: #6e0343;
+    background: #750946;
 }
 
 #btn-eliminar {
-    background: #6e0343;
+    background: #750946;
     color: #fff;
     border: none;
     padding: 10px 24px;

@@ -2,7 +2,7 @@
 
 body {
     font-family: var(--SiCAE-font-primary);
-    background: linear-gradient(135deg, #6e0343 60%, #ffffff 100%);
+    background: linear-gradient(135deg, #750946 60%, #ffffff 100%);
     min-height: 100vh;
     margin: 0;
     padding: 0;
@@ -10,7 +10,7 @@ body {
 
 /* Colores institucionales IPN */
 :root {
-    --ipn-morado: #6e0343;
+    --ipn-morado: #750946;
     --ipn-oro: #ffffff;
     --ipn-gris: #e5e5e5;
     --ipn-blanco: #fff;
@@ -186,7 +186,7 @@ select.input-form {
 .input-disabled {
     background-color: #f0f0f0 !important;
     cursor: not-allowed !important;
-    color: #666 !important;
+    color: #636569 !important;
     border: 1px solid #ccc !important;
 }
 
@@ -199,7 +199,7 @@ input.input-disabled:focus {
 select:disabled {
     background-color: #f0f0f0 !important;
     cursor: not-allowed !important;
-    color: #666 !important;
+    color: #636569 !important;
 }
 
 /* Botones de turno deshabilitados */
@@ -280,7 +280,7 @@ button.btn-success:active,
 
 button.btn-info,
 .btn-info {
-    background: #6e0343 !important;
+    background: #750946 !important;
     color: white !important;
     border: none !important;
     padding: 12px 30px !important;

@@ -45,7 +45,7 @@
 
 .filtro-item select:focus {
     outline: none;
-    border-color: #6e0343;
+    border-color: #750946;
     box-shadow: 0 0 0 3px rgba(110, 3, 67, 0.1);
 }
 
@@ -92,7 +92,7 @@
 
 .tabla-egresados-completa tfoot tr {
     font-weight: bold;
-    border-top: 2px solid #6e0343;
+    border-top: 2px solid #750946;
 }
 
 /* === INPUTS DE DATOS === */
@@ -109,7 +109,7 @@
 
 .input-egresado:focus {
     outline: none;
-    border-color: #6e0343;
+    border-color: #750946;
     box-shadow: 0 0 10px rgba(110, 3, 67, 0.2);
     transform: scale(1.05);
 }
@@ -141,7 +141,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    background: linear-gradient(135deg, #6e0343 0%, #8b2635 100%);
+    background: linear-gradient(135deg, #750946 0%, #8b2635 100%);
     padding: 10px 20px;
     border-radius: 8px;
     box-shadow: 0 4px 10px rgba(110, 3, 67, 0.3);
@@ -226,7 +226,7 @@
     align-items: center;
     margin-bottom: 20px;
     padding: 15px 20px;
-    background: linear-gradient(135deg, #ffffff 0%, #6e0343 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #750946 100%);
     border-radius: 10px;
     color: white;
     box-shadow: 0 4px 15px rgba(110, 3, 67, 0.3);
@@ -241,7 +241,7 @@
 }
 
 h2 {
-    color: #6e0343;
+    color: #750946;
     font-size: 28px;
     font-weight: 700;
     margin-bottom: 20px;
@@ -250,8 +250,8 @@ h2 {
 
 /* === PANEL DE FILTROS SUPERIORES === */
 .panel-filtros-superiores {
-    background: linear-gradient(135deg, #6e0343 0%, #8b2635 100%);
-    border: 2px solid #6e0343;
+    background: linear-gradient(135deg, #750946 0%, #8b2635 100%);
+    border: 2px solid #750946;
     border-radius: 12px;
     padding: 25px;
     margin-bottom: 30px;
@@ -308,7 +308,7 @@ h2 {
     width: 100%;
     padding: 14px 24px;
     background: #ffffff;
-    color: #6e0343;
+    color: #750946;
     border: 2px solid #ffffff;
     border-radius: 8px;
     font-size: 16px;

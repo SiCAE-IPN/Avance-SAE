@@ -41,7 +41,7 @@
 
 .filterable-header.has-filter .filter-icon {
     background: #ffffff;
-    color: #6e0343;
+    color: #750946;
     opacity: 1;
 }
 
@@ -136,7 +136,7 @@
 .filter-option input[type="checkbox"] {
     cursor: pointer;
     margin-top: 1px;
-    accent-color: #6e0343;
+    accent-color: #750946;
 }
 
 @media (max-width: 768px) {

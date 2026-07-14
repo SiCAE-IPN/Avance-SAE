@@ -58,14 +58,14 @@ def notificar_rechazo_global(
     <html>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
         <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-            <h2 style="color: #6e0343; text-align: center;">Notificación de Rechazo - SiCAE</h2>
+            <h2 style="color: #750946; text-align: center;">Notificación de Rechazo - SiCAE</h2>
             <p>Estimado usuario,</p>
             <p>Se le informa que el módulo <strong>{modulo_rechazado}</strong> ha sido rechazado para correcciones por el {id_rol_a_nombre(id_rol_que_rechaza)}.</p>
             
             <p style="color: #d9534f; font-weight: bold;">Por favor, ingrese al sistema para revisar las observaciones pertinentes.</p>
             <p style="margin-top: 20px;">Accede al sistema con el siguiente enlace:</p>
             <p style="text-align: center; margin: 30px 0;">
-                <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #6e0343; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder a SiCAE</a>
+                <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder a SiCAE</a>
             </p>
             <p style="margin-top: 30px; font-size: 12px; color: #777;">
                 Este es un mensaje automático generado por SiCAE. Por favor, no responda a este correo.<br>
@@ -94,7 +94,7 @@ def html_correo_acuse( nombre_completo: str, periodo_activo: str,periodo_anterio
     <html>
     <body style="font-family: NotoSans, sans-serif; line-height: 1.6; color: #333;">
         <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-            <h2 style="color: #6e0343; text-align: center;">Acuse de Conclusión de Captura - SiCAE</h2>
+            <h2 style="color: #750946; text-align: center;">Acuse de Conclusión de Captura - SiCAE</h2>
             <p>A quien corresponda,</p>
             <p>Se le informa que concluyó la captura de información en el SiCAE conforme a lo siguiente:</p>
                     <ul>

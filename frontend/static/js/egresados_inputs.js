@@ -315,7 +315,7 @@ function renderizarTabla() {
     }
     
     // Limpiar contenido existente (excepto la primera celda del header)
-    thead.innerHTML = '<th style="background-color: #6e0343;">Boleta / Generación</th>';
+    thead.innerHTML = '<th style="background-color: #750946;">Boleta / Generación</th>';
     tbody.innerHTML = '';
     
     // Renderizar columnas de generación en el header

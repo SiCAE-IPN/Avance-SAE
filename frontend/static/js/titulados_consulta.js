@@ -11,7 +11,7 @@ function actualizarContadorEdades() {
     const countElement = document.getElementById('edades-seleccionadas-count');
     if (countElement) {
         countElement.textContent = `${count} edad${count !== 1 ? 'es' : ''} seleccionada${count !== 1 ? 's' : ''}`;
-        countElement.style.color = count > 0 ? '#28a745' : '#666';
+        countElement.style.color = count > 0 ? '#28a745' : '#636569';
         countElement.style.fontWeight = count > 0 ? '600' : 'normal';
     }
 }
@@ -116,7 +116,7 @@ function generarCabeceraTabla() {
     if (!thead) return;
 
     // Fila 1: Boleta, Generación, Edad, por cada turno su nombre (colspan 2), Acciones
-    let fila1 = '<tr style="background: linear-gradient(135deg, #6e0343 0%, #8b2635 100%); color: white;">';
+    let fila1 = '<tr style="background: linear-gradient(135deg, #750946 0%, #8b2635 100%); color: white;">';
     fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Boleta</th>';
     fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Tipo de Titulación</th>';
     fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Edad</th>';
@@ -150,7 +150,7 @@ function renderizarTablaTituladosCaptura() {
     if (filasTitulados.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="${colspan}" style="text-align:center; padding:40px; color:#666;">
+                <td colspan="${colspan}" style="text-align:center; padding:40px; color:#636569;">
                     <div style="font-size:48px; margin-bottom:15px;">📚</div>
                     <p style="font-size:16px; margin:0;">No hay registros. Use los filtros arriba para agregar filas.</p>
                 </td>

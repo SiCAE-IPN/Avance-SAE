@@ -67,21 +67,21 @@
             </div>
 
             <div class="card-modulo dual-card-wrapper">
-    
-                <div id="Btn_Dashboard" class="split-side clickable">
+                
+                <div id="Btn_Dashboard" class="split-side">
                     <div class="card-icon">📊</div>
                     <h3 class="card-title">Dashboard SiCAE</h3>
                     <p class="card-desc">Tablero interactivo.</p>
                 </div>
 
-                <div class="split-divider"></div>
-
                 {% if es_admin or session.id_rol in [6, 7, 8, 9] %}
-                <div id="Btn_Seguimiento" class="split-side clickable">
-                    <div class="card-icon">📈</div>
-                    <h3 class="card-title">Seguimiento Estadística</h3>
-                    <p class="card-desc">Tablero de control.</p>
-                </div>
+                    <div class="split-divider"></div>
+                    
+                    <div id="Btn_Seguimiento" class="split-side">
+                        <div class="card-icon">📈</div>
+                        <h3 class="card-title">Seguimiento Estadística</h3>
+                        <p class="card-desc">Tablero de control.</p>
+                    </div>
                 {% endif %}
             </div>
     </main>

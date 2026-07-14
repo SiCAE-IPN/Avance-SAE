@@ -104,13 +104,13 @@
 }
 
 .panel-notificaciones-header {
-    background: linear-gradient(135deg, #6e0343 0%, #6e0343 100%);
+    background: linear-gradient(135deg, #750946 0%, #750946 100%);
     color: white;
     padding: 15px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid #6e0343;
+    border-bottom: 2px solid #750946;
 }
 
 .panel-notificaciones-header h4 {
@@ -168,7 +168,7 @@
 }
 
 .notificacion-rechazo {
-    border-left-color: #6e0343;
+    border-left-color: #750946;
 }
 
 .notificacion-icon {
@@ -217,7 +217,7 @@
 }
 
 .btn-mostrar-banner {
-    background: linear-gradient(135deg, #6e0343 0%, #6e0343 100%);
+    background: linear-gradient(135deg, #750946 0%, #750946 100%);
     color: white;
     border: none;
     padding: 8px 16px;
@@ -230,7 +230,7 @@
 }
 
 .btn-mostrar-banner:hover {
-    background: linear-gradient(135deg, #6a1a27 0%, #6e0343 100%);
+    background: linear-gradient(135deg, #6a1a27 0%, #750946 100%);
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(139, 35, 50, 0.3);
 }
@@ -257,10 +257,10 @@
     left: 0;
     right: 0;
     z-index: 999;
-    background: linear-gradient(135deg, #6e0343 0%, #6e0343 100%);
+    background: linear-gradient(135deg, #750946 0%, #750946 100%);
     color: white;
     box-shadow: 0 4px 12px rgba(139, 35, 50, 0.4);
-    border-bottom: 3px solid #6e0343;
+    border-bottom: 3px solid #750946;
     animation: slideDownBanner 0.5s ease-out;
     display: flex;
     align-items: stretch;

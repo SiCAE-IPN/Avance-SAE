@@ -166,19 +166,19 @@ def reset_password(db: Session, username: str, email: str, request = None) -> bo
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-                <h2 style="color: #6e0343; text-align: center;">Recuperación de Contraseña</h2>
+                <h2 style="color: #750946; text-align: center;">Recuperación de Contraseña</h2>
                 <p>Hola <strong>{user.Nombre}</strong>,</p>
                 <p>Se ha generado una nueva contraseña temporal para tu cuenta.</p>
                 <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p><strong>Contraseña temporal:</strong> <span style="color: #6e0343; font-size: 18px; font-weight: bold;">{nueva}</span></p>
+                    <p><strong>Contraseña temporal:</strong> <span style="color: #750946; font-size: 18px; font-weight: bold;">{nueva}</span></p>
                 </div>
                 <p style="color: #d9534f; font-weight: bold;">⚠️ Por seguridad, cámbiela después de Iniciar Sesión.</p>
                 <p style="margin-top: 20px;">Para acceder al sistema, haz clic en el siguiente enlace:</p>
                 <p style="text-align: center; margin: 30px 0;">
-                    <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #6e0343; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SiCAE</a>
+                    <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SiCAE</a>
                 </p>
-                <p style="color: #666; font-size: 12px;">O copia y pega este enlace en tu navegador:<br>
-                <a href="http://148.204.107.39:50000" style="color: #6e0343;">http://148.204.107.39:50000</a></p>
+                <p style="color: #636569; font-size: 12px;">O copia y pega este enlace en tu navegador:<br>
+                <a href="http://148.204.107.39:50000" style="color: #750946;">http://148.204.107.39:50000</a></p>
                 <p style="margin-top: 30px;">Gracias,<br><strong>Sistema SiCAE</strong></p>
             </div>
         </body>
@@ -399,13 +399,13 @@ def register_usuario(db: Session, user_dict: UsuarioCreate, generar_password_aut
             <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-                    <h2 style="color: #6e0343; text-align: center;">Bienvenid@ al SiCAE</h2>
-                    <h2 style="color: #6e0343; text-align: center;">"Sistema de Administración y Estadística"</h2>
+                    <h2 style="color: #750946; text-align: center;">Bienvenid@ al SiCAE</h2>
+                    <h2 style="color: #750946; text-align: center;">"Sistema de Administración y Estadística"</h2>
                     <p>Hola <strong>{nombre_completo}</strong>,</p>
                     <p>Tu cuenta ha sido creada exitosamente. A continuación encontrarás tus credenciales de acceso:</p>
                     <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;">
                         <p><strong>Usuario:</strong> {user.Usuario}</p>
-                        <p><strong>Contraseña temporal:</strong> <span style="color: #6e0343; font-size: 18px; font-weight: bold;">{password_temporal}</span></p>
+                        <p><strong>Contraseña temporal:</strong> <span style="color: #750946; font-size: 18px; font-weight: bold;">{password_temporal}</span></p>
                     </div>
                     <p style="color: #d9534f; font-weight: bold;">⚠️ IMPORTANTE:</p>
                     <ul>
@@ -415,10 +415,10 @@ def register_usuario(db: Session, user_dict: UsuarioCreate, generar_password_aut
                     </ul>
                     <p style="margin-top: 20px;">Para acceder al sistema, haz clic en el siguiente enlace:</p>
                     <p style="text-align: center; margin: 30px 0;">
-                        <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #6e0343; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SiCAE</a>
+                        <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SiCAE</a>
                     </p>
-                    <p style="color: #666; font-size: 12px;">O copia y pega este enlace en tu navegador:<br>
-                    <a href="http://148.204.107.39:50000" style="color: #6e0343;">http://148.204.107.39:50000</a></p>
+                    <p style="color: #636569; font-size: 12px;">O copia y pega este enlace en tu navegador:<br>
+                    <a href="http://148.204.107.39:50000" style="color: #750946;">http://148.204.107.39:50000</a></p>
                     <p style="margin-top: 30px;">Gracias,<br><strong>Equipo del Sistema SiCAE</strong></p>
                 </div>
             </body>

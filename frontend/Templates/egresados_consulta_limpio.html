@@ -43,7 +43,7 @@
         }
         .spinner-sp {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #6e0343;
+            border-top: 4px solid #750946;
             border-radius: 50%;
             width: 60px;
             height: 60px;
@@ -57,18 +57,18 @@
         .texto-carga-sp {
             font-size: 18px;
             font-weight: 600;
-            color: #6e0343;
+            color: #750946;
             margin-bottom: 10px;
         }
         .subtexto-carga-sp {
             font-size: 14px;
-            color: #666;
+            color: #636569;
         }
         /* === FIN OVERLAY DE CARGA === */
         
         /* === PANEL DE FILTROS SUPERIORES (ROLES 4-9) === */
         .panel-filtros-superiores {
-            background: linear-gradient(135deg, #6e0343 0%, #8b1155 100%);
+            background: linear-gradient(135deg, #750946 0%, #8b1155 100%);
             padding: 30px;
             border-radius: 16px;
             margin: 20px 0;
@@ -166,7 +166,7 @@
         
         .spinner {
             border: 4px solid rgba(255,255,255,0.3);
-            border-top-color: #6e0343;
+            border-top-color: #750946;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -184,7 +184,7 @@
             display: none;
             margin: 18px 0 6px 0;
             text-align: center;
-            background-color: #6e0343;
+            background-color: #750946;
             color: #ffffff;
             overflow: hidden;
         }
@@ -294,14 +294,14 @@
     </div>
     
     <div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
-        <div style="text-align: center; max-width: 600px; padding: 40px; background: linear-gradient(135deg, #6e0343 0%, #6e0343 100%); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+        <div style="text-align: center; max-width: 600px; padding: 40px; background: linear-gradient(135deg, #750946 0%, #750946 100%); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
             <div style="font-size: 80px; margin-bottom: 20px;">🔒</div>
             <h2 style="color: white; margin-bottom: 15px;">Acceso Restringido</h2>
             <p style="color: rgba(255,255,255,0.9); font-size: 18px; line-height: 1.6;">
                 Su rol no tiene permisos para acceder a esta sección del sistema.
             </p>
             <div style="margin-top: 30px;">
-                <a href="/mod_principal" style="display: inline-block; padding: 12px 30px; background: white; color: #6e0343; text-decoration: none; border-radius: 8px; font-weight: 600; transition: all 0.3s;">
+                <a href="/mod_principal" style="display: inline-block; padding: 12px 30px; background: white; color: #750946; text-decoration: none; border-radius: 8px; font-weight: 600; transition: all 0.3s;">
                     🏠 Volver al Inicio
                 </a>
             </div>
@@ -478,7 +478,7 @@
                 </div>
             </div>
             <div class="banner-rechazo-footer">
-                <p style="margin: 0; font-size: 14px; color: #666;">
+                <p style="margin: 0; font-size: 14px; color: #636569;">
                     ℹ️ Realice las correcciones necesarias y vuelva a validar la matrícula de egresados.
                 </p>
             </div>
@@ -525,8 +525,8 @@
     <div id="seccion-captura-egresados" style="display: none;">
 
         <!-- Filtros secundarios (Boleta, Generación, Edades) -->
-        <div class="filtros-secundarios-container" style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-top: 20px; border: 2px solid #6e0343;">
-            <h3 style="color: #6e0343; margin: 0 0 15px 0; font-size: 20px;">📋 Agregar Registros de Egresados</h3>
+        <div class="filtros-secundarios-container" style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-top: 20px; border: 2px solid #750946;">
+            <h3 style="color: #750946; margin: 0 0 15px 0; font-size: 20px;">📋 Agregar Registros de Egresados</h3>
             
             <div class="filtros-row" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
                 <div class="filtro-item">
@@ -553,7 +553,7 @@
             <!-- Selección de edades -->
             <div style="margin-top: 20px; margin-bottom: 15px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <label style="font-weight: 600; color: #6e0343; font-size: 14px;">Seleccione las edades a agregar:</label>
+                    <label style="font-weight: 600; color: #750946; font-size: 14px;">Seleccione las edades a agregar:</label>
                     <div style="display: flex; gap: 10px;">
                         <button type="button" onclick="seleccionarTodasEdades(true)" style="padding: 4px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
                             ✓ Seleccionar Todas
@@ -577,13 +577,13 @@
                         {% endfor %}
                     </div>
                 </div>
-                <div id="edades-seleccionadas-count" style="margin-top: 8px; font-size: 13px; color: #666; text-align: right;">
+                <div id="edades-seleccionadas-count" style="margin-top: 8px; font-size: 13px; color: #636569; text-align: right;">
                     0 edades seleccionadas
                 </div>
             </div>
             
             <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                <button type="button" class="btn-primary" onclick="agregarFilasEgresados()" style="padding: 12px 30px; background: #6e0343; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                <button type="button" class="btn-primary" onclick="agregarFilasEgresados()" style="padding: 12px 30px; background: #750946; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
                     ➕ Agregar Filas
                 </button>
             </div>
@@ -617,7 +617,7 @@
                     </thead>
                     <tbody id="egresados-tbody">
                         <tr>
-                            <td colspan="10" style="text-align: center; padding: 40px; color: #666;">
+                            <td colspan="10" style="text-align: center; padding: 40px; color: #636569;">
                                 <div style="font-size: 48px; margin-bottom: 15px;">📚</div>
                                 <p style="font-size: 16px; margin: 0;">Seleccione Programa y Modalidad, luego agregue filas.</p>
                             </td>
@@ -660,12 +660,12 @@
     
     <!-- Panel de Informe (oculto para roles 4-9) -->
     <div id="informe-panel" class="informe-container" style="{% if es_rol_director or es_rol_superior %}display:none;{% else %}display:block;{% endif %} margin-top: 30px;">
-        <h3 style="text-align:center; color:#6e0343;">📊 Informe de Egresados Guardados</h3>
-        <p style="text-align:center; color:#666; margin-bottom: 20px;">Datos actuales guardados en la base de datos</p>
+        <h3 style="text-align:center; color:#750946;">📊 Informe de Egresados Guardados</h3>
+        <p style="text-align:center; color:#636569; margin-bottom: 20px;">Datos actuales guardados en la base de datos</p>
         
         <div style="overflow-x: auto;">
             <table id="informe-egresados-table" style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <thead style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color: white;">
+                <thead style="background: linear-gradient(135deg, #750946 0%, #a3195b 100%); color: white;">
                     <tr>
                         <th class="filterable-header" data-column="0" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Programa <span class="filter-icon">▼</span>
@@ -764,7 +764,7 @@
 
 .filterable-header.has-filter .filter-icon {
     background: #ffffff;
-    color: #6e0343;
+    color: #750946;
     opacity: 1;
 }
 
@@ -859,7 +859,7 @@
 .filter-option input[type="checkbox"] {
     cursor: pointer;
     margin-top: 1px;
-    accent-color: #6e0343;
+    accent-color: #750946;
 }
 
 @media (max-width: 768px) {
@@ -1049,7 +1049,7 @@
         const countElement = document.getElementById('edades-seleccionadas-count');
         if (countElement) {
             countElement.textContent = `${count} edad${count !== 1 ? 'es' : ''} seleccionada${count !== 1 ? 's' : ''}`;
-            countElement.style.color = count > 0 ? '#28a745' : '#666';
+            countElement.style.color = count > 0 ? '#28a745' : '#636569';
             countElement.style.fontWeight = count > 0 ? '600' : 'normal';
         }
     }
@@ -1283,7 +1283,7 @@
         if (!thead) return;
 
         // Fila 1: Boleta, Generación, Edad, por cada turno su nombre (colspan 2), Acciones
-        let fila1 = '<tr style="background: linear-gradient(135deg, #6e0343 0%, #8b2635 100%); color: white;">';
+        let fila1 = '<tr style="background: linear-gradient(135deg, #750946 0%, #8b2635 100%); color: white;">';
         fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Boleta</th>';
         fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Generación</th>';
         fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Edad</th>';
@@ -1408,7 +1408,7 @@
         if (filasEgresados.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="${colspan}" style="text-align:center; padding:40px; color:#666;">
+                    <td colspan="${colspan}" style="text-align:center; padding:40px; color:#636569;">
                         <div style="font-size:48px; margin-bottom:15px;">📚</div>
                         <p style="font-size:16px; margin:0;">No hay registros. Use los filtros arriba para agregar filas.</p>
                     </td>
@@ -2082,7 +2082,7 @@
                 
                 // Agregar fila de totales
                 const totalGeneral = totalGeneralHombres + totalGeneralMujeres;
-                htmlFilas += `<tr id="informe-total-row" style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color: white; font-weight: 700;">
+                htmlFilas += `<tr id="informe-total-row" style="background: linear-gradient(135deg, #750946 0%, #a3195b 100%); color: white; font-weight: 700;">
                     <td colspan="6" style="padding: 12px; border: 1px solid #ddd; text-align: right;">TOTAL GENERAL:</td>
                     <td class="total-hombres" style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralHombres}</td>
                     <td class="total-mujeres" style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralMujeres}</td>

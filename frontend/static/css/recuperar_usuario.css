@@ -1,7 +1,7 @@
 /* Estilos específicos para la vista de Recuperar Usuario */
 body {
   font-family: var(--SiCAE-font-primary);
-  background: linear-gradient(135deg, #6e0343 60%, #ffffff 100%);
+  background: linear-gradient(135deg, #750946 60%, #ffffff 100%);
   min-height: 100vh;
   margin: 0;
   display: flex;
@@ -40,7 +40,7 @@ label {
   transition: border-color 0.2s;
 }
 .input-form:focus {
-  border-color: #6e0343;
+  border-color: #750946;
   outline: none;
   background: #fff;
 }
@@ -63,7 +63,7 @@ label {
   transform: translateY(-50%);
   border: none;
   background: transparent;
-  color: #6e0343;
+  color: #750946;
   cursor: pointer;
   padding: 0.2rem;
   display: inline-flex;
@@ -72,12 +72,12 @@ label {
 }
 
 .toggle-eye:focus {
-  outline: 2px solid #6e0343;
+  outline: 2px solid #750946;
   outline-offset: 2px;
   border-radius: 4px;
 }
 .btn-primary {
-  background: #6e0343;
+  background: #750946;
   color: #fff;
   border: none;
   border-radius: 6px;

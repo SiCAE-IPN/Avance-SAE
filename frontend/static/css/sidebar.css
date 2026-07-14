@@ -3,12 +3,12 @@
 :root {
     --sidebar-width-collapsed: 80px;
     --sidebar-width-expanded: 260px;
-    --ipn-morado: #6e0343;
+    --ipn-morado: #750946;
     --ipn-morado-claro: #8b1155;
     --ipn-gris-light: #f8f8f8;
     --border-color: #ddd;
     --text-primary: #2c2c2c;
-    --text-secondary: #666;
+    --text-secondary: #636569;
     --transition: all 0.25s ease-in-out;
 }
 
@@ -141,7 +141,7 @@ main {
 .sidebar-header {
     padding: 14px 12px;
     background: var(--ipn-morado);
-    color: #6e0343;
+    color: #750946;
     opacity: 1;
     visibility: visible;
     transition: all 0.25s ease-in-out;
@@ -744,7 +744,7 @@ main {
     padding: 14px 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     background: var(--ipn-morado);
-    color: #6e0343;
+    color: #750946;
     display: flex;
     align-items: center;
     justify-content: center;

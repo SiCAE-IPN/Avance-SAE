@@ -11,13 +11,13 @@ body {
 /* Si hay sidebar, el background es gradiente guinda-blanco en main */
 main {
     flex: 1;
-    background: linear-gradient(135deg, #6e0343 0%, #ffffff 100%);
+    background: linear-gradient(135deg, #750946 0%, #ffffff 100%);
     min-height: 100vh;
 }
 
 /* Cuando NO hay sidebar (login, portada, etc) */
 body:not(:has(.sidebar)) {
-    background: linear-gradient(135deg, #6e0343 60%, #ffffff 100%);
+    background: linear-gradient(135deg, #750946 60%, #ffffff 100%);
     display: block;
 }
 
@@ -51,7 +51,7 @@ body:not(:has(.sidebar)) main {
 }
 
 .btn-volver {
-    background: #6e0343;
+    background: #750946;
     color: #fff;
     padding: 8px 20px;
     border-radius: 4px;

@@ -41,7 +41,7 @@
         }
         .spinner-sp {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #6e0343;
+            border-top: 4px solid #750946;
             border-radius: 50%;
             width: 60px;
             height: 60px;
@@ -55,18 +55,18 @@
         .texto-carga-sp {
             font-size: 18px;
             font-weight: 600;
-            color: #6e0343;
+            color: #750946;
             margin-bottom: 10px;
         }
         .subtexto-carga-sp {
             font-size: 14px;
-            color: #666;
+            color: #636569;
         }
         /* === FIN OVERLAY DE CARGA === */
         
         /* === PANEL DE FILTROS SUPERIORES (ROLES 4-9) === */
         .panel-filtros-superiores {
-            background: linear-gradient(135deg, #6e0343 0%, #8b1155 100%);
+            background: linear-gradient(135deg, #750946 0%, #8b1155 100%);
             padding: 30px;
             border-radius: 16px;
             margin: 20px 0;
@@ -164,7 +164,7 @@
         
         .spinner {
             border: 4px solid rgba(255,255,255,0.3);
-            border-top-color: #6e0343;
+            border-top-color: #750946;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -179,7 +179,7 @@
         .tabla-matricula-container .tabla-header {
             margin: 0;
             padding: 4px 0;
-            background-color: #6e0343;
+            background-color: #750946;
             color: #ffffff;
             text-align: center;
         }
@@ -216,14 +216,14 @@
     </div>
     
     <div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
-        <div style="text-align: center; max-width: 600px; padding: 40px; background: linear-gradient(135deg, #6e0343 0%, #6e0343 100%); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+        <div style="text-align: center; max-width: 600px; padding: 40px; background: linear-gradient(135deg, #750946 0%, #750946 100%); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
             <div style="font-size: 80px; margin-bottom: 20px;">🔒</div>
             <h2 style="color: white; margin-bottom: 15px;">Acceso Restringido</h2>
             <p style="color: rgba(255,255,255,0.9); font-size: 18px; line-height: 1.6;">
                 Su rol no tiene permisos para acceder a esta sección del sistema.
             </p>
             <div style="margin-top: 30px;">
-                <a href="/mod_principal" style="display: inline-block; padding: 12px 30px; background: white; color: #6e0343; text-decoration: none; border-radius: 8px; font-weight: 600; transition: all 0.3s;">
+                <a href="/mod_principal" style="display: inline-block; padding: 12px 30px; background: white; color: #750946; text-decoration: none; border-radius: 8px; font-weight: 600; transition: all 0.3s;">
                     Volver al Inicio
                 </a>
             </div>
@@ -460,11 +460,11 @@
         <!-- Sección de Filtros Secundarios para Agregar Filas -->
         <div id="filtros-secundarios" style="display: none;">
 
-            <div class="filtros-secundarios-container" style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-top: 20px; border: 2px solid #6e0343;">
+            <div class="filtros-secundarios-container" style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-top: 20px; border: 2px solid #750946;">
                 {% if nivel_acceso == "3" %}
-                <h3 style="color: #6e0343; margin: 0 0 15px 0; font-size: 20px;">📋 Agregar Registro de Graduados</h3>
+                <h3 style="color: #750946; margin: 0 0 15px 0; font-size: 20px;">📋 Agregar Registro de Graduados</h3>
                 {% else %}
-                <h3 style="color: #6e0343; margin: 0 0 15px 0; font-size: 20px;">📋 Agregar Registro de Titulados</h3>
+                <h3 style="color: #750946; margin: 0 0 15px 0; font-size: 20px;">📋 Agregar Registro de Titulados</h3>
                 {% endif %} 
                 <div class="filtros-row" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
                     <div class="filtro-item">
@@ -486,7 +486,7 @@
                 <!-- Tabla de selección de edades -->
                 <div style="margin-top: 20px; margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <label style="font-weight: 600; color: #6e0343; font-size: 14px;">Seleccione las edades a agregar:</label>
+                        <label style="font-weight: 600; color: #750946; font-size: 14px;">Seleccione las edades a agregar:</label>
                         <div style="display: flex; gap: 10px;">
                             <button type="button" onclick="seleccionarTodasEdades(true)" style="padding: 4px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
                                 ✓ Seleccionar Todas
@@ -511,13 +511,13 @@
                             {% endfor %}
                         </div>
                     </div>
-                    <div id="edades-seleccionadas-count" style="margin-top: 8px; font-size: 13px; color: #666; text-align: right;">
+                    <div id="edades-seleccionadas-count" style="margin-top: 8px; font-size: 13px; color: #636569; text-align: right;">
                         0 edades seleccionadas
                     </div>
                 </div>
                 
                 <div class="filtros-row" style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                    <button type="button" id="btn-agregar-fila" class="btn-primary" onclick="agregarFilasTitulados()" style="padding: 12px 30px; background: #6e0343; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                    <button type="button" id="btn-agregar-fila" class="btn-primary" onclick="agregarFilasTitulados()" style="padding: 12px 30px; background: #750946; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
                         ➕ Agregar Filas
                     </button>
                 </div>
@@ -538,7 +538,7 @@
                         </thead>
                         <tbody id="titulados-tbody">
                             <tr>
-                                <td colspan="10" style="text-align: center; padding: 40px; color: #666;">
+                                <td colspan="10" style="text-align: center; padding: 40px; color: #636569;">
                                     <div style="font-size: 48px; margin-bottom: 15px;">📚</div>
                                     <p style="font-size: 16px; margin: 0;">Seleccione Programa y Modalidad, luego agregue filas.</p>
                                 </td>
@@ -583,8 +583,8 @@
         <!-- Panel de Informe (oculto para roles 4-9) -->
         <div id="informe-panel" class="informe-container" style="{% if es_rol_director or es_rol_superior %}display:none;{% else %}display:block;{% endif %} margin-top: 30px;">
             
-            <h3 style="text-align:center; color:#6e0343;">📊 Informe de Titulados Guardados</h3>
-            <p style="text-align:center; color:#666; margin-bottom: 20px;">Datos actuales guardados en la base de datos</p>
+            <h3 style="text-align:center; color:#750946;">📊 Informe de Titulados Guardados</h3>
+            <p style="text-align:center; color:#636569; margin-bottom: 20px;">Datos actuales guardados en la base de datos</p>
 
             <div id="pestana-semaforo-titulados" class="pestana-semaforo" title="Estado de captura por semáforo" style="display: none;">
                 <span id="semaforo-dot-titulados" class="semaforo-dot"></span>
@@ -593,7 +593,7 @@
             
             <div style="overflow-x: auto;">
                 <table id="informe-titulados-table" style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <thead style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color: white;">
+                    <thead style="background: linear-gradient(135deg, #750946 0%, #a3195b 100%); color: white;">
                         <tr>
                             <th class="filterable-header" data-column="0" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
                                 Programa <span class="filter-icon">▼</span>

@@ -5340,7 +5340,7 @@ function updateInputsBySemestre(semestreNum) {
                 contador.style.color = '#dc3545';
                 contador.style.fontWeight = 'bold';
             } else {
-                contador.style.color = '#666';
+                contador.style.color = '#636569';
                 contador.style.fontWeight = 'normal';
             }
         };

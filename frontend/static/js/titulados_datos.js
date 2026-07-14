@@ -164,7 +164,7 @@ function renderizarTablaTitulados(datosFilas) {
         </tr>`;
     });
 
-    html += `<tr id="informe-total-row-titulados" style="background: linear-gradient(135deg, #6e0343 0%, #a3195b 100%); color:white; font-weight:700;">
+    html += `<tr id="informe-total-row-titulados" style="background: linear-gradient(135deg, #750946 0%, #a3195b 100%); color:white; font-weight:700;">
         <td colspan="6" style="padding:12px; border:1px solid #ddd; text-align:right;">TOTAL GENERAL:</td>
         <td class="total-h" style="padding:12px; text-align:center; border:1px solid #ddd;">${totalGeneralH}</td>
         <td class="total-m" style="padding:12px; text-align:center; border:1px solid #ddd;">${totalGeneralM}</td>

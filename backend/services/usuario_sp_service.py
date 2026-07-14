@@ -165,17 +165,17 @@ def _enviar_correo_bienvenida(
     <html>
     <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">
         <div style=\"max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;\">
-            <h2 style=\"color: #6e0343; text-align: center;\">Bienvenid@ al SiCAE</h2>
+            <h2 style=\"color: #750946; text-align: center;\">Bienvenid@ al SiCAE</h2>
             <p>Hola <strong>{nombre_completo}</strong>,</p>
             <p>Tu cuenta fue creada exitosamente. Aqui estan tus credenciales de acceso:</p>
             <div style=\"background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;\">
                 <p><strong>Usuario:</strong> {usuario}</p>
-                <p><strong>Contrasena temporal:</strong> <span style=\"color: #6e0343; font-size: 18px; font-weight: bold;\">{password_temporal}</span></p>
+                <p><strong>Contrasena temporal:</strong> <span style=\"color: #750946; font-size: 18px; font-weight: bold;\">{password_temporal}</span></p>
             </div>
             <p style=\"color: #d9534f; font-weight: bold;\">Por seguridad, cambiala al iniciar sesion.</p>
             <p style=\"margin-top: 20px;\">Accede al sistema con el siguiente enlace:</p>
             <p style=\"text-align: center; margin: 30px 0;\">
-                <a href=\"http://148.204.107.39:50000\" style=\"display: inline-block; padding: 12px 30px; background-color: #6e0343; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;\">Acceder al SiCAE</a>
+                <a href=\"http://148.204.107.39:50000\" style=\"display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;\">Acceder al SiCAE</a>
             </p>
             <p style=\"margin-top: 30px;\">Gracias,<br><strong>Equipo SiCAE</strong></p>
         </div>

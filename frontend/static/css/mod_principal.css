@@ -16,7 +16,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 3px solid #6e0343;
+    border-bottom: 3px solid #750946;
 }
 
 .user-greeting {
@@ -44,7 +44,7 @@ body {
 .greeting-name {
     font-size: 1.2em;
     font-weight: bold;
-    color: #6e0343;
+    color: #750946;
 }
 
 .btn-cerrar-sesion {
@@ -117,10 +117,16 @@ body {
 }
 
 /* Efecto hover vibrante */
-.card-modulo:hover:not(.bloqueado) {
+.card-modulo:not(.dual-card-wrapper):hover:not(.bloqueado) {
+    background-color: #750946 !important;
     transform: translateY(-8px);
-    box-shadow: 0 15px 30px rgba(110, 3, 67, 0.15);
-    border-color: #6e0343;
+    box-shadow: 0 15px 30px rgba(117, 9, 70, 0.3);
+    border-color: #750946;
+}
+
+.card-modulo:not(.dual-card-wrapper):hover:not(.bloqueado) .card-title,
+.card-modulo:not(.dual-card-wrapper):hover:not(.bloqueado) .card-desc {
+    color: #ffffff !important;
 }
 
 .card-icon {
@@ -163,30 +169,44 @@ body {
 /* El contenedor envuelve a ambos, eliminamos el padding interno de la tarjeta padre */
 .dual-card-wrapper {
     display: flex;
-    padding: 0 !important; /* Limpiamos para que los hijos ocupen todo */
+    padding: 0 !important; /* Quitamos padding para que los botones internos lleguen al borde */
     overflow: hidden;
+    cursor: default !important; /* El cursor pointer lo manejan los botones internos */
+}
+
+.dual-card-wrapper:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 30px rgba(117, 9, 70, 0.15);
+    border-color: #750946;
 }
 
 /* Cada lado ocupa el 50% */
 .split-side {
     flex: 1;
     padding: 30px 20px;
-    transition: background 0.3s ease;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    cursor: pointer;
 }
 
 /* Efecto al pasar el mouse por un lado específico */
 .split-side:hover {
-    background: rgba(0, 0, 0, 0.03);
+    background-color: #750946 !important;
 }
 
 /* Línea divisoria muy sutil */
 .split-divider {
     width: 1px;
-    background: #000000;
-    margin: 10px 0;
+    background: #750946;
+    margin: 20px 0;
+    align-self: stretch; /* Se estira verticalmente */
 }
 
 /* Asegurar que si solo hay uno, ocupe todo */
 .split-side:only-child {
     flex: 100%;
+}
+
+.split-side:hover .card-title,
+.split-side:hover .card-desc {
+    color: #ffffff !important;
 }

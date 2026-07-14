@@ -12,7 +12,7 @@
     color: #333;
     margin-bottom: 15px;
     padding-bottom: 10px;
-    border-bottom: 2px solid #6e0343;
+    border-bottom: 2px solid #750946;
 }
 
 .tabla-programas {
@@ -25,7 +25,7 @@
 }
 
 .tabla-programas th {
-    background: #6e0343;
+    background: #750946;
     color: white;
     padding: 12px;
     text-align: left;
@@ -44,7 +44,7 @@
 .no-data {
     text-align: center;
     padding: 40px;
-    color: #666;
+    color: #636569;
     background: #f9f9f9;
     border-radius: 8px;
     margin: 20px 0;

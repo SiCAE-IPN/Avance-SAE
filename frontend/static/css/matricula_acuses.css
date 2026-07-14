@@ -14,7 +14,7 @@
 
 .acuses-header h1 {
     margin: 0;
-    color: #6e0343;
+    color: #750946;
 }
 
 .acuses-actions {
@@ -34,7 +34,7 @@
 }
 
 .btn-primary {
-    background: #6e0343;
+    background: #750946;
     color: #fff;
 }
 
@@ -46,7 +46,7 @@
 .btn-link {
     display: inline-block;
     background: #f6f6f6;
-    color: #6e0343;
+    color: #750946;
 }
 
 .acuses-empty {
@@ -70,7 +70,7 @@
 }
 
 .acuses-table thead th {
-    background: #6e0343;
+    background: #750946;
     color: #fff;
     text-align: left;
     padding: 12px;
@@ -83,7 +83,7 @@
 
 .loading-cell {
     text-align: center;
-    color: #666;
+    color: #636569;
 }
 
 @media (max-width: 768px) {

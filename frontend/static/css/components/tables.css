@@ -13,7 +13,7 @@ th, td {
 }
 
 th {
-    background: #6e0343;
+    background: #750946;
     color: #fff;
 }
 
@@ -22,7 +22,7 @@ tr:hover {
 }
 
 .btn-editar {
-    background: #6e0343;
+    background: #750946;
     color: #fff;
     padding: 6px 14px;
     border-radius: 4px;
@@ -63,7 +63,7 @@ tr:hover {
     border-radius: 6px;
     margin-top: 15px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    background-color: #6e0343;
+    background-color: #750946;
     padding: 0;
     display: block;
 }
@@ -78,7 +78,7 @@ tr:hover {
 .table-container thead th {
     position: sticky;
     top: 0;
-    background-color: #6e0343;
+    background-color: #750946;
     color: white;
     z-index: 2;
 }

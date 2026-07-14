@@ -35,7 +35,7 @@
     appearance: none;
     width: 18px;
     height: 18px;
-    border: 2px solid #6e0343;
+    border: 2px solid #750946;
     border-radius: 4px;
     margin: 0;
     cursor: pointer;
@@ -45,8 +45,8 @@
 }
 
 .format-checkbox:checked {
-    background: #6e0343;
-    border-color: #6e0343;
+    background: #750946;
+    border-color: #750946;
 }
 
 .format-checkbox:checked::after {
