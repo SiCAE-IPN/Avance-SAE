@@ -1,5 +1,7 @@
 from backend.utils.email import EmailSendError, send_email
 from typing import Dict, Union
+from sqlalchemy.orm import Session
+from backend.database.models.Usuario import Usuario
 
 def id_rol_a_nombre(id_rol: int) -> str:
     """
@@ -15,6 +17,45 @@ def id_rol_a_nombre(id_rol: int) -> str:
         9: "Director(a) de la DII"
     }
     return rol_map.get(id_rol, f"Rol desconocido (ID: {id_rol})")
+
+def obtener_correos_involucrados(
+    db: Session, 
+    id_unidad: int, 
+    id_nivel: int
+) -> Dict[str, str]:
+    """
+    Busca en la base de datos los correos del Capturista, CEGET y Titular
+    basándose en la Unidad Académica y el Nivel.
+    """
+    ROLES_NOTIFICACION = {
+        3: 'capturista', # 3 es Capturista
+        4: 'ceget',      # 4 es CEGET
+        5: 'titular'     # 5 es Titular
+    }
+    
+    # Consultamos a los usuarios que pertenezcan a la UA, Nivel y tengan los roles que buscamos
+    usuarios = db.query(Usuario).filter(
+        Usuario.Id_Unidad_Academica == id_unidad,
+        Usuario.Id_Nivel == id_nivel,
+        Usuario.Id_Rol.in_(ROLES_NOTIFICACION.keys()),
+        Usuario.Id_Estatus == 1
+    ).all()
+
+    # Inicializamos el diccionario vacío
+    correos = {
+        'capturista': "",
+        'ceget': "",
+        'titular': ""
+    }
+
+    # Poblamos el diccionario con los correos encontrados
+    for u in usuarios:
+        if u.Email: # Verificamos que el usuario realmente tenga un correo registrado
+            rol_clave = ROLES_NOTIFICACION.get(u.Id_Rol)
+            if rol_clave:
+                correos[rol_clave] = u.Email
+                
+    return correos
 
 def notificar_rechazo_global(
     *,
