@@ -30,6 +30,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 from backend.utils.request import get_request_host
 from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
+from backend.services.envio_correo_service import notificar_rechazo_global, obtener_correos_involucrados
+
 import traceback
 
 host = "Test"
@@ -508,6 +510,7 @@ async def acuse_titulados_view(
     nombre_capturista = "No definido."
     nombre_ceget = "No definido."
     nombre_titular = "No definido."
+
     Id_Unidad_Academica = db.query(Unidad_Academica.Id_Unidad_Academica).filter(
         Unidad_Academica.Sigla == unidad,
         Unidad_Academica.Id_Estatus == 1
@@ -747,7 +750,7 @@ async def validar_titulados(request: Request, sess=Depends(get_current_session),
         # Ejecución
         result = db.execute(sql, {
             'periodo': periodo_literal,
-            'ua': unidad_sigla,
+            'ua': unidad_in,
             'nivel': nivel_literal,
             'usuario': usuario_sp,
             'host': host_sp,
@@ -784,6 +787,10 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
         motivo = (data.get('motivo') or '').strip()
         _,periodo_literal = get_periodo_activo(db)
 
+
+        id_unidad_academica_in = data.get('id_unidad_academica')  # None si el rol no está en 6-9
+        id_nivel_in = data.get('id_nivel')  
+
         if not motivo:
             raise HTTPException(status_code=400, detail="Debe proporcionar un motivo de rechazo")
 
@@ -794,7 +801,7 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
         # Sesión
         id_rol = int(sess.id_rol)
         usuario_sp = sess.usuario or 'sistema'
-        unidad_sigla = (sess.sigla_unidad_academica or '').strip()
+       # unidad_sigla = (sess.sigla_unidad_academica or '').strip()
         nivel_literal = (sess.nombre_nivel or '').strip()
         host_sp = get_request_host(request)
 
@@ -804,24 +811,13 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
         if periodo_in is None:
             return {"success": False, "message": "No se recibió el periodo."}
 
-
-        if not unidad_sigla:
-            try:
-                ua = db.query(Unidad_Academica).filter(Unidad_Academica.Id_Unidad_Academica == int(sess.id_unidad_academica)).first()
-                unidad_sigla = ua.Sigla if ua else ''
-            except Exception:
-                unidad_sigla = ''
-
-        if not unidad_sigla:
-            return {"success": False, "message": "No se pudo resolver la Unidad Académica."}
-
         if not nivel_literal:
             nivel_literal = str(sess.id_nivel)
 
         print(f"\n{'='*60}")
         print("🔴 RECHAZAR TITULADOS (SP_Rechaza_Titulados)")
         print(f"Usuario: {usuario_sp} | Rol: {id_rol}")
-        print(f"Periodo: {periodo_literal} | UA: {unidad_sigla} | Nivel: {nivel_literal}")
+        print(f"Periodo: {periodo_literal} | UA: {unidad_in} | Nivel: {nivel_in}")
         print(f"Host: {host_sp}")
         print(f"Motivo: {motivo}")
         print(f"{'='*60}\n")
@@ -838,12 +834,18 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
 
         db.execute(sql, {
             'periodo': periodo_literal,
-            'ua': unidad_sigla,
-            'nivel': nivel_literal,
+            'ua': unidad_in,
+            'nivel': nivel_in,
             'usuario': usuario_sp,
             'host': host_sp,
             'nota': motivo,
         })
+        
+        obtener_correos_involucrados(
+            db=db,
+            id_unidad= id_unidad_academica_in,
+            id_nivel= id_nivel_in
+        )
 
         db.commit()
 
