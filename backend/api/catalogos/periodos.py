@@ -24,7 +24,7 @@ def periodos_view(
     UUsuario = str(sess.nombre_usuario)
     Rol = str(sess.nombre_rol)
     id_rol = int(sess.id_rol)  # Obtenemos el id_rol de la sesión
-
+    
     # 2. Validación directa del id_rol == 3
     if id_rol == 3:
         return templates.TemplateResponse("error.html", {
