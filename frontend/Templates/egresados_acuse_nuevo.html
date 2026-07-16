@@ -246,6 +246,9 @@
         <div class="acuse-footer">
             {% if usuario_ya_valido %}
                 <div class="estado-validacion estado-validado">✅ EGRESADOS VALIDADOS</div>
+                <div class="estado-validacion estado-pendiente">
+                ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
+                </div>
             {% elif usuario_ya_rechazo %}
                 <div class="estado-validacion estado-rechazado">❌ EGRESADOS RECHAZADOS</div>
             {% elif puede_validar %}

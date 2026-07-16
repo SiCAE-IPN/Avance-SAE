@@ -37,6 +37,7 @@ from backend.services.periodo_service import get_periodo_activo, get_ultimo_peri
 from backend.core.auth import VerificarAccesoAcuse
 from backend.services.encargado_ua_service import obtener_encargados
 from backend.core.session_store import SessionData,session_store
+from backend.database.models.Usuario import Usuario
 
 
 router = APIRouter()
@@ -278,28 +279,16 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
     print(f"{'='*60}")
 
     # === VERIFICAR ACCESO BASADO EN SEMÁFORO (FORMATO 3 = EGRESADOS) ===
-    # Comentado: Ahora roles 4-9 todos pueden ver el selector y elegir qué consultar
-    # if id_rol in [4, 5] and not es_rol_superior:
-    #     try:
-    #         periodo_id, periodo_literal = get_ultimo_periodo(db)
-    #         ...
-    #     except Exception as e:
-    #         print(f"Error al verificar semáforo: {str(e)}")
-
-    # === OBTENER PERIODO POR DEFECTO ===
+    # 1. PRIMERO: Obtener el periodo (aquí se definen periodo_default_id y literal)
     try:
         periodo_id, periodo_literal = get_ultimo_periodo(db)
-        if not periodo_id or not periodo_literal:
-            return templates.TemplateResponse("error.html", {
-                "request": request,
-                "error_message": "No hay un periodo activo configurado en el sistema.",
-                "redirect_url": "/mod_principal/",
-                "session": sess
-            })
-        
         periodo_default_id = periodo_id
         periodo_default_literal = periodo_literal
         print(f"📅 Periodo por defecto: {periodo_default_literal} (ID: {periodo_default_id})")
+        #periodo anterior al actual en string
+        periodo_anterior_id, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
+        print(f"📅 Periodo anterior: {periodo_anterior_literal} (ID: {periodo_anterior_id})")
+
     except Exception as e:
         print(f"❌ Error al obtener periodo: {str(e)}")
         return templates.TemplateResponse("error.html", {
@@ -308,6 +297,45 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
             "redirect_url": "/mod_principal/",
             "session": sess
         })
+
+    # === VERIFICAR RECHAZO PARA CAPTURISTAS ===
+    rechazo_info = None
+    matricula_rechazada = False
+    
+    if es_capturista and id_unidad_academica > 0:
+        try:
+            periodo_validacion_id = int(periodo_default_id) - 1
+            print(f"DEBUG: Buscando rechazos en PeriodoID anterior: {periodo_validacion_id}")
+            
+            ultimo_rechazo = db.query(Validacion).filter(
+                Validacion.Id_Periodo == periodo_validacion_id,
+                Validacion.Id_Formato == 3,  # Formato 3 = Egresados
+                Validacion.Validado == 0
+            ).order_by(Validacion.Fecha.desc()).first()
+
+            #Dependiendo del Id_Rol de Validación buscar el nombre del Usuario en el modelo de Usuarios por su ID
+            if ultimo_rechazo:
+                usuario = db.query(Usuario).filter(Usuario.Id_Usuario == ultimo_rechazo.Id_Usuario).first()
+                rol_rechazo = db.query(CatRoles).filter(CatRoles.Id_Rol == usuario.Id_Rol).first() if usuario else None
+                fecha = ultimo_rechazo.Fecha.strftime("%d/%m/%Y %H:%M:%S") if ultimo_rechazo.Fecha else "Fecha desconocida"
+
+            if ultimo_rechazo:
+                print(f"DEBUG: ¡RECHAZO ENCONTRADO en periodo {periodo_validacion_id}! Motivo: {ultimo_rechazo.Nota}")
+                matricula_rechazada = True
+                rechazo_info = {
+                    "motivo": ultimo_rechazo.Nota,
+                    "rechazado_por": f"{usuario.Nombre} {usuario.Paterno} {usuario.Materno}" if usuario else "Usuario desconocido",
+                    "nombre_rol": rol_rechazo.Rol if rol_rechazo else "Rol desconocido",
+                    "fecha_rechazo": fecha,
+                    "periodo": periodo_default_literal # Mantenemos el literal actual para mostrarlo
+                }
+            else:
+                print(f"DEBUG: No se encontró rechazo para el periodo {periodo_validacion_id}.")
+                
+        except Exception as e:
+            print(f"DEBUG: ERROR al consultar la tabla de Validacion: {str(e)}")
+    else:
+        print(f"DEBUG: No se verificó rechazo (es_capturista={es_capturista})")
 
     # === OBTENER INFORMACIÓN DE UNIDAD ACADÉMICA ===
     unidad_actual = None
@@ -628,31 +656,6 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
             import traceback
             traceback.print_exc()
 
-    # === VERIFICAR RECHAZO PARA CAPTURISTAS ===
-    rechazo_info = None
-    matricula_rechazada = False
-    if es_capturista and id_unidad_academica > 0:
-        try:
-            # Nota: Validacion no tiene Id_Unidad_Academica en su estructura actual
-            # Verificamos por periodo y formato solamente
-            ultimo_rechazo = db.query(Validacion).filter(
-                Validacion.Id_Periodo == periodo_default_id,
-                Validacion.Id_Formato == 3,  # Formato 3 = Egresados
-                Validacion.Validado == False
-            ).order_by(Validacion.Fecha.desc()).first()
-            
-            if ultimo_rechazo:
-                matricula_rechazada = True
-                rechazo_info = {
-                    "motivo": ultimo_rechazo.Nota,
-                    "rechazado_por": ultimo_rechazo.Usuario,
-                    "fecha": ultimo_rechazo.Fecha.strftime("%d/%m/%Y %H:%M") if ultimo_rechazo.Fecha else "N/A",
-                    "periodo": periodo_default_literal
-                }
-                print(f"⚠️ Egresados rechazados por: {rechazo_info['rechazado_por']}")
-        except Exception as e:
-            print(f"Error al verificar rechazo: {str(e)}")
-
     # Obtener datos del semáforo para las pestañas de turnos (primeros 3 registros)
     semaforo_estados = db.query(CatSemaforo).filter(CatSemaforo.Id_Semaforo.in_([1, 2, 3])).order_by(CatSemaforo.Id_Semaforo).all()
     semaforo_data = []
@@ -734,6 +737,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
         "id_rol": id_rol,
         "periodo_default_id": periodo_default_id,
         "periodo_default_literal": periodo_default_literal,
+        "periodo_anterior_literal": periodo_anterior_literal,
         "unidad_actual": unidad_actual,
         "programas": programas_formatted,
         "modalidades": modalidades_formatted,
