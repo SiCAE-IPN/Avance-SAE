@@ -12,9 +12,9 @@
             --color-fail: #a6293f;
             --color-fail-bg: #010000;
 
-            --font-display: 'Fraunces', 'Georgia', serif;
-            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+            --font-display: 'Noto Sans', 'Georgia', serif;
+            --font-body: 'Noto Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'Noto Sans', ui-monospace, monospace;
 
             --radius: 10px;
         }
@@ -62,8 +62,8 @@
 
         .emblem {
             position: relative;
-            width: 108px;
-            height: 108px;
+            width: 168px;
+            height: 168px;
             margin: 0 0 22px;
             display: flex;
             align-items: center;
@@ -108,8 +108,8 @@
         .escudo {
             position: relative;
             z-index: 1;
-            width: 140px;
-            height: 140px;
+            width: 150px;
+            height: 150px;
             object-fit: contain;
             filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
         }
@@ -131,7 +131,7 @@
 
         .brand-logo {
             font-family: var(--font-display);
-            font-weight: 600;
+            font-weight: 700;
             font-size: clamp(2.6rem, 5vw, 3.4rem);
             line-height: 1;
             margin: 0 0 10px;
