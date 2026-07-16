@@ -342,13 +342,16 @@
             <div class="estado-validacion estado-validado">
                 ✅ MATRÍCULA VALIDADA
             </div>
+            <div class="estado-validacion estado-pendiente">
+                ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
+            </div>
         {% elif usuario_ya_rechazo %}
             <div class="estado-validacion estado-rechazado">
                 ❌ MATRÍCULA RECHAZADA
             </div>
         {% elif puede_validar or pendiente_validacion %}
             <div class="estado-validacion estado-pendiente">
-                ⏳ PENDIENTE DE VALIDAR
+                ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
             </div>
         {% else %}
             <div class="estado-validacion estado-esperando">

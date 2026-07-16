@@ -235,12 +235,31 @@ let semaforoEstados = __MAT.semaforoEstados ?? [];
                     mensaje.style.cssText = 'margin-top: 20px; padding: 15px; border-radius: 8px; text-align: center; font-size: 16px;';
                     contenedorBotones.parentNode.insertBefore(mensaje, contenedorBotones);
                 }
+
+                // Deducimos quién falta en base a mi propio rol.
+                // Si yo no puedo validar, es porque el nivel anterior a mí no ha terminado.
+                let rolPendiente = "el nivel anterior";
+                const miRol = window.__MAT.idRol; 
                 
+                if (miRol === 4) rolPendiente = "Capturista";
+                else if (miRol === 5) rolPendiente = "CEGET";
+                else if (miRol === 6) rolPendiente = "Titular";
+                else if (miRol === 7) rolPendiente = "Analista";
+                else if (miRol === 8) rolPendiente = "Jefe de Departamento";
+                else if (miRol === 9) rolPendiente = "Jefe de División";
+
+                // Si por alguna razón el backend manda la variable, le damos prioridad
+                if (validacionEstado.rol_pendiente) {
+                    rolPendiente = validacionEstado.rol_pendiente;
+                }
+
                 mensaje.style.display = 'block';
                 mensaje.style.backgroundColor = '#fff3cd';
                 mensaje.style.color = '#856404';
                 mensaje.style.border = '1px solid #ffeeba';
-                mensaje.innerHTML = '<span class="icono-info">⏳</span> Esperando validación de nivel anterior.';
+                
+                // TEXTO MEJORADO:
+                mensaje.innerHTML = `<span class="icono-info">⏳</span> El formulario está Pendiente de Validar por: <strong>${rolPendiente}</strong>`;
                 
             } else {
                 // Usuario puede validar - MOSTRAR botones

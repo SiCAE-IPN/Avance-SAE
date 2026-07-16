@@ -54,7 +54,7 @@ from backend.database.models.Temp_Matricula import Temp_Matricula
 from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo, get_periodo_anterior_al_ultimo
 
-from backend.services.envio_correo_service import notificar_rechazo_global, html_correo_acuse
+from backend.services.envio_correo_service import notificar_rechazo_global, html_correo_acuse, obtener_correos_involucrados
 from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 from backend.core.session_store import SessionData,session_store
 
@@ -454,6 +454,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
         
         return templates.TemplateResponse("matricula_consulta.html", {
             "request": request,
+            "esperando_por_rol": esperando_por_rol,
             "nombre_usuario": nombre_completo,
             "nombre_rol": nombre_rol,
             "id_unidad_academica": id_unidad_academica,
@@ -1578,7 +1579,7 @@ async def resumen_matricula_roles_superiores(request: Request, sess=Depends(get_
 # Endpoint de depuración detallada del SP
 @router.get('/debug_sp')
 async def debug_sp(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
-    """Endpoint de depuración que usa el servicio (sin SQL crudo aquí)."""
+
     try:
         id_unidad_academica = int(sess.id_unidad_academica)
         id_nivel = int(sess.id_nivel)
@@ -3331,45 +3332,6 @@ async def ejecutar_sp_finalizar_captura(request: Request, sess=Depends(get_curre
             "error": f"Error al ejecutar SP de finalización: {str(e)}"
         }
 
-def obtener_correos_involucrados(
-    db: Session, 
-    id_unidad: int, 
-    id_nivel: int
-) -> Dict[str, str]:
-    """
-    Busca en la base de datos los correos del Capturista, CEGET y Titular
-    basándose en la Unidad Académica y el Nivel.
-    """
-    ROLES_NOTIFICACION = {
-        3: 'capturista', # 3 es Capturista
-        4: 'ceget',      # 4 es CEGET
-        5: 'titular'     # 5 es Titular
-    }
-    
-    # Consultamos a los usuarios que pertenezcan a la UA, Nivel y tengan los roles que buscamos
-    usuarios = db.query(Usuario).filter(
-        Usuario.Id_Unidad_Academica == id_unidad,
-        Usuario.Id_Nivel == id_nivel,
-        Usuario.Id_Rol.in_(ROLES_NOTIFICACION.keys()),
-        Usuario.Id_Estatus == 1
-    ).all()
-
-    # Inicializamos el diccionario vacío
-    correos = {
-        'capturista': "",
-        'ceget': "",
-        'titular': ""
-    }
-
-    # Poblamos el diccionario con los correos encontrados
-    for u in usuarios:
-        if u.Email: # Verificamos que el usuario realmente tenga un correo registrado
-            rol_clave = ROLES_NOTIFICACION.get(u.Id_Rol)
-            if rol_clave:
-                correos[rol_clave] = u.Email
-                
-    return correos
-
 @router.post("/rechazar_semestre_rol")
 async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
     """
@@ -4373,6 +4335,7 @@ async def acuse_validacion_view(
                 "nombre_ceget": nombre_ceget,
                 "nombre_titular": nombre_titular,
                 "error_message": "No hay datos disponibles para este acuse",
+                "esperando_por_rol": esperando_por_rol,
                 "session": sess
             })
 
@@ -4487,6 +4450,48 @@ async def acuse_validacion_view(
                 if estado_semaforo == (id_rol - 1): puede_validar = True
                 elif estado_semaforo >= id_rol: usuario_ya_valido = True
             
+        # Inicializamos la variable por defecto
+        esperando_por_rol = "Capturista"
+
+        if id_rol in [4, 5, 6, 7, 8, 9]:
+            id_usuario_actual = int(getattr(sess, 'id_usuario', 0) or 0)
+            periodo_obj = db.query(Periodo).filter(Periodo.Periodo == periodo).first()
+            id_periodo = periodo_obj.Id_Periodo if periodo_obj else None
+
+            semaforo = None
+            if id_unidad_academica and id_periodo and id_nivel:
+                semaforo = db.query(SemaforoUnidadAcademica).filter(
+                    SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+                    SemaforoUnidadAcademica.Id_Periodo == id_periodo,
+                    SemaforoUnidadAcademica.Id_Formato == 1,
+                    SemaforoUnidadAcademica.Id_Nivel == id_nivel
+                ).first()
+
+            if semaforo:
+                estado_semaforo = semaforo.Id_Semaforo
+                estado_semaforo_actual = estado_semaforo
+                if estado_semaforo == (id_rol - 1): puede_validar = True
+                elif estado_semaforo >= id_rol: usuario_ya_valido = True
+                
+                # ==== NUEVO: CALCULAR QUIÉN SIGUE ====
+                semaforo_a_siguiente_rol = {
+                    3: 4,  # Semáforo 3 -> Sigue CEGET (4)
+                    4: 5,  # Semáforo 4 -> Sigue Titular (5)
+                    5: 6,  # Semáforo 5 -> Sigue Analista (6)
+                    6: 7,  # Semáforo 6 -> Sigue Jefe Depto (7)
+                    7: 8,  # Semáforo 7 -> Sigue Jefe División (8)
+                    8: 9,  # Semáforo 8 -> Sigue Director (9)
+                }
+                
+                # Obtenemos el ID del rol que sigue (si es menor a 3, sigue siendo Capturista)
+                siguiente_rol_id = semaforo_a_siguiente_rol.get(estado_semaforo_actual, 3)
+                
+                # Consultamos el nombre real del rol en la base de datos
+                rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == siguiente_rol_id).first()
+                if rol_obj:
+                    esperando_por_rol = rol_obj.Rol
+                # =====================================
+
             if id_usuario_actual and id_periodo:
                 validacion_rechazo = db.query(Validacion).filter(
                     Validacion.Id_Periodo == id_periodo,
@@ -4537,6 +4542,7 @@ async def acuse_validacion_view(
             "nombre_ceget": nombre_ceget,
             "nombre_titular": nombre_titular,
             "error_message": None,
+            "esperando_por_rol": esperando_por_rol,
             "session": sess
         })
 
