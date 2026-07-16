@@ -1,67 +1,424 @@
-body {
-    font-family: var(--SiCAE-font-primary);
-    background: linear-gradient(135deg, #6e0343 60%, #ffffff 100%);
-    min-height: 100vh;
-    margin: 0;
-    padding: 0;
-}
-.container {
-    max-width: 400px;
-    margin: 60px auto;
-    background: #f9f9f9;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    padding: 32px 24px 24px 24px;
-}
-.input-form {
-    padding: 8px;
-    width: 80%;
-    margin-bottom: 10px;
-    box-sizing: border-box;
-}
-.link-volver {
-    display: block;
-    margin-top: 30px;
-}
-.status {
-    margin-top: 20px;
-    padding: 10px;
-    border-radius: 4px;
-    font-weight: bold;
-}
-.status.ok {
-    background: #e6f4ea;
-    color: #155724;
-}
-.status.fail {
-    background: #f8d7da;
-    color: #721c24;
-}
-button[type="submit"] {
-    background: #6e0343;
-    color: #fff;
-    border: none;
-    padding: 10px 24px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-}
-button[type="submit"]:hover {
-    background: #4a022e;
-}
-.btn-volver {
-    background: #6e0343;
-    color: #fff;
-    padding: 8px 20px;
-    border-radius: 4px;
-    border: none;
-    font-size: 15px;
-    cursor: pointer;
-    margin-top: 10px;
-}
-.btn-volver:hover {
-    background: #4a022e;
-}
-.password-wrapper { position: relative; display: inline-block; width: 80%; }
-.password-wrapper .input-form { width: 100%; padding-right: 40px; }
-.toggle-eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; padding: 4px; color: #6e0343; }
+:root {
+            --color-bg: #edeef0;
+            --color-guinda: #6b1e3c;
+            --color-guinda-dark: #3f1123;
+            --color-gold: #c9a227;
+            --color-ink: #241019;
+            --color-paper: #ffffff;
+            --color-muted: #8b7e82;
+            --color-border: #e2dee0;
+            --color-ok: #2f6b46;
+            --color-ok-bg: #eaf4ee;
+            --color-fail: #a6293f;
+            --color-fail-bg: #010000;
+
+            --font-display: 'Fraunces', 'Georgia', serif;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+            --radius: 10px;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            font-family: var(--font-body);
+            color: var(--color-ink);
+            background: var(--color-bg);
+        }
+
+        .page {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+        }
+
+        /* ---------- Brand panel ---------- */
+
+        .brand-panel {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 48px;
+            overflow: hidden;
+            background: linear-gradient(160deg, var(--color-paper) 0%, var(--color-paper) 100%);
+            color: #f6ecef;
+        }
+
+        .brand-content {
+            position: relative;
+            z-index: 1;
+            max-width: 380px;
+            width: 100%;
+        }
+
+        /* Emblem: escudo institucional sobre un engranaje giratorio */
+
+        .emblem {
+            position: relative;
+            width: 108px;
+            height: 108px;
+            margin: 0 0 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gear {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            transform-origin: 50% 50%;
+        }
+
+        .gear-ring {
+            fill: none;
+            stroke: var(--color-gold);
+            stroke-width: 22;
+            stroke-dasharray: 13 11;
+            opacity: 0.55;
+        }
+
+        .gear-hub {
+            fill: none;
+            stroke: var(--color-gold);
+            stroke-width: 2;
+            opacity: 0.35;
+        }
+
+        .gear.spin {
+            animation: spin 16s linear infinite;
+        }
+
+        .emblem:hover .gear.spin {
+            animation-duration: 6s;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .escudo {
+            position: relative;
+            z-index: 1;
+            width: 140px;
+            height: 140px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+        }
+
+        /* Si aún no existe /static/logos/ipn.png, mostramos solo el
+           engranaje en vez de un ícono de imagen rota */
+        .emblem.escudo-missing .escudo {
+            display: none;
+        }
+
+        .brand-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--color-gold);
+            margin: 0 0 14px;
+        }
+
+        .brand-logo {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: clamp(2.6rem, 5vw, 3.4rem);
+            line-height: 1;
+            margin: 0 0 10px;
+            color: #000000;
+        }
+
+        .brand-tagline {
+            font-size: 0.98rem;
+            color:#6b1e3c; 
+            margin: 0 0 40px;
+        }
+
+        /* Signature: rising bars over a faint data-point grid,
+           standing in for the "aprovechamiento" the system tracks */
+        .chart-signature {
+            position: relative;
+            height: 130px;
+            margin-bottom: 28px;
+            border-bottom: 1px solid rgba(246, 236, 239, 0.18);
+        }
+
+        .dot-grid {
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(rgba(246, 236, 239, 0.16) 1px, transparent 1px);
+            background-size: 14px 14px;
+            mask-image: linear-gradient(to top, black, transparent 85%);
+        }
+
+        .bars {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            padding-bottom: 1px;
+        }
+
+        .bar {
+            flex: 1;
+            height: var(--h);
+            border-radius: 3px 3px 0 0;
+            background: linear-gradient(180deg, var(--color-gold) 0%, #a9852c 100%);
+            transform-origin: bottom;
+            animation: rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d) both;
+        }
+
+        .bar:last-child {
+            background: linear-gradient(180deg, #f3d976 0%, var(--color-gold) 100%);
+        }
+
+        @keyframes rise {
+            from { transform: scaleY(0); opacity: 0; }
+            to   { transform: scaleY(1); opacity: 1; }
+        }
+
+        .brand-caption {
+            font-family: var(--font-mono);
+            font-size: 0.76rem;
+            color: #d8b6c0;
+            margin: 0;
+        }
+
+        /* ---------- Form panel ---------- */
+
+        .form-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            background: linear-gradient(160deg, var(--color-guinda) 0%, var(--color-guinda-dark) 100%);
+        }
+
+        .form-card {
+            width: 100%;
+            max-width: 380px;
+            background: var(--color-paper);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            padding: 40px 36px;
+            box-shadow: 0 24px 48px -28px rgba(36, 16, 25, 0.35);
+        }
+
+        .form-title {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 1.7rem;
+            margin: 0 0 6px;
+            color: var(--color-ink);
+        }
+
+        .form-subtitle {
+            font-size: 0.92rem;
+            color: var(--color-muted);
+            margin: 0 0 28px;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .field-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: var(--color-ink);
+        }
+
+        .input-form {
+            width: 100%;
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            padding: 12px 14px;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: #fbfafa;
+            color: var(--color-ink);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .input-form::placeholder {
+            color: var(--color-muted);
+        }
+
+        .input-form:hover {
+            border-color: #c9bfc3;
+        }
+
+        .input-form:focus {
+            outline: none;
+            background: var(--color-paper);
+            border-color: var(--color-guinda);
+            box-shadow: 0 0 0 3px rgba(107, 30, 60, 0.14);
+        }
+
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-wrapper .input-form {
+            padding-right: 42px;
+        }
+
+        .toggle-eye {
+            position: absolute;
+            right: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            color: var(--color-muted);
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        .toggle-eye:hover {
+            color: var(--color-guinda);
+        }
+
+        .toggle-eye:focus-visible {
+            outline: 2px solid var(--color-guinda);
+            outline-offset: 2px;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 13px 16px;
+            margin-top: 4px;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #fbf6ee;
+            background: var(--color-guinda);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.05s ease;
+        }
+
+        .btn-submit:hover {
+            background: var(--color-guinda-dark);
+        }
+
+        .btn-submit:active {
+            transform: translateY(1px);
+        }
+
+        .btn-submit:focus-visible {
+            outline: 2px solid var(--color-gold);
+            outline-offset: 2px;
+        }
+
+        .recuperacion-links {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 4px;
+            font-size: 0.82rem;
+        }
+
+        .recuperacion-links a {
+            color: var(--color-muted);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+        }
+
+        .recuperacion-links a:hover {
+            color: var(--color-guinda);
+            border-bottom-color: var(--color-guinda);
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 11px 14px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            text-align: center;
+        }
+
+        .status.ok {
+            background: var(--color-ok-bg);
+            color: var(--color-ok);
+        }
+
+        .status.fail {
+            background: var(--color-fail-bg);
+            color: var(--color-fail);
+        }
+
+        /* ---------- Responsive ---------- */
+
+        @media (max-width: 900px) {
+            .page {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .brand-panel {
+                padding: 32px 28px;
+                min-height: 240px;
+            }
+
+            .chart-signature {
+                height: 90px;
+                margin-bottom: 18px;
+            }
+
+            .brand-tagline {
+                margin-bottom: 22px;
+            }
+
+            .form-card {
+                box-shadow: none;
+                border: none;
+                padding: 32px 8px;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .form-panel {
+                padding: 20px;
+            }
+        }
+
+        /* ---------- Reduced motion ---------- */
+
+        @media (prefers-reduced-motion: reduce) {
+            .bar {
+                animation: none;
+                transform: scaleY(1);
+                opacity: 1;
+            }
+
+            .gear.spin {
+                animation: none;
+            }
+        }

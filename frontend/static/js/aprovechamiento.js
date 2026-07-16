@@ -354,15 +354,18 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
     tbody.appendChild(trSep);
 
     const listaSit = Object.keys(datosAprovechamiento).length > 0
-        ? Object.keys(datosAprovechamiento)
-        : ['Aprobado', 'Reprobado', 'Desertor'];
-
+        ? Object.keys(datosAprovechamiento).filter(sit => !['desertor', 'deserción', 'desercion'].includes(sit.toLowerCase()))
+        : ['Aprobado', 'Reprobado']; // Dejamos solo los editables al principio
+    
     listaSit.forEach(sit => {
         crearFilaInput(tbody, sit, turnos, datosAprovechamiento[sit] || {}, false, 'fila-aprovechamiento', esSemestreBloqueado);
     });
 
+    crearFilaDesercionCalculada(tbody, 'Deserción', turnos, '#f1f3f4');
+
     crearFilaTotalizador(tbody, 'Total Aprovechamiento', turnos, 'total-aprovechamiento', '#fff3e0');
-    calcularTablaUnificada();
+    
+    calcularTablaUnificada()
 
     if (scrollPendiente !== null) {
         setTimeout(() => { window.scrollTo({ top: scrollPendiente, behavior: 'auto' }); scrollPendiente = null; }, 100);
@@ -378,6 +381,39 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
 // ==========================================
 // 9. Filas de inputs y totalizadores
 // ==========================================
+
+function crearFilaDesercionCalculada(tbody, titulo, turnos, colorFondo) {
+    const tr = document.createElement('tr');
+    tr.style.backgroundColor = colorFondo; 
+    tr.style.borderBottom = '1px solid #dee2e6';
+    
+    // Celda de título
+    tr.innerHTML = `<td style="font-weight:700; text-align:center; padding:14px 12px; border:1px solid #dee2e6; vertical-align:middle; font-size:14px; color:#555; background:#e9ecef; white-space:normal; word-break:keep-all; min-width:160px; width:160px; max-width:160px;">${titulo}</td>`;
+
+    turnos.forEach((t, indexTurno) => {
+        const borderRight = indexTurno < turnos.length - 1 ? 'border-right:3px solid #8B0A4A;' : '';
+        
+        tr.innerHTML += `
+        <td style="padding:10px 8px; text-align:center; border:1px solid #dee2e6; ${borderRight}">
+            <div style="display:inline-flex; gap:8px; justify-content:center; align-items:center;">
+                
+                <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#e3f2fd; border-radius:8px; border:2px solid #90caf9;">
+                    <span style="font-size:12px; color:#1976d2; font-weight:800; margin-right:4px;">H</span>
+                    <span id="desercion-${t}-Hombre" class="span-desercion-calculada" data-turno="${t}" data-sexo="Hombre" style="font-weight:800; color:#546e7a; font-size:14px; display:inline-block; text-align:center;">0</span>
+                </div>
+                
+                <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:#fce4ec; border-radius:8px; border:2px solid #f48fb1;">
+                    <span style="font-size:12px; color:#c2185b; font-weight:800; margin-right:4px;">M</span>
+                    <span id="desercion-${t}-Mujer" class="span-desercion-calculada" data-turno="${t}" data-sexo="Mujer" style="font-weight:800; color:#546e7a; font-size:14px; display:inline-block; text-align:center;">0</span>
+                </div>
+                
+            </div>
+        </td>`;
+    });
+
+    tbody.appendChild(tr);
+}
+
 function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFila, esBloqueadoGral) {
     const tr = document.createElement('tr');
     tr.className = claseFila;
@@ -470,6 +506,7 @@ window.registrarCambio = function (input) {
 };
 
 window.calcularTablaUnificada = function () {
+    // 1. Calcular e inyectar Totales de Matrícula
     const sumaMatricula = {};
     document.querySelectorAll('.fila-matricula input').forEach(input => {
         const key = `${input.dataset.turno}-${input.dataset.sexo}`;
@@ -480,26 +517,42 @@ window.calcularTablaUnificada = function () {
         if (span) span.textContent = val;
     });
 
-    const sumaAprov = {};
+    // 2. Calcular la suma de los campos de Aprovechamiento EDITABLES (Aprobados, Reprobados...)
+    const sumaAprovEditables = {};
     document.querySelectorAll('.fila-aprovechamiento input').forEach(input => {
         const key = `${input.dataset.turno}-${input.dataset.sexo}`;
-        sumaAprov[key] = (sumaAprov[key] || 0) + (parseInt(input.value) || 0);
+        sumaAprovEditables[key] = (sumaAprovEditables[key] || 0) + (parseInt(input.value) || 0);
     });
 
+    // 3. NUEVO: Calcular Deserción Dinámica e Inyectar en los elementos especiales
     if (window.turnosActualesPantalla) {
         window.turnosActualesPantalla.forEach(t => {
             ['Hombre', 'Mujer'].forEach(s => {
-                const key  = `${t}-${s}`;
-                const span = document.getElementById(`total-aprovechamiento-${key}`);
-                if (!span) return;
+                const key = `${t}-${s}`;
                 const totalM = sumaMatricula[key] || 0;
-                const totalA = sumaAprov[key]     || 0;
-                if (totalM !== totalA) {
-                    span.style.color = '#dc3545';
-                    span.innerHTML   = `${totalA} <i class="fas fa-exclamation-circle" style="font-size:16px;"></i>`;
+                const totalAprovRestante = sumaAprovEditables[key] || 0;
+                
+                // Fórmula: Total Matricula - Suma del resto
+                const desercionCalculada = Math.max(0, totalM - totalAprovRestante); 
+                
+                // Inyectamos el valor en la fila gris
+                const spanDesercion = document.getElementById(`desercion-${t}-${s}`);
+                if (spanDesercion) {
+                    spanDesercion.textContent = desercionCalculada;
+                }
+
+                // 4. Actualizar el Totalizador Final (Aprovechamiento Completo = Editables + Deserción)
+                const spanTotalAprov = document.getElementById(`total-aprovechamiento-${key}`);
+                if (!spanTotalAprov) return;
+
+                const totalAprovechamientoCompleto = totalAprovRestante + desercionCalculada;
+
+                if (totalM !== totalAprovechamientoCompleto) {
+                    spanTotalAprov.style.color = '#dc3545';
+                    spanTotalAprov.innerHTML = `${totalAprovechamientoCompleto} <i class="fas fa-exclamation-circle" style="font-size:16px;"></i>`;
                 } else {
-                    span.style.color = '#198754';
-                    span.innerHTML   = `${totalA} <i class="fas fa-check" style="font-size:16px;"></i>`;
+                    spanTotalAprov.style.color = '#198754';
+                    spanTotalAprov.innerHTML = `${totalAprovechamientoCompleto} <i class="fas fa-check" style="font-size:16px;"></i>`;
                 }
             });
         });

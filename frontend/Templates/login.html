@@ -5,48 +5,85 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login SiCAE</title>
-    <link rel="stylesheet" href="/static/css/fonts.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/login.css">
+
 </head>
 <body>
-    <div class="container">
-        <h2>SiCAE <br> Iniciar Sesión</h2>
-        <form method="post" action="/login">
-            <input type="text" name="usuario_email" placeholder="Usuario" required class="input-form">
-            <br>
-            <div class="password-wrapper">
-                <input id="password" type="password" name="password" placeholder="Contraseña" required class="input-form" autocomplete="current-password">
-                <button type="button" id="togglePassword" class="toggle-eye" aria-label="Mostrar contraseña" title="Mostrar/Ocultar">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <!-- Ojo abierto -->
-                        <g class="icon-open" style="display:none">
-                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                        </g>
-                        <!-- Ojo cerrado sin diagonal: párpado y pestañas -->
-                        <g class="icon-closed">
-                            <!-- Párpado (arco superior) -->
-                            <path d="M2 12 C7 8, 17 8, 22 12"></path>
-                            <!-- Pestañas -->
-                            <line x1="6" y1="10" x2="6" y2="8"></line>
-                            <line x1="12" y1="9.5" x2="12" y2="7.5"></line>
-                            <line x1="18" y1="10" x2="18" y2="8"></line>
-                        </g>
-                    </svg>
-                </button>
+    <div class="page">
+
+        <!-- Brand panel -->
+        <aside class="brand-panel">
+            <div class="brand-content">
+
+                <div class="emblem">
+
+                    <img
+                        src="/static/logos/SICAE.png"
+                        alt="Escudo del Instituto Politécnico Nacional"
+                        class="escudo"
+                        onerror="this.parentElement.classList.add('escudo-missing')">
+                </div>
+
+                <h1 class="brand-logo">SiCAE</h1>
+                <p class="brand-tagline">Sistema de Captura y Análisis de la Estadística</p>
+                
             </div>
-            <br>
-            <button type="submit">Ingresar</button>
-            <div class="recuperacion-links" style="margin-top:12px; font-size:0.85rem; line-height:1.4;">
-                <a href="/recuperacion/usuario" style="display:inline-block; margin-right:10px;">¿Olvidaste tu usuario?</a>
-                <a href="/recuperacion/password" style="display:inline-block;">¿Olvidaste tu contraseña?</a>
+        </aside>
+
+        <!-- Form panel -->
+        <main class="form-panel">
+            <div class="form-card">
+                <h2 class="form-title">Iniciar sesión</h2>
+                <p class="form-subtitle">Ingresa tus datos para continuar.</p>
+
+                <form method="post" action="/login" class="login-form">
+                    <label class="field">
+                        <span class="field-label">Usuario</span>
+                        <input type="text" name="usuario_email" placeholder="Usuario o correo" required class="input-form">
+                    </label>
+
+                    <label class="field">
+                        <span class="field-label">Contraseña</span>
+                        <div class="password-wrapper">
+                            <input id="password" type="password" name="password" placeholder="Contraseña" required class="input-form" autocomplete="current-password">
+                            <button type="button" id="togglePassword" class="toggle-eye" aria-label="Mostrar contraseña" title="Mostrar/Ocultar">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <!-- Ojo abierto -->
+                                    <g class="icon-open" style="display:none">
+                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </g>
+                                    <!-- Ojo cerrado sin diagonal: párpado y pestañas -->
+                                    <g class="icon-closed">
+                                        <path d="M2 12 C7 8, 17 8, 22 12"></path>
+                                        <line x1="6" y1="10" x2="6" y2="8"></line>
+                                        <line x1="12" y1="9.5" x2="12" y2="7.5"></line>
+                                        <line x1="18" y1="10" x2="18" y2="8"></line>
+                                    </g>
+                                </svg>
+                            </button>
+                        </div>
+                    </label>
+
+                    <button type="submit" class="btn-submit">Ingresar</button>
+
+                    <div class="recuperacion-links">
+                        <a href="/recuperacion/usuario">¿Olvidaste tu usuario?</a>
+                        <a href="/recuperacion/password">¿Olvidaste tu contraseña?</a>
+                    </div>
+                </form>
+
+                {% if mensaje is defined %}
+                    <div class="status {{ 'ok' if exito else 'fail' }}">
+                        {{ mensaje }}
+                    </div>
+                {% endif %}
             </div>
-        </form>
-        {% if mensaje is defined %}
-            <div class="status {{ 'ok' if exito else 'fail' }}">
-                {{ mensaje }}
-            </div>
-        {% endif %}
+        </main>
+    </div>
 
     <script>
         (function(){
@@ -66,7 +103,26 @@
                 });
             }
         })();
+
+        (function () {
+            const gear = document.querySelector('.gear');
+            if (!gear) return;
+
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+            function applyMotionState() {
+                const shouldSpin = !reduceMotion.matches && !document.hidden;
+                gear.classList.toggle('spin', shouldSpin);
+            }
+
+            applyMotionState();
+
+            // Si el usuario cambia su preferencia de movimiento en el sistema
+            reduceMotion.addEventListener('change', applyMotionState);
+
+            // Pausa el giro cuando la pestaña no está visible
+            document.addEventListener('visibilitychange', applyMotionState);
+        })();
     </script>
-    </div>
 </body>
 </html>
