@@ -751,7 +751,7 @@ async def validar_titulados(request: Request, sess=Depends(get_current_session),
         result = db.execute(sql, {
             'periodo': periodo_literal,
             'ua': unidad_in,
-            'nivel': nivel_literal,
+            'nivel': nivel_in,
             'usuario': usuario_sp,
             'host': host_sp,
             'nota': nota_sp,

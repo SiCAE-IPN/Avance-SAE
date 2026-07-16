@@ -180,7 +180,7 @@ function renderizarTablaTituladosCaptura() {
                     <input type="number" min="0"
                         value="${vals.hombres}"
                         onkeydown="if(event.key==='-'||event.key==='.'||event.key==='e') event.preventDefault()"
-                        oninput="this.value=this.value.replace(/[^0-9]/g,''); actualizarValorTitulado(${fila.id}, '${turno}', 'hombres', this.value)"
+                        oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); actualizarValorTitulado(${fila.id}, '${turno}', 'hombres', this.value)"
                         style="width:42px;padding:2px 3px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:11px;">
                 </div>
             </td>
@@ -190,7 +190,7 @@ function renderizarTablaTituladosCaptura() {
                     <input type="number" min="0"
                         value="${vals.mujeres}"
                         onkeydown="if(event.key==='-'||event.key==='.'||event.key==='e') event.preventDefault()"
-                        oninput="this.value=this.value.replace(/[^0-9]/g,''); actualizarValorTitulado(${fila.id}, '${turno}', 'mujeres', this.value)"
+                        oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); actualizarValorTitulado(${fila.id}, '${turno}', 'mujeres', this.value)"
                         style="width:42px;padding:2px 3px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#c2185b;font-weight:600;text-align:center;font-size:11px;">
                 </div>
             </td>`;
