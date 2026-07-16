@@ -117,14 +117,17 @@ def notificar_rechazo_global(
     </html>
     """
 
-    # 3. Enviar el correo (uniendo la lista con comas, o usando un ciclo for si tu send_email envía individual)
-    correos_str = ", ".join(destinatarios)
-    
-    try:
-        send_email(correos_str, asunto, cuerpo)
-        print(f"📧 Correo de rechazo enviado exitosamente a: {correos_str}")
-    except Exception as e:
-        print(f"❌ Error al enviar el correo de rechazo: {str(e)}")
+    # 3. Enviar el correo iterando sobre la lista de destinatarios
+    if not destinatarios:
+        print("No hay destinatarios válidos para enviar el correo de rechazo.")
+        return
+        
+    for correo in destinatarios:
+        try:
+            send_email(correo, asunto, cuerpo)
+            print(f"📧 Correo de rechazo enviado exitosamente a: {correo}")
+        except Exception as e:
+            print(f"❌ Error al enviar el correo de rechazo a {correo}: {str(e)}")
 
 
 def html_correo_acuse( nombre_completo: str, periodo_activo: str,periodo_anterior: str, unidad_sigla: str, folio: str) -> str:

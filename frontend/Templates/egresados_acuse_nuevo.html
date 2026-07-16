@@ -244,33 +244,42 @@
 
         {% if not exportando_pdf %}
         <div class="acuse-footer">
+            
+            <!-- 1. MENSAJES DE ESTADO -->
             {% if usuario_ya_valido %}
-                <div class="estado-validacion estado-validado">✅ EGRESADOS VALIDADOS</div>
+                <div class="estado-validacion estado-validado">✅ EGRESADOS VALIDADOS POR TI</div>
                 <div class="estado-validacion estado-pendiente">
-                ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
+                    ⏳ Siguiente firma pendiente por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
                 </div>
             {% elif usuario_ya_rechazo %}
                 <div class="estado-validacion estado-rechazado">❌ EGRESADOS RECHAZADOS</div>
             {% elif puede_validar %}
-                <div class="estado-validacion estado-pendiente">⏳ PENDIENTE DE VALIDAR</div>
+                <div class="estado-validacion estado-pendiente">
+                    ⏳ Es tu turno de validar (<strong>{{ nombre_rol }}</strong>)
+                </div>
             {% else %}
-                <div class="estado-validacion estado-esperando">⏸️ EN ESPERA DE VALIDACIÓN</div>
+                <div class="estado-validacion estado-esperando">
+                    ⏸️ EN ESPERA DE VALIDACIÓN POR: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
+                </div>
             {% endif %}
 
+            <!-- 2. BOTONES DE ACCIÓN -->
             <div class="acciones-validacion" id="acciones-validacion">
                 {% if id_rol in [4, 5, 6, 7, 8, 9] %}
+                    <!-- Observa la condición agregada: "not puede_validar" -->
                     <button class="btn btn-success" id="btn-validar" onclick="validarEgresados()"
-                            {% if usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
+                            {% if not puede_validar or usuario_ya_valido or usuario_ya_rechazo %}disabled title="No puedes validar en este momento"{% endif %}>
                         ✅ Validar Egresados
                     </button>
                     <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarEgresados()"
-                            {% if usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
+                            {% if not puede_validar or usuario_ya_valido or usuario_ya_rechazo %}disabled title="No puedes rechazar en este momento"{% endif %}>
                         ❌ Rechazar Egresados
                     </button>
                 {% endif %}
                 <button class="btn btn-info" onclick="exportarPdf()">📄 Exportar vista</button>
             </div>
 
+            <!-- 3. PANEL DE RECHAZO -->
             {% if id_rol in [4, 5, 6, 7, 8, 9] %}
             <div class="panel-rechazo" id="panel-rechazo">
                 <h4>
