@@ -209,7 +209,6 @@ selectPrograma.addEventListener('change', function() {
             .map(f => f.Modalidad)
     )];
 
-    if (btnFinalizar) btnFinalizar.style.display = 'inline-block';
 
     turnosDisponibles = [...new Set(
         datosFilas
@@ -254,7 +253,8 @@ selectModalidad.addEventListener('change', function() {
 
     pill.style.display = 'inline-flex';
     filtrosSecundarios.style.display = 'block'; 
-
+    if (btnFinalizar) btnFinalizar.style.display = 'inline-block';
+    
     llenarSelect(selectBoleta, boletas);
     selectBoleta.disabled = false;
 
