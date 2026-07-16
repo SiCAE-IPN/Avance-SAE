@@ -788,8 +788,12 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
         _,periodo_literal = get_periodo_activo(db)
 
 
-        id_unidad_academica_in = data.get('id_unidad_academica')  # None si el rol no está en 6-9
-        id_nivel_in = data.get('id_nivel')  
+        Id_Unidad_Academica = db.query(Unidad_Academica.Id_Unidad_Academica).filter(
+            Unidad_Academica.Sigla == unidad_in,
+            Unidad_Academica.Id_Estatus == 1
+        ).scalar()
+
+        id_nivel = db.query(Nivel.Id_Nivel).filter(Nivel.Nivel == nivel_in).scalar()  
 
         if not motivo:
             raise HTTPException(status_code=400, detail="Debe proporcionar un motivo de rechazo")
@@ -817,7 +821,7 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
         print(f"\n{'='*60}")
         print("🔴 RECHAZAR TITULADOS (SP_Rechaza_Titulados)")
         print(f"Usuario: {usuario_sp} | Rol: {id_rol}")
-        print(f"Periodo: {periodo_literal} | UA: {unidad_in} | Nivel: {nivel_in}")
+        print(f"Periodo: {periodo_literal} | UA: {unidad_in} | Nivel: {nivel_in} | Id_nivel: {id_nivel} | Id_UA: {Id_Unidad_Academica}")
         print(f"Host: {host_sp}")
         print(f"Motivo: {motivo}")
         print(f"{'='*60}\n")
@@ -841,11 +845,18 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
             'nota': motivo,
         })
         
-        obtener_correos_involucrados(
+        correos = obtener_correos_involucrados(
             db=db,
-            id_unidad= id_unidad_academica_in,
-            id_nivel= id_nivel_in
+            id_unidad= Id_Unidad_Academica,
+            id_formato=4
         )
+
+        print("Estos son los correos", correos)
+
+        notificar_rechazo_global(
+            modulo_rechazado="Titulados", 
+            id_rol_que_rechaza= id_rol,
+            correos= correos)
 
         db.commit()
 

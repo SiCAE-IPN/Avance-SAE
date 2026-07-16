@@ -2,6 +2,7 @@ from backend.utils.email import EmailSendError, send_email
 from typing import Dict, Union
 from sqlalchemy.orm import Session
 from backend.database.models.Usuario import Usuario
+from backend.database.models.FormatoUsuario import Usuario as Formato_Usuario
 
 def id_rol_a_nombre(id_rol: int) -> str:
     """
@@ -21,7 +22,7 @@ def id_rol_a_nombre(id_rol: int) -> str:
 def obtener_correos_involucrados(
     db: Session, 
     id_unidad: int, 
-    id_nivel: int
+    id_formato: int
 ) -> Dict[str, str]:
     """
     Busca en la base de datos los correos del Capturista, CEGET y Titular
@@ -34,10 +35,11 @@ def obtener_correos_involucrados(
     }
     
     # Consultamos a los usuarios que pertenezcan a la UA, Nivel y tengan los roles que buscamos
-    usuarios = db.query(Usuario).filter(
+    usuarios = db.query(Usuario).join(
+        Formato_Usuario, Formato_Usuario.Id_Usuario == Usuario.Id_Usuario
+    ).filter(
         Usuario.Id_Unidad_Academica == id_unidad,
-        Usuario.Id_Nivel == id_nivel,
-        Usuario.Id_Rol.in_(ROLES_NOTIFICACION.keys()),
+        Formato_Usuario.Id_Formato == id_formato,
         Usuario.Id_Estatus == 1
     ).all()
 
