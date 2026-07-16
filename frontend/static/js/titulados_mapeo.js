@@ -3,7 +3,15 @@ const selectModalidad = document.getElementById('modalidad');
 const selectBoleta = document.getElementById('filtro-boleta');
 const selectTipoTitulacion = document.getElementById('filtro-generacion');
 const contenedor = document.getElementById("tabla-edades-seleccion");
+const btnFinalizar= document.getElementById("btn-finalizar-captura");
 
+
+
+console.log('Boton finalizar: ', btnFinalizar);
+
+if (btnFinalizar) {
+    btnFinalizar.style.display = 'none';
+}
 
 // Select nivel para roles superiores
 
@@ -200,6 +208,8 @@ selectPrograma.addEventListener('change', function() {
             .filter(f => f.Nombre_Programa === programaSeleccionado)
             .map(f => f.Modalidad)
     )];
+
+    if (btnFinalizar) btnFinalizar.style.display = 'inline-block';
 
     turnosDisponibles = [...new Set(
         datosFilas

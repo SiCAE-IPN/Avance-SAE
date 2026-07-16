@@ -260,6 +260,7 @@ function limpiarTabla() {
 document.addEventListener('DOMContentLoaded', function () {
 
     const btnConsultar = document.getElementById('btn-ver-resumen-director');
+    
     const selectPeriodo = document.getElementById('select-periodo-director');
     const selectNivel   = document.getElementById('select-nivel-director');
 
@@ -287,29 +288,31 @@ document.addEventListener('DOMContentLoaded', function () {
         .forEach(select => select.addEventListener('change', verificarFiltros));
     
     // Al hacer clic, navegar al acuse de titulados
-    btnConsultar.addEventListener('click', function () {
-        let periodo, nivel, unidad;
-    
-        if (selectPeriodo && selectNivel) {
-            // Flujo director
-            periodo = selectPeriodo.value;
-            nivel = selectNivel.value;
-            unidad = document.getElementById('datos-sesion').dataset.unidad; // viene del contexto Jinja2
-        } else if (selectPeriodoSuperior && selectNivelSuperior && selectUnidadAcademicaSuperior) {
-            // Flujo superior
-            periodo = selectPeriodoSuperior.value;
-            nivel = selectNivelSuperior.value;
-            unidad = selectUnidadAcademicaSuperior.value;
-        }
-    
-        if (!periodo || !nivel || !unidad) return;
-    
-        const url = `/titulados/acuse-validacion`
-            + `?periodo=${encodeURIComponent(periodo)}`
-            + `&nivel=${encodeURIComponent(nivel)}`
-            + `&unidad=${encodeURIComponent(unidad)}`;
-    
-        window.location.href = url;
-    });
+    if(btnConsultar){
+        btnConsultar.addEventListener('click', function () {
+            let periodo, nivel, unidad;
+        
+            if (selectPeriodo && selectNivel) {
+                // Flujo director
+                periodo = selectPeriodo.value;
+                nivel = selectNivel.value;
+                unidad = document.getElementById('datos-sesion').dataset.unidad; // viene del contexto Jinja2
+            } else if (selectPeriodoSuperior && selectNivelSuperior && selectUnidadAcademicaSuperior) {
+                // Flujo superior
+                periodo = selectPeriodoSuperior.value;
+                nivel = selectNivelSuperior.value;
+                unidad = selectUnidadAcademicaSuperior.value;
+            }
+        
+            if (!periodo || !nivel || !unidad) return;
+        
+            const url = `/titulados/acuse-validacion`
+                + `?periodo=${encodeURIComponent(periodo)}`
+                + `&nivel=${encodeURIComponent(nivel)}`
+                + `&unidad=${encodeURIComponent(unidad)}`;
+        
+            window.location.href = url;
+        });
+    }
 
 });
