@@ -3504,7 +3504,7 @@ async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_sessi
         diccionario_correos = obtener_correos_involucrados(
             db=db, 
             id_unidad=id_unidad_objetivo, 
-            id_nivel=id_nivel_objetivo
+            id_formato = 1
         )
         
         print(f"📧 Correos obtenidos para notificación: {diccionario_correos}")
