@@ -1,6 +1,6 @@
 :root {
             --color-bg: #edeef0;
-            --color-guinda: #6b1e3c;
+            --color-guinda: #750946;
             --color-guinda-dark: #3f1123;
             --color-gold: #c9a227;
             --color-ink: #241019;
@@ -56,62 +56,22 @@
             z-index: 1;
             max-width: 380px;
             width: 100%;
-        }
-
-        /* Emblem: escudo institucional sobre un engranaje giratorio */
-
-        .emblem {
-            position: relative;
-            width: 168px;
-            height: 168px;
-            margin: 0 0 22px;
             display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .gear {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            transform-origin: 50% 50%;
-        }
-
-        .gear-ring {
-            fill: none;
-            stroke: var(--color-gold);
-            stroke-width: 22;
-            stroke-dasharray: 13 11;
-            opacity: 0.55;
-        }
-
-        .gear-hub {
-            fill: none;
-            stroke: var(--color-gold);
-            stroke-width: 2;
-            opacity: 0.35;
-        }
-
-        .gear.spin {
-            animation: spin 16s linear infinite;
-        }
-
-        .emblem:hover .gear.spin {
-            animation-duration: 6s;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+            flex-direction: column;
+            align-items: center; /* Centra horizontalmente todos los elementos hijos */
+            text-align: center; /* Centra el texto */
         }
 
         .escudo {
             position: relative;
             z-index: 1;
-            width: 150px;
-            height: 150px;
+            width: 300px;
+            height: 300px;
             object-fit: contain;
             filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+            display: flex;
+            justify-content: center;
+            margin: 0 auto; /* Esto centra horizontalmente */
         }
 
         /* Si aún no existe /static/logos/ipn.png, mostramos solo el
@@ -136,16 +96,16 @@
             line-height: 1;
             margin: 0 0 10px;
             color: #000000;
+            text-align: center; /* Centra el texto */
         }
 
         .brand-tagline {
             font-size: 0.98rem;
             color:#6b1e3c; 
             margin: 0 0 40px;
+            text-align: center; /* Centra el texto */
         }
 
-        /* Signature: rising bars over a faint data-point grid,
-           standing in for the "aprovechamiento" the system tracks */
         .chart-signature {
             position: relative;
             height: 130px;
@@ -195,14 +155,14 @@
             margin: 0;
         }
 
-        /* ---------- Form panel ---------- */
+        /* ---------- Panel de acceso ---------- */
 
         .form-panel {
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 32px;
-            background: linear-gradient(160deg, var(--color-guinda) 0%, var(--color-guinda-dark) 100%);
+            background: linear-gradient(160deg, var(--color-guinda) 0%, var(--color-guinda) 100%);
         }
 
         .form-card {
