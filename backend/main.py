@@ -24,6 +24,7 @@ app.mount("/static", static)
 tipo_dir = os.path.join(os.path.dirname(__file__), '..', 'Tipografía')
 if os.path.exists(tipo_dir):
     app.mount('/tipografia', _StaticFiles(directory=tipo_dir), name='tipografia')
+app.include_router(registro.router, prefix="/registro")
 app.include_router(login.router , prefix="/login")
 app.include_router(usuarios.router , prefix="/usuarios")
 app.include_router(mod_principal.router , prefix="/mod_principal")
