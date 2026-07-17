@@ -6,54 +6,8 @@
     {% if not exportando_pdf %}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="/static/css/components/egresados_acuse.css">
-    <style>
-    .columna-izq {
-        order: -1;
-    }
-
-    .columna-der {
-        order: 1;
-    }
-    .contenedor-columnas {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1.5rem;
-    }
-    .firmas-container {
-        display: table;
-        width: 100%;
-        margin-top: 50px;
-        margin-bottom: 30px;
-        page-break-inside: avoid; /* Evita que las firmas se partan entre dos páginas */
-    }
-
-    .firma-box {
-        display: table-cell;
-        width: 33.33%;
-        text-align: center;
-        padding: 0 15px;
-        vertical-align: bottom;
-    }
-
-    .firma-linea {
-        border-bottom: 1px solid #333;
-        height: 40px;
-        margin-bottom: 8px;
-    }
-
-    .firma-nombre {
-        font-weight: bold;
-        font-size: 12px;
-        color: #333;
-    }
-
-    .firma-rol {
-        font-size: 11px;
-        color: #636569;
-        margin-top: 2px;
-    }
-    </style>
+    <link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
+   
     {% endif %}
 {% endblock %}
 
@@ -161,6 +115,13 @@
             </table>
         </div>
 
+        
+
+    </div>{# fin columna-izq #}
+
+    {# ── Columna derecha: Programa · Modalidad · Turno ── #}
+    <div class="columna-der">
+
         {% if tabla_edades %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
@@ -196,11 +157,6 @@
             </table>
         </div>
         {% endif %}
-
-    </div>{# fin columna-izq #}
-
-    {# ── Columna derecha: Programa · Modalidad · Turno ── #}
-    <div class="columna-der">
 
         <div class="tabla-seccion">
             <div class="tabla-titulo">

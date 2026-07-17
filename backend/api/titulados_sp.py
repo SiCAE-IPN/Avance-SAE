@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text 
 from sqlalchemy import select
 from collections import defaultdict
-
+from fastapi.responses import RedirectResponse, FileResponse, Response
 from backend.api import unidad_academica
 from backend.database.connection import get_db
 from backend.core.templates import templates
@@ -31,8 +31,9 @@ from typing import List, Optional
 from backend.utils.request import get_request_host
 from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 from backend.services.envio_correo_service import notificar_rechazo_global, obtener_correos_involucrados
-
+from backend.core.auth import VerificarAccesoAcuse
 import traceback
+from pathlib import Path
 
 host = "Test"
 fila = []
@@ -466,6 +467,9 @@ def finalizar_captura_titulados(
         }
     )
 
+
+validar_acuse = VerificarAccesoAcuse()
+
 @router.get('/acuse-validacion')
 async def acuse_titulados_view(
     request: Request,
@@ -655,6 +659,54 @@ async def acuse_titulados_view(
            # desempaca todas las tablas directamente
     })
 
+@router.get('/acuse-validacion/pdf')
+async def acuse_titulados_pdf(
+    request: Request,
+    periodo: str,
+    nivel: str,
+    unidad: str,
+    sess=Depends(validar_acuse),
+    db: Session = Depends(get_db)
+):
+    try:
+        import weasyprint
+    except ImportError as exc:
+        raise HTTPException(status_code=500, detail=f"WeasyPrint no está instalado: {exc}")
+
+    resp = await acuse_titulados_view(request, periodo, nivel, unidad, sess, db, exportando_pdf=True)
+
+    if isinstance(resp, JSONResponse):
+        # Tu vista devuelve JSONResponse en caso de error (p. ej. periodo no encontrado)
+        return resp
+
+    html_text = bytes(resp.body).decode('utf-8')
+
+    base_path = Path(__file__).resolve().parents[2] / 'frontend' / 'static'
+    ruta_css = base_path / 'css' / 'components' / 'egresados_acuse.css'
+
+    if not ruta_css.exists():
+        raise HTTPException(
+            status_code=500,
+            detail=f"No se encontró el archivo CSS en: {ruta_css}."
+        )
+
+    try:
+        pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
+            stylesheets=[
+                weasyprint.CSS(filename=str(ruta_css)),
+                weasyprint.CSS(string='@page { size: Letter; margin: 1cm 1cm 3.5cm 1cm }')
+            ]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
+
+    filename = f"acuse_titulados_{unidad}_{periodo}.pdf".replace(' ', '_')
+    
+    return Response(
+        content=pdf_bytes,
+        media_type='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
 
 
 @router.post('/validar')
