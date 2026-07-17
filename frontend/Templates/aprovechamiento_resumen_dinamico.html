@@ -439,6 +439,7 @@
     const nivel   = "{{ nivel }}";
     const unidad  = "{{ unidad }}";
     const idRol   = {{ id_rol }};
+    const idUnidadAcademica = {{ id_unidad_academica }};
 
     async function exportarPdf() {
         const url = `/aprovechamiento/acuse-validacion/pdf?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}&no_validado={{ no_validado|lower }}&nombre_capturista={{ nombre_capturista }}&nombre_ceget={{ nombre_ceget }}&nombre_titular={{ nombre_titular }}`;
@@ -640,7 +641,7 @@
             allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false,
             didOpen: () => Swal.showLoading()
         });
-        ejecutarAccion('/aprovechamiento/rechazar', { periodo, nivel, unidad_academica: unidad, motivo });
+        ejecutarAccion('/aprovechamiento/rechazar', { periodo, nivel, unidad_academica: unidad, id_unidad_academica: idUnidadAcademica, motivo });
     }
 </script>
 {% endif %}

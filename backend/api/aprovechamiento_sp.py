@@ -28,6 +28,7 @@ from backend.database.models.Usuario import Usuario
 from backend.services.nivel_service import get_niveles_by_unidad_academica
 from backend.core.auth import VerificarAccesoAcuse, get_current_session
 from backend.utils.request import get_request_host
+from backend.services.envio_correo_service import notificar_rechazo_global, html_correo_acuse, obtener_correos_involucrados
 from datetime import datetime
 from backend.core.auth import VerificarAccesoAcuse
 
@@ -946,6 +947,7 @@ async def resumen_aprovechamiento_dinamico_view(
     context["nombre_ceget"] = encargados['nombre_ceget']
     context["nombre_titular"] = encargados['nombre_titular']
     print("Encargados Obtenidos : ",encargados)
+    context["id_unidad_academica"] = Id_Unidad_Academica
 
     # Retornamos pasando el diccionario 'context' limpio como segundo argumento posicional
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
@@ -1151,12 +1153,14 @@ async def validar_aprovechamiento(request: Request, sess=Depends(get_current_ses
 async def rechazar_aprovechamiento(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
     try:
         body = await request.json()
+        print("Body :",body)
         periodo = body.get("periodo", "")
         nivel = body.get("nivel", "")
         unidad = body.get("unidad_academica", "")
         motivo = body.get("motivo", "")
         nombre_usuario = getattr(sess, 'usuario', '') or ''
         id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+        id_unidad_objetivo = body.get("id_unidad_academica","")
         host = request.client.host
         if not motivo or len(motivo.strip()) < 10:
             return {"success": False, "error": "El motivo del rechazo debe tener al menos 10 caracteres."}
@@ -1177,6 +1181,22 @@ async def rechazar_aprovechamiento(request: Request, sess=Depends(get_current_se
             {"periodo": periodo, "unidad": unidad, "nivel": nivel, "usuario": nombre_usuario, "host": host, "nota": motivo}
         )
         db.commit()
+
+        diccionario_correos = obtener_correos_involucrados(
+            db=db, 
+            id_unidad=id_unidad_objetivo, 
+            id_formato = 2
+        )
+        
+        print(f"📧 Correos obtenidos para notificación: {diccionario_correos}")
+
+        notificar_rechazo_global(
+           modulo_rechazado="Aprovechamiento Académico",
+            id_rol_que_rechaza=id_rol,
+            correos=diccionario_correos
+        )
+
+
         return {"success": True, "mensaje": f"Aprovechamiento rechazado correctamente para {unidad} - {periodo}."}
     except Exception as e:
         import traceback
