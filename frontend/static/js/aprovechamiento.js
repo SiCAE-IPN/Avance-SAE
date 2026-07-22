@@ -326,8 +326,38 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
         return mapa;
     }
 
-    const datosInscritos      = mapearDatos(window.inscritos);
-    const datosReincorporados = mapearDatos(window.reincorporados);
+    // === CÓDIGO CORREGIDO ===
+const datosInscritos = mapearDatos(window.inscritos);
+
+// 1. Mapeamos desde window.reincorporados si existe
+const datosReincorporados = mapearDatos(window.reincorporados);
+
+// 2. Si no viene en window.reincorporados, buscamos si se guardó dentro de window.aprovechamientos
+(window.aprovechamientos || []).forEach(r => {
+    const rProg = String(r.Nombre_Programa || r.nombre_programa || '').trim().toUpperCase();
+    const rMod  = String(r.Modalidad || r.modalidad || '').trim().toUpperCase();
+    const rSem  = normalizarSemestre(r.Semestre || r.semestre);
+    const sit   = String(r.Aprovechamiento || r.aprovechamiento || r.Situacion || r.situacion || '').trim().toLowerCase();
+
+    if (rProg === prog && rMod === mod && rSem === sem && sit === 'reincorporados') {
+        const t   = String(r.Turno || r.turno || 'Sin Turno').trim();
+        const s   = String(r.Sexo  || r.sexo  || '').toUpperCase().trim();
+        const val = parseInt(r.Alumnos || r.alumnos || 0);
+
+        if (!datosReincorporados[t]) datosReincorporados[t] = { H: 0, M: 0 };
+        if (s.startsWith('H') || s === '1') datosReincorporados[t].H = val;
+        else if (s.startsWith('M') || s === '2') datosReincorporados[t].M = val;
+    }
+});
+
+
+
+
+
+
+
+
+
 
     const datosAprovechamiento = {};
     (window.aprovechamientos || []).forEach(r => {
@@ -353,9 +383,12 @@ window.cargarTablaAprovechamiento = function (programa, modalidad, semestre) {
     trSep.innerHTML = `<td colspan="${1 + turnos.length}" style="background:#dee2e6; height:6px; padding:0;"></td>`;
     tbody.appendChild(trSep);
 
+    // === CÓDIGO CORREGIDO ===
+    const exclusionSit = ['desertor', 'deserción', 'desercion', 'reincorporado', 'reincorporados'];
+
     const listaSit = Object.keys(datosAprovechamiento).length > 0
-        ? Object.keys(datosAprovechamiento).filter(sit => !['desertor', 'deserción', 'desercion'].includes(sit.toLowerCase()))
-        : ['Aprobado', 'Reprobado']; // Dejamos solo los editables al principio
+        ? Object.keys(datosAprovechamiento).filter(sit => !exclusionSit.includes(sit.toLowerCase().trim()))
+        : ['Aprobado', 'Reprobado'];
     
     listaSit.forEach(sit => {
         crearFilaInput(tbody, sit, turnos, datosAprovechamiento[sit] || {}, false, 'fila-aprovechamiento', esSemestreBloqueado);
@@ -567,10 +600,14 @@ function hayErroresDeTotales() {
 // ==========================================
 // 11. Totales y Resumen (versión completa)
 // ==========================================
+// ==========================================
+// Totales y Resumen (con Deserción Incluida)
+// ==========================================
 function obtenerTotalesAprovechamiento() {
     let totalH = 0, totalM = 0;
     const porConcepto = {};
 
+    // 1. Obtener valores de los inputs editables (Aprobados, Reprobados, etc.)
     document.querySelectorAll('.fila-aprovechamiento input').forEach(input => {
         const val      = parseInt(input.value) || 0;
         const concepto = input.dataset.tipo || 'Sin especificar';
@@ -581,7 +618,87 @@ function obtenerTotalesAprovechamiento() {
         else if (sexo === 'Mujer') { totalM += val; porConcepto[concepto].M += val; }
     });
 
+    // 2. Sumar la Deserción Calculada desde las etiquetas en pantalla
+    const spansDesercion = document.querySelectorAll('.span-desercion-calculada');
+    if (spansDesercion.length > 0) {
+        if (!porConcepto['Deserción']) porConcepto['Deserción'] = { H: 0, M: 0 };
+
+        spansDesercion.forEach(span => {
+            const val  = parseInt(span.textContent) || 0;
+            const sexo = span.dataset.sexo;
+
+            if (sexo === 'Hombre') { totalH += val; porConcepto['Deserción'].H += val; }
+            else if (sexo === 'Mujer') { totalM += val; porConcepto['Deserción'].M += val; }
+        });
+    }
+
     return { totalH, totalM, porConcepto };
+}
+
+function renderizarSeccionTotales() {
+    let contenedor = document.getElementById('seccion-totales-aprovechamiento');
+
+    if (!contenedor) {
+        const actionsSection = document.querySelector('.actions-after-table') || document.querySelector('.actions-section');
+        if (!actionsSection) return;
+        contenedor = document.createElement('div');
+        contenedor.id = 'seccion-totales-aprovechamiento';
+        contenedor.style.cssText = 'margin:24px 0 0 0; padding:0 25px 32px 25px;';
+        actionsSection.insertAdjacentElement('afterend', contenedor);
+    }
+
+    const { totalH, totalM, porConcepto } = obtenerTotalesAprovechamiento();
+    const totalGeneral = totalH + totalM;
+    const conceptos    = Object.keys(porConcepto);
+
+    const filasHTML = conceptos.length > 0
+        ? conceptos.map((concepto, i) => {
+            const { H, M } = porConcepto[concepto];
+            const total    = H + M;
+            
+            // Destacar visualmente si la fila es "Deserción"
+            const esDesercion = concepto.toLowerCase() === 'deserción' || concepto.toLowerCase() === 'desercion';
+            const bg          = esDesercion ? '#fef2f2' : (i % 2 === 0 ? '#ffffff' : '#fafafa');
+            const colorTexto  = esDesercion ? '#991b1b' : '#333333';
+
+            return `
+            <tr style="background:${bg};">
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; font-size:14px; color:${colorTexto}; font-weight:${esDesercion ? '700' : '500'};">
+                    ${concepto} ${esDesercion ? '<span style="font-size:11px; font-weight:normal; color:#dc2626;">(Calculada)</span>' : ''}
+                </td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#1565c0; font-weight:700;">${H.toLocaleString()}</td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#ad1457; font-weight:700;">${M.toLocaleString()}</td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#750946; font-weight:800;">${total.toLocaleString()}</td>
+            </tr>`;
+        }).join('')
+        : `<tr><td colspan="4" style="padding:24px; text-align:center; color:#999; font-style:italic; font-size:14px;">Sin datos capturados aún</td></tr>`;
+
+    contenedor.innerHTML = `
+        <div style="background:white; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,.08); overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#750946,#8B0A4A); text-align:center; color:white; padding:16px 24px; font-size:17px; font-weight:700; letter-spacing:.3px;">📊 Resumen de Aprovechamiento — Semestre ${semestreActual}</div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700; background:linear-gradient(135deg,#750946,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">Situación Académica</th>
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700; background:#1565c0; color:white; border:1px solid rgba(255,255,255,.2);">Hombres</th>
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700; background:#ad1457; color:white; border:1px solid rgba(255,255,255,.2);">Mujeres</th>
+                            <th style="padding:14px 20px; text-align:center; font-size:14px; font-weight:700; background:linear-gradient(135deg,#750946,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>${filasHTML}</tbody>
+                    <tfoot>
+                        <tr>
+                            <td style="padding:14px 20px; text-align:center; font-weight:800; font-size:15px; background:linear-gradient(135deg,#750946,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">TOTAL</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:rgba(21,101,192,.85); color:white; border:1px solid rgba(255,255,255,.2);">${totalH.toLocaleString()}</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:rgba(173,20,87,.85); color:white; border:1px solid rgba(255,255,255,.2);">${totalM.toLocaleString()}</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:linear-gradient(135deg,#750946,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">${totalGeneral.toLocaleString()}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    `;
 }
 
 // Estado global de la unidad (para el botón de validación masiva)
@@ -930,19 +1047,58 @@ function renderizarSeccionTotales() {
 // ==========================================
 // 12. Bloqueo por Semáforo
 // ==========================================
+// ==========================================
+// 12. Bloqueo por Semáforo
+// ==========================================
 function aplicarBloqueoPorSemaforo() {
-    const estado     = estadosSemaforoPorSemestre[semestreActual] ?? 1;
-    const bloqueado  = (estado === 3);
+    const estado      = estadosSemaforoPorSemestre[semestreActual] ?? 1;
+    const bloqueado   = (estado === 3);
     const btnGuardar = document.getElementById('btn-guardar-matricula');
     const btnValidar = document.getElementById('btn-validar-matricula');
+    const btnLimpiar = document.getElementById('btn-limpiar-formulario'); // ID de tu botón de limpiar
 
     if (bloqueado) {
         deshabilitarTodaLaVista();
-        if (btnGuardar) { btnGuardar.disabled = true;  btnGuardar.style.display = 'none'; }
-        if (btnValidar) { btnValidar.disabled = true;  btnValidar.textContent   = '✅ Semestre Validado'; }
+        
+        // Ocultar botón Guardar
+        if (btnGuardar) { 
+            btnGuardar.disabled = true;  
+            btnGuardar.style.display = 'none'; 
+        }
+        
+        // Cambiar botón Validar a Verde con el texto "Semestre Finalizado"
+        if (btnValidar) { 
+            btnValidar.disabled = true;  
+            btnValidar.innerHTML = '✅ Semestre Finalizado'; 
+            btnValidar.classList.remove('btn-primary', 'btn-secondary', 'btn-outline-success');
+            btnValidar.classList.add('btn-success');
+            btnValidar.style.display = 'inline-block';
+        }
+
+        // Ocultar botón Limpiar Formulario
+        if (btnLimpiar) {
+            btnLimpiar.style.display = 'none';
+        }
+
     } else {
-        if (btnGuardar) { btnGuardar.disabled = false; btnGuardar.style.display = 'inline-block'; }
-        if (btnValidar) { btnValidar.disabled = false; btnValidar.textContent   = '✅ Finalizar Captura'; }
+        // Restaurar estado activo/editable
+        if (btnGuardar) { 
+            btnGuardar.disabled = false; 
+            btnGuardar.style.display = 'inline-block'; 
+        }
+        
+        if (btnValidar) { 
+            btnValidar.disabled = false; 
+            btnValidar.innerHTML = '✅ Finalizar Captura'; 
+            btnValidar.classList.remove('btn-success', 'btn-secondary');
+            btnValidar.classList.add('btn-primary');
+            btnValidar.style.display = 'inline-block';
+        }
+
+        // Mostrar botón Limpiar Formulario si el semestre no está bloqueado
+        if (btnLimpiar) {
+            btnLimpiar.style.display = 'inline-block';
+        }
     }
 }
 
@@ -1158,124 +1314,6 @@ window.validarCapturaSemestre = async function () {
 };
 
 // ==========================================
-// 15. Validar / Rechazar (Roles Validadores)
-// ==========================================
-window.validarSemestre = async function () {
-    const btnValidar = document.getElementById('btn-validar-semestre');
-    if (btnValidar?.disabled) {
-        Swal.fire({ icon: 'warning', title: 'Acción no permitida', text: 'Ya has validado o rechazado este aprovechamiento.', confirmButtonText: 'Entendido' });
-        return;
-    }
-    const programaVal   = document.getElementById('programa')?.value.trim();
-    const modalidadVal  = document.getElementById('modalidad')?.value.trim();
-    const semestreTexto = semestreNumeroATexto(semestreActual);
-    const periodoVal    = document.getElementById('periodo-texto')?.textContent.trim() || '';
-    const unidadVal     = document.getElementById('unidad-texto')?.textContent.trim()
-                       || document.getElementById('unidad_academica')?.value?.trim() || '';
-
-    if (!programaVal || !modalidadVal) { Swal.fire('Error', 'Selecciona Programa y Modalidad', 'error'); return; }
-
-    let nivelVal = 'Superior';
-    const fuentesNivel = [window.aprovechamientos, window.inscritos, window.reincorporados];
-    for (const fuente of fuentesNivel) {
-        if (fuente?.length) {
-            const r = fuente.find(rec =>
-                String(rec.Nombre_Programa || rec.nombre_programa || '').trim().toUpperCase() === programaVal.toUpperCase()
-            );
-            if (r) { nivelVal = r.Nivel || r.nivel || 'Superior'; break; }
-        }
-    }
-
-    const confirmResult = await Swal.fire({
-        title: '✅ ¿Validar Aprovechamiento?',
-        html: `Estás a punto de <b>validar</b>:<br><b>Programa:</b> ${programaVal}<br>
-               <b>Modalidad:</b> ${modalidadVal}<br>
-               <b>Semestre:</b> <span style="color:#198754; font-weight:bold;">${semestreTexto}</span>`,
-        icon: 'question', showCancelButton: true,
-        confirmButtonColor: '#198754', cancelButtonText: 'Cancelar', confirmButtonText: '✅ Sí, Validar'
-    });
-    if (!confirmResult.isConfirmed) return;
-
-    Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-    try {
-        const res = await fetch('/aprovechamiento/validar', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                programa:         programaVal,
-                modalidad:        modalidadVal,
-                semestre:         semestreTexto,
-                periodo:          periodoVal,
-                unidad_academica: unidadVal,
-                nivel:            nivelVal,
-            })
-        });
-        if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Error al validar'); }
-        await Swal.fire({ title: '¡Aprovechamiento Validado!', text: 'El semestre ha sido validado correctamente.', icon: 'success', timer: 1800, showConfirmButton: false });
-        guardarEstadoYRecargar();
-    } catch (e) { Swal.fire('Error', e.message, 'error'); }
-};
-
-window.rechazarSemestre = function () { abrirPanelRechazo(); };
-
-window.confirmarRechazoPanel = async function () {
-    const motivo = document.getElementById('motivo-rechazo-panel')?.value.trim();
-    if (!motivo || motivo.length < 10) { Swal.fire('Atención', 'El motivo de rechazo debe tener al menos 10 caracteres.', 'warning'); return; }
-
-    const programaVal   = document.getElementById('programa')?.value.trim();
-    const modalidadVal  = document.getElementById('modalidad')?.value.trim();
-    const semestreTexto = semestreNumeroATexto(semestreActual);
-    const periodoVal    = document.getElementById('periodo-texto')?.textContent.trim() || '';
-    const unidadVal     = document.getElementById('unidad-texto')?.textContent.trim()
-                       || document.getElementById('unidad_academica')?.value?.trim() || '';
-
-    if (!programaVal || !modalidadVal) { Swal.fire('Error', 'Selecciona Programa y Modalidad', 'error'); return; }
-
-    let nivelVal = 'Superior';
-    const fuentesNivel = [window.aprovechamientos, window.inscritos, window.reincorporados];
-    for (const fuente of fuentesNivel) {
-        if (fuente?.length) {
-            const r = fuente.find(rec =>
-                String(rec.Nombre_Programa || rec.nombre_programa || '').trim().toUpperCase() === programaVal.toUpperCase()
-            );
-            if (r) { nivelVal = r.Nivel || r.nivel || 'Superior'; break; }
-        }
-    }
-
-    const confirmResult = await Swal.fire({
-        title: '❌ ¿Confirmar Rechazo?',
-        html: `Se rechazará el aprovechamiento con el siguiente motivo:<br><br>
-               <blockquote style="background:#fff3cd; padding:10px; border-left:4px solid #ffc107; text-align:left; border-radius:4px;">"${motivo}"</blockquote>
-               Los datos serán devueltos al capturista para su corrección.`,
-        icon: 'warning', showCancelButton: true,
-        confirmButtonColor: '#d33', cancelButtonText: 'Cancelar', confirmButtonText: '❌ Sí, Rechazar'
-    });
-    if (!confirmResult.isConfirmed) return;
-
-    cerrarPanelRechazo();
-    Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-    try {
-        const res = await fetch('/aprovechamiento/rechazar', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                programa:         programaVal,
-                modalidad:        modalidadVal,
-                semestre:         semestreTexto,
-                periodo:          periodoVal,
-                unidad_academica: unidadVal,
-                nivel:            nivelVal,
-                motivo,
-                accion:           'rechazar'
-            })
-        });
-        if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Error al rechazar'); }
-        await Swal.fire({ title: '❌ Aprovechamiento Rechazado', text: 'El capturista ha sido notificado para realizar las correcciones.', icon: 'error', timer: 2000, showConfirmButton: false });
-        guardarEstadoYRecargar();
-    } catch (e) { Swal.fire('Error', e.message, 'error'); }
-};
-
-// ==========================================
 // 16. Panel de Rechazo y Notificaciones
 // ==========================================
 window.abrirPanelRechazo = function () {
@@ -1289,10 +1327,12 @@ window.abrirPanelRechazo = function () {
     if (textarea) textarea.value = '';
     if (contador) contador.textContent = '0';
 
-    panel.style.display = 'block';
+    // === CAMBIO MÍNIMO: Fijar posición flotante y mostrar ===
+    Object.assign(panel.style, { display: 'block', position: 'fixed', bottom: '20px', right: '20px', zIndex: '1050' });
+
     setTimeout(() => panel.classList.add('panel-abierto'), 10);
     setTimeout(() => { if (textarea) textarea.focus(); }, 300);
-    setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 350);
+    // Se elimina el scrollIntoView ya que no es necesario scrollear
 };
 
 window.cerrarPanelRechazo = function () {
@@ -1352,32 +1392,48 @@ function mostrarPantallaCarga(mensaje = "Guardando cambios...") {
 function ocultarPantallaCarga() {
     Swal.close();
 }
+// ==========================================
+// Verificar Totales del Semestre (Con Deserción)
+// ==========================================
 function verificarTotalesSemestre() {
     let sumaMatriculaH = 0, sumaMatriculaM = 0;
     let sumaAprovH = 0, sumaAprovM = 0;
     
-    // Seleccionar todos los inputs de la tabla (clase unificada)
-    const allInputs = document.querySelectorAll('#tabla-body input.input-matricula-nueva');
-    
-    allInputs.forEach(input => {
+    // 1. Sumar Inputs Editables de Matrícula (Inscritos y Reincorporados)
+    document.querySelectorAll('#tabla-body tr.fila-matricula input.input-matricula-nueva').forEach(input => {
         const val = parseInt(input.value, 10) || 0;
-        const tipoFila = input.closest('tr').className; // 'fila-matricula' o 'fila-aprovechamiento'
         const sexo = input.dataset.sexo;
-        
-        if (tipoFila.includes('fila-matricula')) {
-            if (sexo === 'Hombre') sumaMatriculaH += val;
-            else if (sexo === 'Mujer') sumaMatriculaM += val;
-        } else if (tipoFila.includes('fila-aprovechamiento')) {
-            if (sexo === 'Hombre') sumaAprovH += val;
-            else if (sexo === 'Mujer') sumaAprovM += val;
-        }
+        if (sexo === 'Hombre') sumaMatriculaH += val;
+        else if (sexo === 'Mujer') sumaMatriculaM += val;
+    });
+
+    // 2. Sumar Inputs Editables de Aprovechamiento (Aprobados, Reprobados, etc.)
+    document.querySelectorAll('#tabla-body tr.fila-aprovechamiento input.input-matricula-nueva').forEach(input => {
+        const val = parseInt(input.value, 10) || 0;
+        const sexo = input.dataset.sexo;
+        if (sexo === 'Hombre') sumaAprovH += val;
+        else if (sexo === 'Mujer') sumaAprovM += val;
+    });
+
+    // 3. NUEVO: Sumar los valores de Deserción Calculada (.span-desercion-calculada)
+    document.querySelectorAll('#tabla-body .span-desercion-calculada').forEach(span => {
+        const val = parseInt(span.textContent, 10) || 0;
+        const sexo = span.dataset.sexo;
+        if (sexo === 'Hombre') sumaAprovH += val;
+        else if (sexo === 'Mujer') sumaAprovM += val;
     });
     
-    // Log detallado para depuración
-    console.log(`📊 Totales - Matrícula: H=${sumaMatriculaH}, M=${sumaMatriculaM} | Aprovechamiento: H=${sumaAprovH}, M=${sumaAprovM}`);
+    // Log detallado para depuración en consola
+    console.log(`📊 Totales Verificados — Matrícula: H=${sumaMatriculaH}, M=${sumaMatriculaM} | Aprovechamiento + Deserción: H=${sumaAprovH}, M=${sumaAprovM}`);
     
     const coincide = (sumaMatriculaH === sumaAprovH && sumaMatriculaM === sumaAprovM);
-    return { coincide, matriculaH: sumaMatriculaH, matriculaM: sumaMatriculaM, aprovH: sumaAprovH, aprovM: sumaAprovM };
+    return { 
+        coincide, 
+        matriculaH: sumaMatriculaH, 
+        matriculaM: sumaMatriculaM, 
+        aprovH: sumaAprovH, 
+        aprovM: sumaAprovM 
+    };
 }
 // ==========================================
 // Modal de progreso circular mejorado
@@ -1819,6 +1875,56 @@ window.validarTodosLosSemestres = async function () {
         btnValidarTodos.textContent = estadoOriginal.textoBoton;
         btnValidarTodos.disabled = false;
     }
+};
+// ==========================================
+// Función: Limpiar Formulario (Campos Editables)
+// ==========================================
+window.limpiarFormulario = function () {
+    // 1. Obtener solo los inputs editables que NO sean de solo lectura ni estén deshabilitados
+    const inputsEditables = document.querySelectorAll(
+        '#tabla-body input.input-matricula-nueva:not([disabled]):not([readonly])'
+    );
+
+    // Filtrar explícitamente cualquier input que pertenezca a la fila de 'Inscritos'
+    const inputsAFiltrar = Array.from(inputsEditables).filter(input => {
+        const tipo = String(input.dataset.tipo || '').toLowerCase();
+        return tipo !== 'inscritos';
+    });
+
+    if (inputsAFiltrar.length === 0) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Sin campos editables',
+            text: 'No hay campos editables disponibles para limpiar en este semestre.',
+            confirmButtonText: 'Entendido'
+        });
+        return;
+    }
+
+    // 2. Limpiar los campos a 0 y registrar el cambio en la memoria temporal
+    inputsAFiltrar.forEach(input => {
+        input.value = 0;
+
+        const key = `${semestreActual}|${input.dataset.tipo}|${input.dataset.turno}|${input.dataset.sexo}`;
+        cambiosGlobales[key] = 0;
+    });
+
+    // 3. Recalcular dinámicamente las sumas en pantalla
+    calcularTablaUnificada();
+    renderizarSeccionTotales();
+
+    // 4. Notificación visual
+    const toast = Swal.mixin({
+        toast: true,
+        position: 'top',
+        showConfirmButton: false,
+        timer: 1500,
+        timerProgressBar: true
+    });
+    toast.fire({
+        icon: 'success',
+        title: 'Campos editables limpiados correctamente'
+    });
 };
 
 // ==========================================
