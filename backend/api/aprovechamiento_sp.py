@@ -449,6 +449,7 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
     UUnidad_Academica = str(getattr(sess, 'sigla_unidad_academica', '') or '')
     NNivel = str(getattr(sess, 'nombre_nivel', '') or '')
     HHost = request.client.host
+
     periodo_literal = get_periodo_activo(db)
     PPeriodo = periodo_literal[1]
     ID_PPeriodo = periodo_literal[0]
@@ -520,7 +521,7 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
             else:
                 inscritos_final = []
 
-            print(inscritos_final)
+
             # ---- LÓGICA DE RECHAZO (similar a matrícula) ----
             # Obtener periodo por defecto (ya existe PPeriodo)
             
@@ -591,7 +592,6 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                 todos_en_tres = all(str(reg.get("Id_Semaforo")) == "3" for reg in aprovechamientos_raw)
                 print("Todos en tres:",todos_en_tres)
                 if todos_en_tres:
-                    print("W")
                     Periodoant = get_periodo_anterior_al_ultimo(db)
                     Id_Periodo_anterior = Periodoant[0]
                     semaforoUA = db.query(SemaforoUnidadAcademica).filter(
@@ -633,6 +633,7 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                                 })
                         try:
                             db.commit()
+                            db.refresh(semaforoUA)
                         except Exception as e:
                             db.rollback()
                             print(f"Error al guardar los cambios en BD: {e}")
@@ -946,7 +947,6 @@ async def resumen_aprovechamiento_dinamico_view(
     context["nombre_capturista"] = encargados['nombre_capturista'] 
     context["nombre_ceget"] = encargados['nombre_ceget']
     context["nombre_titular"] = encargados['nombre_titular']
-    print("Encargados Obtenidos : ",encargados)
     context["id_unidad_academica"] = Id_Unidad_Academica
 
     # Retornamos pasando el diccionario 'context' limpio como segundo argumento posicional
