@@ -3,6 +3,10 @@
 {% block title %}Captura de Titulados{% endblock %}
 
 {% block styles %}
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <link rel="stylesheet" href="/static/css/components/header.css">
     <link rel="stylesheet" href="/static/css/components/tables.css">
     <link rel="stylesheet" href="/static/css/components/matricula_consulta.css">
@@ -602,47 +606,63 @@
             <h3 style="text-align:center; color:#750946;">📊 Informe de Titulados Guardados</h3>
             <p style="text-align:center; color:#636569; margin-bottom: 20px;">Datos actuales guardados en la base de datos</p>
 
-            <div id="pestana-semaforo-titulados" class="pestana-semaforo" title="Estado de captura por semáforo" style="display: none;">
-                <span id="semaforo-dot-titulados" class="semaforo-dot"></span>
-                <span id="semaforo-texto-titulados">No hay datos capturados</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div id="pestana-semaforo-titulados" class="pestana-semaforo" title="Estado de captura por semáforo" style="display: none; margin-bottom: 0;">
+                    <span id="semaforo-dot-titulados" class="semaforo-dot"></span>
+                    <span id="semaforo-texto-titulados">No hay datos capturados</span>
+                </div>
+                <!-- Botones de acciones múltiples -->
+                <div id="acciones-multiples-informe" style="display: none; gap: 10px; align-items: center;">
+                    <button type="button" id="btn-editar-multiples" onclick="editarFilasSeleccionadas()"
+                            style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size:13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        ✏️ Editar Seleccionados
+                    </button>
+                    <button type="button" id="btn-borrar-multiples" onclick="borrarFilasSeleccionadas()"
+                            style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size:13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        🗑️ Borrar Seleccionados
+                    </button>
+                </div>
             </div>
             
             <div style="overflow-x: auto;">
                 <table id="informe-titulados-table" style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <thead style="background: linear-gradient(135deg, #750946 0%, #a3195b 100%); color: white;">
                         <tr>
-                            <th class="filterable-header" data-column="0" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
-                                Programa <span class="filter-icon">▼</span>
+                            <th style="padding: 12px; text-align: center; border: 1px solid #ddd; width: 40px; background: rgba(0,0,0,0.05);">
+                                <input type="checkbox" id="seleccionar-todas-informe" style="transform: scale(1.2); cursor: pointer;" />
                             </th>
                             <th class="filterable-header" data-column="1" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                                Programa <span class="filter-icon">▼</span>
+                            </th>
+                            <th class="filterable-header" data-column="2" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
                                 Modalidad <span class="filter-icon">▼</span>
                             </th>
-                            <th class="filterable-header" data-column="2" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                            <th class="filterable-header" data-column="3" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                                 Turno <span class="filter-icon">▼</span>
                             </th>
-                            <th class="filterable-header" data-column="3" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                            <th class="filterable-header" data-column="4" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                                 Boleta <span class="filter-icon">▼</span>
                             </th>
-                            <th class="filterable-header" data-column="4" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                            <th class="filterable-header" data-column="5" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                                 Tipo de Titulación <span class="filter-icon">▼</span>
                             </th>
-                            <th class="filterable-header" data-column="5" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                            <th class="filterable-header" data-column="6" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                                 Edad <span class="filter-icon">▼</span>
                             </th>
-                            <th class="filterable-header" data-column="6" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                            <th class="filterable-header" data-column="7" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                                 Hombres <span class="filter-icon">▼</span>
                             </th>
-                            <th class="filterable-header" data-column="7" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                            <th class="filterable-header" data-column="8" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                                 Mujeres <span class="filter-icon">▼</span>
                             </th>
-                            <th class="filterable-header" data-column="8" style="padding: 12px; text-align: center; border: 1px solid #ddd; background: rgba(0,0,0,0.1); position: relative; cursor: pointer;">
+                            <th class="filterable-header" data-column="9" style="padding: 12px; text-align: center; border: 1px solid #ddd; background: rgba(0,0,0,0.1); position: relative; cursor: pointer;">
                                 Total <span class="filter-icon">▼</span>
                             </th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="9" style="text-align: center; padding: 30px; color: #999;">
+                            <td colspan="10" style="text-align: center; padding: 30px; color: #999;">
                                 <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
                                 <div>Seleccione un programa y modalidad para mostrar el informe.</div>
                             </td>
@@ -669,7 +689,7 @@
 
 {% block scripts %}
 <script>
-    const datosFilas = JSON.parse('{{ filas | tojson | safe }}');
+    let datosFilas = JSON.parse('{{ filas | tojson | safe }}') || [];
     const boletas = JSON.parse('{{ boletas | tojson | safe }}');
     
     const periodoDefault = JSON.parse('{{ periodo_default_literal | tojson | safe }}');
@@ -702,9 +722,7 @@
 
 </script>
 
-<script src="/static/js/titulados_consulta.js"></script>
-<script src="/static/js/titulados_datos.js"></script>
-<script src="/static/js/titulados_mapeo.js"></script>
+<script src="/static/js/titulados_consulta.js?v=1.0.1"></script>
 <script src="/static/js/notificacion.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
