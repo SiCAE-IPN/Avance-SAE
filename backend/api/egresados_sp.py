@@ -413,6 +413,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
         print(f"📊 Mapeo Nivel->UAs: {nivel_a_uas}")
 
     # === OBTENER METADATOS DEL SP PARA TODOS LOS ROLES (incluye mapeo programa→modalidad) ===
+    resultados_sp = []
     programas_formatted = []
     modalidades_formatted = []
     boletas_formatted = []
@@ -763,6 +764,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
         "usuario_ya_valido": usuario_ya_valido,
         "usuario_ya_rechazo": usuario_ya_rechazo,
         "datos_precargados_json": datos_precargados_json,
+        "filas": resultados_sp if resultados_sp else [],
         "session": sess
     })
 

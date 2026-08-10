@@ -242,7 +242,8 @@ async def consulta_titulados(
                 db=db,
                 periodo_anterior_id=periodo_id,
                 Id_Unidad_Academica=id_unidad_academica,
-                id_formato=4)
+                id_formato=4,
+                id_nivel=getattr(sess, 'id_nivel', None))
             
             print("Esta es la info de rechzo: ", rechazo_info)
 
@@ -573,17 +574,23 @@ async def acuse_titulados_view(
     puede_validar = False
     usuario_ya_valido = False
     usuario_ya_rechazo = False
-    esperando_por_rol = None
+    pendiente_validacion = False
+    esperando_por_rol = "Capturista"
+
+    if semaforo is not None and semaforo > 0:
+        if semaforo in [1, 2]:
+            esperando_por_rol = "Capturista"
+        else:
+            try:
+                rol_esperado_id = int(semaforo) + 1
+                rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == rol_esperado_id).first()
+                esperando_por_rol = rol_obj.Rol if rol_obj else "Capturista"
+            except Exception:
+                esperando_por_rol = "Capturista"
 
     try:
         if id_rol in [4, 5, 6, 7, 8, 9] and periodo_anterior_id is not None:
-            semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
-                SemaforoUnidadAcademica.Id_Periodo == periodo_anterior_id,
-                SemaforoUnidadAcademica.Id_Unidad_Academica == int(sess.id_unidad_academica),
-                SemaforoUnidadAcademica.Id_Formato == 4  # Formato 4 = Titulados
-            ).first()
-
-            estado_semaforo = semaforo_unidad.Id_Semaforo if semaforo_unidad else None
+            estado_semaforo = semaforo
             print()
             print()
             print(f"Estado del semáforo para la unidad {unidad} en el periodo {periodo_anterior_id}: {semaforo}")
@@ -603,22 +610,7 @@ async def acuse_titulados_view(
                 else:
                     # Aún no toca este nivel
                     puede_validar = False
-                    try:
-                        # El primer rol por defecto debe ser Capturista (Id_Rol 2)
-                        # Si el semáforo está en 1 o 2, está esperando al Capturista
-                        if semaforo in [1, 2]:
-                            esperando_por_rol = "Capturista"
-                        else:
-                            rol_esperado_id = int(semaforo) + 1
-                            rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == rol_esperado_id).first()
-                            esperando_por_rol = rol_obj.Rol if rol_obj else "Capturista"
-                    except Exception:
-                        esperando_por_rol = "Capturista"
-            else:
-                # Si no hay semáforo configurado, el primer paso siempre es Capturista
-                esperando_por_rol = "Capturista"
 
-            # Si ya rechazó, ocultar botones (salvo que el semáforo esté justo en el nivel esperado)
             try:
                 id_usuario_actual = int(sess.id_usuario)
                 rechazo_usuario = db.query(Validacion).filter(
@@ -633,6 +625,9 @@ async def acuse_titulados_view(
             except Exception:
                 # Si algo falla aquí, no bloqueamos por seguridad de UI
                 pass
+
+            if not puede_validar and not usuario_ya_valido and not usuario_ya_rechazo and semaforo > 0:
+                pendiente_validacion = True
     except Exception:
         # Si algo falla, solo no mostramos estado (UI seguirá normal)
         pass
@@ -654,6 +649,8 @@ async def acuse_titulados_view(
         "usuario_ya_valido" : usuario_ya_valido,
         "usuario_ya_rechazo": usuario_ya_rechazo,
         "esperando_por_rol": esperando_por_rol,
+        "pendiente_validacion": pendiente_validacion,
+        "estado_semaforo_actual": semaforo,
         "session": sess,
         **tablas
            # desempaca todas las tablas directamente

@@ -1,51 +1,57 @@
 from sqlalchemy.orm import Session
 from backend.database.models.Validacion import Validacion
 from backend.database.models.Usuario import Usuario
+from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcademica
 
 def notificacion_rechazo(
         db: Session,
         periodo_anterior_id: int,
         Id_Unidad_Academica: int,       
-        id_formato: int): 
+        id_formato: int,
+        id_nivel: int = None): 
 
-    mensaje_rechazo = None
-    rechazado_por = None
-    fecha = None
+    # 1. Si el semáforo institucional está totalmente validado (Id_Semaforo >= 9), no hay rechazo
+    query_semaforo = db.query(SemaforoUnidadAcademica).filter(
+        SemaforoUnidadAcademica.Id_Periodo == periodo_anterior_id,
+        SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
+        SemaforoUnidadAcademica.Id_Formato == id_formato
+    )
+    if id_nivel:
+        query_semaforo = query_semaforo.filter(SemaforoUnidadAcademica.Id_Nivel == id_nivel)
+    
+    semaforo_ua = query_semaforo.first()
+    if semaforo_ua and semaforo_ua.Id_Semaforo >= 9:
+        print(f"ℹ️ UA {Id_Unidad_Academica} (Formato {id_formato}) totalmente validada (Semáforo {semaforo_ua.Id_Semaforo}). No se muestra alerta de rechazo.")
+        return {}
 
-    ultimo_movimiento_ua = (
-                db.query(Validacion)
-                .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
-                .filter(
-                    Validacion.Id_Periodo == periodo_anterior_id,
-                    Validacion.Id_Formato == id_formato,
-                    Validacion.Validado == 0,
-                    Usuario.Id_Unidad_Academica == Id_Unidad_Academica
-                )
-                .order_by(Validacion.Fecha.desc())
-                .first()
-            )
-    rechazo_info = {}
+    # 2. Obtener el ÚLTIMO movimiento de Validación/Rechazo para la UA, Periodo y Formato
+    query_ultimo = (
+        db.query(Validacion)
+        .filter(
+            Validacion.Id_Periodo == periodo_anterior_id,
+            Validacion.Id_Formato == id_formato,
+            Validacion.Id_Unidad_Academica == Id_Unidad_Academica
+        )
+    )
+    if id_nivel:
+        query_ultimo = query_ultimo.filter(Validacion.Id_Nivel == id_nivel)
 
-    if ultimo_movimiento_ua:
+    ultimo_movimiento_ua = query_ultimo.order_by(Validacion.Fecha.desc()).first()
 
-        usuario = db.query(Usuario).filter(Usuario.Id_Usuario == ultimo_movimiento_ua.Id_Usuario ).first()
+    # Si no hay movimientos o el último movimiento fue una VALIDACIÓN (Validado == 1 o Validado != 0), NO hay rechazo vigente
+    if not ultimo_movimiento_ua or int(ultimo_movimiento_ua.Validado or 0) != 0:
+        return {}
 
-        mensaje_rechazo = ultimo_movimiento_ua.Nota
+    # Si el último movimiento es efectivamente un RECHAZO (Validado == 0):
+    usuario = db.query(Usuario).filter(Usuario.Id_Usuario == ultimo_movimiento_ua.Id_Usuario).first()
+    rechazado_por = f"{usuario.Nombre} {usuario.Paterno} {usuario.Materno}".strip() if usuario else "Validador"
+    mensaje_rechazo = ultimo_movimiento_ua.Nota or "Sin especificar motivo"
+    fecha = ultimo_movimiento_ua.Fecha
 
-        rechazado_por = None
-        
-        rechazado_por = f"{usuario.Nombre} {usuario.Paterno} {usuario.Materno}".strip() if usuario else "Validador"
-        
-        print("Mensaje de rechazo: ", mensaje_rechazo)
-        print("Rechazado por: ", rechazado_por)
-        print("Fecha de rechazo: ", ultimo_movimiento_ua.Fecha)
+    print(f"⚠️ Rechazo vigente detectado en UA {Id_Unidad_Academica}: {mensaje_rechazo} por {rechazado_por} ({fecha})")
 
-        fecha = ultimo_movimiento_ua.Fecha
-
-        rechazo_info = {
-            "fecha" : fecha,
-            "motivo": mensaje_rechazo,
-            "rechazado_por" : rechazado_por
-        }
-
-    return rechazo_info
+    return {
+        "fecha": fecha.strftime("%d/%m/%Y %H:%M") if fecha else "",
+        "motivo": mensaje_rechazo,
+        "rechazado_por": rechazado_por
+    }

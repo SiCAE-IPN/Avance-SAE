@@ -239,22 +239,57 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 7px 12px;
+            padding: 10px 19px;
             border-radius: 999px;
-            border: 2px solid #dc3545;
-            background: rgba(220, 53, 69, 0.12);
-            font-weight: 700;
-            font-size: 13px;
+            border: 2px solid #ccc;
+            background-color: #f9f9f9;
+            font-weight: bold;
+            font-size: 1.1rem;
             line-height: 1.2;
+            color: #555;
+            transition: all 0.3s ease;
         }
 
         .pestana-semaforo .semaforo-dot {
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            background: #dc3545;
-            box-shadow: 0 0 0 2px rgba(255,255,255,0.75);
+            background-color: #ccc;
             flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+
+        /* Rojo - No Capturado */
+        .pestana-semaforo.semaforo-rojo {
+            border-color: #c0392b !important;
+            color: #c0392b !important;
+            background-color: #fdf0ef !important;
+        }
+        .pestana-semaforo .semaforo-dot.semaforo-rojo {
+            background-color: #c0392b !important;
+            box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.25);
+        }
+
+        /* Amarillo - En Proceso */
+        .pestana-semaforo.semaforo-amarillo {
+            border-color: #c9a800 !important;
+            color: #7a6200 !important;
+            background-color: #fffde7 !important;
+        }
+        .pestana-semaforo .semaforo-dot.semaforo-amarillo {
+            background-color: #e6c200 !important;
+            box-shadow: 0 0 0 2px rgba(230, 194, 0, 0.25);
+        }
+
+        /* Verde - Captura Finalizada */
+        .pestana-semaforo.semaforo-verde {
+            border-color: #27ae60 !important;
+            color: #1e8449 !important;
+            background-color: #eafaf1 !important;
+        }
+        .pestana-semaforo .semaforo-dot.semaforo-verde {
+            background-color: #27ae60 !important;
+            box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.25);
         }
 
         .tabla-egresados-scroll {
@@ -456,7 +491,7 @@
                 <div class="notificacion-item notificacion-rechazo">
                     <div class="notificacion-icon">⚠️</div>
                     <div class="notificacion-contenido">
-                        <h5>Datos de EgresadosRechazada</h5>
+                        <h5>Datos de egresados rechazada</h5>
                         <p class="notificacion-fecha">{{ rechazo_info.fecha }}</p>
                         <p class="notificacion-motivo">{{ rechazo_info.motivo }}</p>
                         <p class="notificacion-autor">Por: {{ rechazo_info.rechazado_por }}</p>
@@ -468,12 +503,9 @@
             </div>
         </div>
     </div>
-    {% endif %}
 
-    <!-- Banner de Rechazo (solo visible para capturista cuando hay rechazo) -->
-    {% if rechazo_info %}
     <!-- Banner de Rechazo estandarizado -->
-    <div id="banner-rechazo" class="banner-rechazo" style="display: none;">
+    <div id="banner-rechazo" class="banner-rechazo">
         <div class="banner-rechazo-icon">
             <span class="icono-advertencia-grande">⚠️</span>
         </div>
@@ -541,27 +573,21 @@
     <div id="seccion-captura-egresados" style="display: none;">
 
         <!-- Filtros secundarios (Boleta, Generación, Edades) -->
-        <div class="filtros-secundarios-container" style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-top: 20px; border: 2px solid #750946;">
+        <div id="filtros-secundarios" class="filtros-secundarios-container" style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-top: 20px; border: 2px solid #750946;">
             <h3 style="color: #750946; margin: 0 0 15px 0; font-size: 20px;">📋 Agregar Registros de Egresados</h3>
             
             <div class="filtros-row" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
                 <div class="filtro-item">
                     <label for="filtro-boleta"><strong>Boleta:</strong></label>
-                    <select id="filtro-boleta" name="filtro_boleta">
+                    <select id="filtro-boleta" name="filtro_boleta" disabled>
                         <option value="">-- Seleccione Boleta --</option>
-                        {% for boleta in boletas %}
-                        <option value="{{ boleta.id }}">{{ boleta.nombre }}</option>
-                        {% endfor %}
                     </select>
                 </div>
                 
                 <div class="filtro-item">
                     <label for="filtro-generacion"><strong>Generación:</strong></label>
-                    <select id="filtro-generacion" name="filtro_generacion">
+                    <select id="filtro-generacion" name="filtro_generacion" disabled>
                         <option value="">-- Seleccione Generación --</option>
-                        {% for generacion in generaciones %}
-                        <option value="{{ generacion.id }}">{{ generacion.nombre }}</option>
-                        {% endfor %}
                     </select>
                 </div>
             </div>
@@ -616,11 +642,7 @@
 
         <!-- Banner del título de la tabla (encima de los inputs) -->
         <div class="tabla-matricula-container" style="margin-top: 10px;">
-            <div class="tabla-header tabla-header-egresados">
-                <div id="pestana-semaforo-egresados" class="pestana-semaforo" title="Estado de captura por semáforo">
-                    <span id="semaforo-dot-egresados" class="semaforo-dot"></span>
-                    <span id="semaforo-texto-egresados">No hay datos capturados</span>
-                </div>
+            <div class="tabla-header tabla-header-egresados" style="display: flex; justify-content: flex-end;">
                 <button type="button" onclick="limpiarTablaEgresados()" style="padding: 8px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
                     🗑️ Limpiar Tabla
                 </button>
@@ -679,42 +701,63 @@
         <h3 style="text-align:center; color:#750946;">📊 Informe de Egresados Guardados</h3>
         <p style="text-align:center; color:#636569; margin-bottom: 20px;">Datos actuales guardados en la base de datos</p>
         
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div id="pestana-semaforo-egresados" class="pestana-semaforo" title="Estado de captura por semáforo" style="display: none; margin-bottom: 0;">
+                <span id="semaforo-dot-egresados" class="semaforo-dot"></span>
+                <span id="semaforo-texto-egresados">No hay datos capturados</span>
+            </div>
+            <!-- Botones de acciones múltiples -->
+            <div id="acciones-multiples-informe" style="display: none; gap: 10px; align-items: center;">
+                <button type="button" id="btn-editar-multiples" onclick="editarFilasSeleccionadas()"
+                        style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size:13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    ✏️ Editar Seleccionados
+                </button>
+                <button type="button" id="btn-borrar-multiples" onclick="borrarFilasSeleccionadas()"
+                        style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size:13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    🗑️ Borrar Seleccionados
+                </button>
+            </div>
+        </div>
+
         <div style="overflow-x: auto;">
             <table id="informe-egresados-table" style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <thead style="background: linear-gradient(135deg, #750946 0%, #a3195b 100%); color: white;">
                     <tr>
-                        <th class="filterable-header" data-column="0" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
-                            Programa <span class="filter-icon">▼</span>
+                        <th style="padding: 12px; text-align: center; border: 1px solid #ddd; width: 40px; background: rgba(0,0,0,0.05);">
+                            <input type="checkbox" id="seleccionar-todas-informe" style="transform: scale(1.2); cursor: pointer;" />
                         </th>
                         <th class="filterable-header" data-column="1" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                            Programa <span class="filter-icon">▼</span>
+                        </th>
+                        <th class="filterable-header" data-column="2" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Modalidad <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="2" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="3" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Turno <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="3" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="4" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Boleta <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="4" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="5" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Generación <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="5" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="6" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Edad <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="6" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="7" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Hombres <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="7" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="8" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Mujeres <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="8" style="padding: 12px; text-align: center; border: 1px solid #ddd; background: rgba(0,0,0,0.1); position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="9" style="padding: 12px; text-align: center; border: 1px solid #ddd; background: rgba(0,0,0,0.1); position: relative; cursor: pointer;">
                             Total <span class="filter-icon">▼</span>
                         </th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="9" style="text-align: center; padding: 30px; color: #999;">
+                        <td colspan="10" style="text-align: center; padding: 30px; color: #999;">
                             <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
                             <div>No hay datos guardados aún. Guarde registros para ver el informe.</div>
                         </td>
@@ -936,6 +979,8 @@
     //     generacion, generacionNombre, edad, edadNombre,
     //     turnos: { turnoId: { hombres: '', mujeres: '' }, ... } } ]
     let filasEgresados = [];
+    let datosFilas = JSON.parse('{{ filas | tojson | safe }}') || [];
+    let datosFilasFiltrados = [];
     
     // Turnos disponibles según el nivel de la UA
     let turnosDisponibles = {{ turnos | tojson }};
@@ -952,6 +997,44 @@
         if (id) mapaColoresSemaforo[id] = color;
     });
     
+    const catalogoBoletas = {{ boletas | tojson }};
+    const catalogoGeneraciones = {{ generaciones | tojson }};
+
+    function resetSelect(select, defaultText = '-- Seleccione una opción --') {
+        if (!select) return;
+        select.innerHTML = `<option value="">${defaultText}</option>`;
+        select.disabled = true;
+    }
+
+    function llenarSelect(select, opciones) {
+        if (!select || !opciones) return;
+        opciones.forEach(opcion => {
+            const opt = document.createElement('option');
+            if (typeof opcion === 'object' && opcion !== null) {
+                opt.value = opcion.id !== undefined ? opcion.id : (opcion.nombre || '');
+                opt.textContent = opcion.nombre !== undefined ? opcion.nombre : (opcion.id || '');
+            } else {
+                opt.value = opcion;
+                opt.textContent = opcion;
+            }
+            select.appendChild(opt);
+        });
+    }
+
+    function mostrarAlerta(msg, titulo = 'Campos incompletos', icon = 'warning') {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: icon,
+                title: titulo,
+                text: msg,
+                confirmButtonColor: '#750946',
+                confirmButtonText: 'Entendido'
+            });
+        } else {
+            alert(msg);
+        }
+    }
+
     try {
         programaAModalidades = {{ programa_a_modalidades_json | safe }};
         todasLasModalidades = {{ modalidades | tojson }};
@@ -990,7 +1073,7 @@
     function verificarSiPuedeContinuar() {
         if (spEnEjecucion || interfazBloqueada) {
             console.warn('⚠️ Operación bloqueada: hay un proceso en ejecución');
-            alert('⏳ Por favor espere a que termine el proceso actual antes de continuar.');
+            mostrarAlerta('Por favor espere a que termine el proceso actual antes de continuar.', 'Proceso en ejecución');
             return false;
         }
         return true;
@@ -1032,33 +1115,35 @@
         const programaId = selectPrograma.value;
         
         if (!programaId) {
-            selectModalidad.innerHTML = '<option value="">-- Primero seleccione un Programa Académico --</option>';
-            selectModalidad.disabled = true;
+            resetSelect(selectModalidad, '-- Primero seleccione un Programa Académico --');
             ocultarSeccionCaptura();
             return;
         }
         
-        const modalidadesDelPrograma = programaAModalidades[programaId] || programaAModalidades[parseInt(programaId)] || [];
+        const modalidadesDelPrograma = programaAModalidades[programaId] || programaAModalidades[String(programaId)] || programaAModalidades[parseInt(programaId)] || [];
         
-        if (modalidadesDelPrograma.length === 0) {
-            selectModalidad.innerHTML = '<option value="">-- No hay modalidades para este programa --</option>';
-            selectModalidad.disabled = true;
+        let modalidadesFiltradas = [];
+        if (Array.isArray(modalidadesDelPrograma) && modalidadesDelPrograma.length > 0) {
+            modalidadesFiltradas = (todasLasModalidades || []).filter(mod => {
+                const modId = typeof mod === 'object' && mod !== null ? mod.id : mod;
+                const modNom = typeof mod === 'object' && mod !== null ? mod.nombre : mod;
+                return modalidadesDelPrograma.some(m => String(m) === String(modId) || String(m) === String(modNom));
+            });
+        }
+        
+        // Si el mapeo vino vacío o no arrojó coincidencias, usar todas las modalidades disponibles
+        if (!modalidadesFiltradas || modalidadesFiltradas.length === 0) {
+            modalidadesFiltradas = todasLasModalidades || [];
+        }
+        
+        if (modalidadesFiltradas.length === 0) {
+            resetSelect(selectModalidad, '-- No hay modalidades disponibles --');
             ocultarSeccionCaptura();
             return;
         }
-        
-        const modalidadesFiltradas = todasLasModalidades.filter(mod => 
-            modalidadesDelPrograma.includes(mod.id)
-        );
         
         selectModalidad.innerHTML = '<option value="">-- Seleccione una Modalidad --</option>';
-        modalidadesFiltradas.forEach(mod => {
-            const option = document.createElement('option');
-            option.value = mod.id;
-            option.textContent = mod.nombre;
-            selectModalidad.appendChild(option);
-        });
-        
+        llenarSelect(selectModalidad, modalidadesFiltradas);
         selectModalidad.disabled = false;
     }
     
@@ -1117,7 +1202,7 @@
         // Generar/actualizar cabecera de tabla con turnos dinámicos
         generarCabeceraTabla();
         requestAnimationFrame(() => ajustarTamanoBannerSeleccion());
-        actualizarSemaforoPestana();
+        actualizarSemaforoEgresados();
     }
 
     function ocultarSeccionCaptura() {
@@ -1216,6 +1301,7 @@
         pill.style.backgroundColor = hexToRgba(color, 0.18);
         pill.style.color = colorTexto;
         texto.textContent = obtenerTextoSemaforo(estado);
+        pill.style.display = 'inline-flex';
     }
 
     function aplicarBloqueoCapturaPorSemaforo(bloquear) {
@@ -1265,6 +1351,9 @@
             estadoSemaforoCapturaActual = 1;
             aplicarBloqueoCapturaPorSemaforo(false);
             aplicarSemaforoPestana(1);
+
+            const accionesMultiples = document.getElementById('acciones-multiples-informe');
+            if (accionesMultiples) accionesMultiples.style.display = 'none';
             return;
         }
 
@@ -1293,6 +1382,25 @@
             estadoSemaforoCapturaActual = estadoGlobal;
             aplicarSemaforoPestana(estadoGlobal);
             aplicarBloqueoCapturaPorSemaforo(estadoGlobal === 3);
+
+            const accionesMultiples = document.getElementById('acciones-multiples-informe');
+            if (accionesMultiples) {
+                accionesMultiples.style.display = (estadoGlobal === 3) ? 'none' : 'flex';
+            }
+
+            const selectAllCheckbox = document.getElementById('seleccionar-todas-informe');
+            if (selectAllCheckbox) {
+                if (estadoGlobal === 3) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.disabled = true;
+                    selectAllCheckbox.style.cursor = 'not-allowed';
+                    selectAllCheckbox.style.opacity = '0.5';
+                } else {
+                    selectAllCheckbox.disabled = false;
+                    selectAllCheckbox.style.cursor = 'pointer';
+                    selectAllCheckbox.style.opacity = '1';
+                }
+            }
         } catch (error) {
             console.warn('⚠️ No se pudo actualizar el semáforo de captura:', error);
             estadoSemaforoCapturaActual = 1;
@@ -1346,13 +1454,13 @@
         const boleta = document.getElementById('filtro-boleta');
         const generacion = document.getElementById('filtro-generacion');
 
-        if (!programa || !programa.value) { alert('⚠️ Por favor seleccione un Programa'); return; }
-        if (!modalidad || !modalidad.value) { alert('⚠️ Por favor seleccione una Modalidad'); return; }
-        if (!boleta || !boleta.value) { alert('⚠️ Por favor seleccione una Boleta'); return; }
-        if (!generacion || !generacion.value) { alert('⚠️ Por favor seleccione una Generación'); return; }
+        if (!programa || !programa.value) { mostrarAlerta('Por favor seleccione un programa.'); return; }
+        if (!modalidad || !modalidad.value) { mostrarAlerta('Por favor seleccione una modalidad.'); return; }
+        if (!boleta || !boleta.value) { mostrarAlerta('Por favor seleccione una boleta.'); return; }
+        if (!generacion || !generacion.value) { mostrarAlerta('Por favor seleccione una generación.'); return; }
 
         const checkboxesSel = document.querySelectorAll('.checkbox-edad:checked');
-        if (checkboxesSel.length === 0) { alert('⚠️ Por favor seleccione al menos una edad'); return; }
+        if (checkboxesSel.length === 0) { mostrarAlerta('Por favor seleccione al menos un grupo de edad.'); return; }
 
         let filasAgregadas = 0;
         let filasDuplicadas = 0;
@@ -1372,32 +1480,49 @@
 
             if (existe) { filasDuplicadas++; return; }
 
-            // === OPCIÓN 2: AUTOCOMPLETADO DE DATOS ===
+            // === AUTOCOMPLETADO DE DATOS DESDE datosFilas ===
             const progNom = programa.options[programa.selectedIndex].text.trim();
             const modNom = modalidad.options[modalidad.selectedIndex].text.trim();
             const bolNom = boleta.options[boleta.selectedIndex].text.trim();
             const genNom = generacion.options[generacion.selectedIndex].text.trim();
             const edNom = edadNombre.trim();
-            
-            // Recreamos la llave que hicimos en Python
-            const keyFila = `${progNom}_${modNom}_${bolNom}_${genNom}_${edNom}`;
-            // Protegemos la variable por si acaso
-            const datosPrevios = (typeof datosPrecargados !== 'undefined' && datosPrecargados) ? datosPrecargados[keyFila] : null;
 
-            // Inicializar turnos precargando datos del SP si existen
+            // Inicializar turnos precargando datos guardados si existen
             const turnosInit = {};
             turnosDisponibles.forEach(t => { 
-                let h = '', m = '';
-                const turnoNom = t.nombre.trim();
-                
-                if (datosPrevios && datosPrevios[turnoNom]) {
-                    h = datosPrevios[turnoNom].hombres !== '' ? datosPrevios[turnoNom].hombres : '';
-                    m = datosPrevios[turnoNom].mujeres !== '' ? datosPrevios[turnoNom].mujeres : '';
-                }
-                
-                turnosInit[t.id] = { hombres: h, mujeres: m }; 
+                const turnoNom = (t.nombre || t).trim();
+                const turnoId = t.id || turnoNom;
+
+                const registroHombre = (datosFilas || []).find(d =>
+                    d &&
+                    (d.Nombre_Programa || '').trim() === progNom &&
+                    (d.Modalidad || '').trim() === modNom &&
+                    String(d.Boleta || '').trim() === bolNom &&
+                    (d.Generacion || '').trim() === genNom &&
+                    String(d.Grupo_Edad || d.Edad || '').trim() === edNom &&
+                    (d.Turno || '').trim() === turnoNom &&
+                    (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
+                );
+
+                const registroMujer = (datosFilas || []).find(d =>
+                    d &&
+                    (d.Nombre_Programa || '').trim() === progNom &&
+                    (d.Modalidad || '').trim() === modNom &&
+                    String(d.Boleta || '').trim() === bolNom &&
+                    (d.Generacion || '').trim() === genNom &&
+                    String(d.Grupo_Edad || d.Edad || '').trim() === edNom &&
+                    (d.Turno || '').trim() === turnoNom &&
+                    (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
+                );
+
+                const cantH = registroHombre ? (registroHombre.Egresados !== undefined ? registroHombre.Egresados : registroHombre.Titulados) : '';
+                const cantM = registroMujer ? (registroMujer.Egresados !== undefined ? registroMujer.Egresados : registroMujer.Titulados) : '';
+
+                turnosInit[turnoId] = {
+                    hombres: (cantH !== null && cantH !== undefined && cantH !== '') ? cantH : '',
+                    mujeres: (cantM !== null && cantM !== undefined && cantM !== '') ? cantM : ''
+                };
             });
-            // =========================================
 
             filasEgresados.push({
                 id: Date.now() + Math.random(),
@@ -1416,15 +1541,45 @@
             filasAgregadas++;
         });
 
-        renderizarTablaEgresados();
+        if (filasDuplicadas > 0) console.warn(`⚠️ ${filasDuplicadas} fila(s) duplicada(s) omitidas`);
 
-        // Limpiar checkboxes
-        document.querySelectorAll('.checkbox-edad').forEach(cb => cb.checked = false);
-        actualizarContadorEdades();
+        if (filasAgregadas > 0) {
+            renderizarTablaEgresados();
 
-        let msg = `✅ ${filasAgregadas} fila${filasAgregadas !== 1 ? 's' : ''} agregada${filasAgregadas !== 1 ? 's' : ''}`;
-        if (filasDuplicadas > 0) msg += `\n⚠️ ${filasDuplicadas} ya existía${filasDuplicadas !== 1 ? 'n' : ''} y se omitió${filasDuplicadas !== 1 ? 'eron' : ''}`;
-        alert(msg);
+            // Limpiar checkboxes
+            document.querySelectorAll('.checkbox-edad').forEach(cb => cb.checked = false);
+            actualizarContadorEdades();
+
+            if (typeof Swal !== 'undefined') {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 1800,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer);
+                        toast.addEventListener('mouseleave', Swal.resumeTimer);
+                    }
+                });
+                Toast.fire({
+                    icon: 'success',
+                    title: filasAgregadas === 1 ? 'Fila agregada correctamente' : `${filasAgregadas} filas agregadas correctamente`
+                });
+            }
+        } else if (filasDuplicadas > 0) {
+            if (typeof Swal !== 'undefined') {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 1800
+                });
+                Toast.fire({
+                    icon: 'info',
+                    title: 'Las filas ya se encuentran en la tabla'
+                });
+            }
+        }
     }
 
     /**
@@ -1497,8 +1652,6 @@
         ajustarScrollTablaEgresados();
 
         aplicarBloqueoCapturaPorSemaforo(estadoSemaforoCapturaActual === 3);
-
-        actualizarInformeEgresados();
     }
 
     function ajustarScrollTablaEgresados() {
@@ -1524,45 +1677,120 @@
         if (fila) {
             if (!fila.turnos[turnoId]) fila.turnos[turnoId] = { hombres: '', mujeres: '' };
             fila.turnos[turnoId][campo] = parseInt(valor) || 0;
-            actualizarInformeEgresados();
         }
     }
 
     /**
      * Eliminar una fila de egresado
      */
-    function eliminarFilaEgresado(filaId) {
-        if (confirm('¿Está seguro de eliminar este registro?')) {
-            filasEgresados = filasEgresados.filter(f => f.id !== filaId);
-            renderizarTablaEgresados();
+    async function eliminarFilaEgresado(filaId) {
+        if (typeof Swal !== 'undefined') {
+            const confirmacion = await Swal.fire({
+                title: '¿Está seguro de eliminar este registro?',
+                text: 'Esta acción no se puede deshacer.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            });
+            if (!confirmacion.isConfirmed) return;
+        } else {
+            if (!confirm('¿Está seguro de eliminar este registro?')) return;
+        }
+
+        filasEgresados = filasEgresados.filter(f => f.id !== filaId);
+        renderizarTablaEgresados();
+
+        if (typeof Swal !== 'undefined') {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 1800
+            });
+            Toast.fire({
+                icon: 'success',
+                title: 'Registro eliminado'
+            });
         }
     }
 
     /**
      * Limpiar toda la tabla
      */
-    function limpiarTablaEgresados() {
-        if (filasEgresados.length === 0) { alert('ℹ️ No hay registros para limpiar'); return; }
-        if (confirm(`¿Está seguro de eliminar los ${filasEgresados.length} registros?`)) {
-            filasEgresados = [];
-            renderizarTablaEgresados();
+    async function limpiarTablaEgresados() {
+        if (filasEgresados.length === 0) {
+            mostrarAlerta('No hay registros para limpiar', 'Información', 'info');
+            return;
+        }
+
+        if (typeof Swal !== 'undefined') {
+            const confirmacion = await Swal.fire({
+                title: '¿Limpiar tabla de captura?',
+                text: `¿Está seguro de eliminar los ${filasEgresados.length} registros de la tabla?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, limpiar',
+                cancelButtonText: 'Cancelar'
+            });
+            if (!confirmacion.isConfirmed) return;
+        } else {
+            if (!confirm(`¿Está seguro de eliminar los ${filasEgresados.length} registros?`)) return;
+        }
+
+        filasEgresados = [];
+        renderizarTablaEgresados();
+
+        if (typeof Swal !== 'undefined') {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 1800
+            });
+            Toast.fire({
+                icon: 'success',
+                title: 'Tabla limpiada correctamente'
+            });
         }
     }
 
     /**
      * Limpiar formulario completo
      */
-    function limpiarFormulario() {
-        if (confirm('¿Está seguro de limpiar todo el formulario? Se perderán todos los datos no guardados.')) {
-            document.getElementById('programa').value = '';
-            const selMod = document.getElementById('modalidad');
-            selMod.innerHTML = '<option value="">-- Primero seleccione un Programa Académico --</option>';
-            selMod.disabled = true;
-            filasEgresados = [];
-            ocultarSeccionCaptura();
-            console.log('🧹 Formulario limpiado completamente');
+    async function limpiarFormulario() {
+        if (typeof Swal !== 'undefined') {
+            const confirmacion = await Swal.fire({
+                title: '¿Limpiar formulario?',
+                text: 'Se perderán todos los datos no guardados.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, limpiar todo',
+                cancelButtonText: 'Cancelar'
+            });
+            if (!confirmacion.isConfirmed) return;
+        } else {
+            if (!confirm('¿Está seguro de limpiar todo el formulario? Se perderán todos los datos no guardados.')) return;
         }
+
+        document.getElementById('programa').value = '';
+        const selMod = document.getElementById('modalidad');
+        resetSelect(selMod, '-- Primero seleccione un Programa Académico --');
+        const selBol = document.getElementById('filtro-boleta');
+        resetSelect(selBol, '-- Seleccione Boleta --');
+        const selGen = document.getElementById('filtro-generacion');
+        resetSelect(selGen, '-- Seleccione Generación --');
+        filasEgresados = [];
+        ocultarSeccionCaptura();
+        console.log('🧹 Formulario limpiado completamente');
     }
+
     /* ==============================================
        FUNCIONES DE GUARDADO Y VALIDACIÓN
        ============================================== */
@@ -1571,11 +1799,31 @@
      * Validar egresados (para roles superiores)
      */
     async function validarEgresados() {
-        if (!confirm('¿Confirmar la validación de estos egresados?')) {
-            return;
+        if (typeof Swal !== 'undefined') {
+            const confirmacion = await Swal.fire({
+                title: '¿Confirmar validación?',
+                text: '¿Está seguro de validar los datos de egresados para este programa y modalidad?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, validar',
+                cancelButtonText: 'Cancelar'
+            });
+            if (!confirmacion.isConfirmed) return;
+
+            Swal.fire({
+                title: 'Validando Egresados...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+        } else {
+            if (!confirm('¿Confirmar la validación de estos egresados?')) return;
+            mostrarOverlayCarga('Validando Egresados...', 'Por favor espere');
         }
-        
-        mostrarOverlayCarga('Validando Egresados...', 'Por favor espere');
         
         try {
             const response = await fetch('/egresados/validar', {
@@ -1594,14 +1842,44 @@
             const resultado = await response.json();
             
             if (resultado.success) {
-                alert('✅ Egresados validados correctamente');
-                window.location.reload();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Egresados Validados!',
+                        text: 'Los datos han sido validados correctamente.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => location.reload());
+                } else {
+                    alert('✅ Egresados validados correctamente');
+                    window.location.reload();
+                }
             } else {
-                alert(`❌ Error: ${resultado.error || 'No se pudo validar'}`);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al validar',
+                        text: resultado.error || 'No se pudo validar',
+                        confirmButtonColor: '#750946',
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    alert(`❌ Error: ${resultado.error || 'No se pudo validar'}`);
+                }
             }
         } catch (error) {
             console.error('❌ Error al validar egresados:', error);
-            alert('❌ Error al conectar con el servidor');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'Error al conectar con el servidor',
+                    confirmButtonColor: '#750946',
+                    confirmButtonText: 'Entendido'
+                });
+            } else {
+                alert('❌ Error al conectar con el servidor');
+            }
         } finally {
             ocultarOverlayCarga();
         }
@@ -1611,13 +1889,43 @@
      * Rechazar egresados (para roles superiores)
      */
     async function rechazarEgresados() {
-        const motivo = prompt('Ingrese el motivo del rechazo:');
-        if (!motivo || motivo.trim() === '') {
-            alert('⚠️ Debe ingresar un motivo para el rechazo');
-            return;
+        let motivo = '';
+        if (typeof Swal !== 'undefined') {
+            const { value: textoMotivo } = await Swal.fire({
+                title: 'Rechazar Egresados',
+                text: 'Ingrese el motivo del rechazo:',
+                input: 'textarea',
+                inputPlaceholder: 'Escriba aquí el motivo detallado...',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Confirmar Rechazo',
+                cancelButtonText: 'Cancelar',
+                inputValidator: (value) => {
+                    if (!value || !value.trim()) {
+                        return '¡Debe ingresar un motivo para el rechazo!';
+                    }
+                }
+            });
+            if (!textoMotivo) return;
+            motivo = textoMotivo;
+
+            Swal.fire({
+                title: 'Rechazando Egresados...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+        } else {
+            motivo = prompt('Ingrese el motivo del rechazo:');
+            if (!motivo || motivo.trim() === '') {
+                alert('⚠️ Debe ingresar un motivo para el rechazo');
+                return;
+            }
+            mostrarOverlayCarga('Rechazando Egresados...', 'Por favor espere');
         }
-        
-        mostrarOverlayCarga('Rechazando Egresados...', 'Por favor espere');
         
         try {
             const response = await fetch('/egresados/rechazar', {
@@ -1637,14 +1945,44 @@
             const resultado = await response.json();
             
             if (resultado.success) {
-                alert('❌ Egresados rechazados correctamente');
-                window.location.reload();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Egresados Rechazados!',
+                        text: 'La notificación de rechazo ha sido enviada correctamente.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => location.reload());
+                } else {
+                    alert('❌ Egresados rechazados correctamente');
+                    window.location.reload();
+                }
             } else {
-                alert(`❌ Error: ${resultado.error || 'No se pudo rechazar'}`);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al rechazar',
+                        text: resultado.error || 'No se pudo rechazar',
+                        confirmButtonColor: '#750946',
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    alert(`❌ Error: ${resultado.error || 'No se pudo rechazar'}`);
+                }
             }
         } catch (error) {
             console.error('❌ Error al rechazar egresados:', error);
-            alert('❌ Error al conectar con el servidor');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'Error al conectar con el servidor',
+                    confirmButtonColor: '#750946',
+                    confirmButtonText: 'Entendido'
+                });
+            } else {
+                alert('❌ Error al conectar con el servidor');
+            }
         } finally {
             ocultarOverlayCarga();
         }
@@ -1652,61 +1990,109 @@
     
     /**
      * Guardar Avance de Egresados
-     * Ejecuta el SP que actualiza la tabla Egresados con los datos de Temp_Egresados
-     * y actualiza el semáforo a estado 2 (En Proceso)
      */
-    async function guardarAvanceEgresados() {
+    async function guardarAvanceEgresados(esBorrado = false) {
         const programa = document.getElementById('programa');
         const modalidad = document.getElementById('modalidad');
+        const btnGuardar = document.getElementById('btn-guardar-avance');
+        const btnLimpiar = document.getElementById('btn-limpiar-formulario');
+        const btnFinalizar = document.getElementById('btn-finalizar-captura');
         
         if (!programa || !programa.value) {
-            alert('⚠️ Por favor seleccione un Programa antes de guardar');
+            mostrarAlerta('Por favor seleccione un programa antes de guardar.', 'Campos incompletos');
             return;
         }
         
         if (!modalidad || !modalidad.value) {
-            alert('⚠️ Por favor seleccione una Modalidad antes de guardar');
+            mostrarAlerta('Por favor seleccione una modalidad antes de guardar.', 'Campos incompletos');
             return;
         }
         
-        if (filasEgresados.length === 0) {
-            alert('⚠️ No hay registros para guardar. Agregue al menos una fila.');
-            return;
+        if (!esBorrado) {
+            if (filasEgresados.length === 0) {
+                mostrarAlerta('No hay datos para guardar. Por favor agregue al menos un registro en la tabla de captura.', 'Sin datos para guardar', 'warning');
+                return;
+            }
+
+            const tieneDatos = filasEgresados.some(fila =>
+                turnosDisponibles.some(turno => {
+                    const tId = turno.id || turno.nombre || turno;
+                    const h = parseInt(fila.turnos[tId]?.hombres) || 0;
+                    const m = parseInt(fila.turnos[tId]?.mujeres) || 0;
+                    return h > 0 || m > 0;
+                })
+            );
+
+            if (!tieneDatos) {
+                mostrarAlerta('No hay datos para guardar. Por favor ingrese cantidades mayores a cero en la tabla de captura.', 'Sin datos para guardar', 'warning');
+                return;
+            }
         }
         
         // Rellenar valores vacíos con 0 para todos los turnos
         filasEgresados.forEach(fila => {
             turnosDisponibles.forEach(turno => {
-                if (!fila.turnos[turno.id]) {
-                    fila.turnos[turno.id] = { hombres: 0, mujeres: 0 };
+                const tId = turno.id || turno.nombre || turno;
+                if (!fila.turnos[tId]) {
+                    fila.turnos[tId] = { hombres: 0, mujeres: 0 };
                 } else {
-                    if (fila.turnos[turno.id].hombres === '' || fila.turnos[turno.id].hombres === null || fila.turnos[turno.id].hombres === undefined) {
-                        fila.turnos[turno.id].hombres = 0;
+                    if (fila.turnos[tId].hombres === '' || fila.turnos[tId].hombres === null || fila.turnos[tId].hombres === undefined) {
+                        fila.turnos[tId].hombres = 0;
                     }
-                    if (fila.turnos[turno.id].mujeres === '' || fila.turnos[turno.id].mujeres === null || fila.turnos[turno.id].mujeres === undefined) {
-                        fila.turnos[turno.id].mujeres = 0;
+                    if (fila.turnos[tId].mujeres === '' || fila.turnos[tId].mujeres === null || fila.turnos[tId].mujeres === undefined) {
+                        fila.turnos[tId].mujeres = 0;
                     }
                 }
             });
         });
         
-        // Re-renderizar para reflejar los 0 en los inputs
-        renderizarTablaEgresados();
+        if (!esBorrado) {
+            renderizarTablaEgresados();
+        }
         
         const programaNombre = programa.options[programa.selectedIndex].text;
         const modalidadNombre = modalidad.options[modalidad.selectedIndex].text;
         
-        if (!confirm(
-            `¿Guardar el avance de captura?\n\n` +
-            `📚 Programa: ${programaNombre}\n` +
-            `📋 Modalidad: ${modalidadNombre}\n` +
-            `📊 Total de filas: ${filasEgresados.length}\n\n` +
-            `Los campos vacíos se guardarán como 0.`
-        )) {
-            return;
+        if (!esBorrado) {
+            if (typeof Swal !== 'undefined') {
+                const confirmacion = await Swal.fire({
+                    title: '¿Guardar avance de captura?',
+                    html: `<div style="text-align:left; font-size:14px;">
+                        <p><strong>📚 Programa:</strong> ${programaNombre}</p>
+                        <p><strong>📋 Modalidad:</strong> ${modalidadNombre}</p>
+                        <p><strong>📊 Total de filas:</strong> ${filasEgresados.length}</p>
+                        <p style="color:#666; font-size:12px; margin-top:8px;">* Los campos vacíos se guardarán como 0.</p>
+                    </div>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#750946',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, guardar',
+                    cancelButtonText: 'Cancelar'
+                });
+                if (!confirmacion.isConfirmed) return;
+
+                Swal.fire({
+                    title: 'Guardando avance...',
+                    text: 'Por favor espere',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+            } else {
+                if (!confirm(
+                    `¿Guardar el avance de captura?\n\n` +
+                    `📚 Programa: ${programaNombre}\n` +
+                    `📋 Modalidad: ${modalidadNombre}\n` +
+                    `📊 Total de filas: ${filasEgresados.length}\n\n` +
+                    `Los campos vacíos se guardarán como 0.`
+                )) {
+                    return;
+                }
+                mostrarOverlayCarga('Guardando Avance...', 'Actualizando datos de egresados');
+            }
         }
-        
-        mostrarOverlayCarga('Guardando Avance...', 'Actualizando datos de egresados');
         
         try {
             const responseTemp = await fetch('/egresados/guardar', {
@@ -1725,12 +2111,6 @@
                 throw new Error(resultadoTemp.error || 'Error al guardar en Temp_Egresados');
             }
             
-            console.log('✅ Datos guardados en Temp_Egresados');
-
-            // ========================================================================
-            // PAUSA - SP COMENTADO (GUARDAR AVANCE) Comentar en dado caso de querer guardar datos en Temp_Egresados
-            // ========================================================================
-
             const response = await fetch('/egresados/guardar_avance', {
                 method: 'POST',
                 credentials: 'same-origin',
@@ -1743,56 +2123,140 @@
             const resultado = await response.json();
             
             if (resultado.success) {
-                alert(`✅ Avance guardado exitosamente\n\n` +
-                      `📊 Registros procesados: ${resultado.registros_procesados || 0}\n` +
-                      `🚦 Semáforo: ${resultado.semaforo_actualizado || 'Actualizado'}\n\n` +
-                      `Las filas con valores han sido guardadas.`);
-                // Mantener solo filas donde todos los turnos tienen 0
-                filasEgresados = filasEgresados.filter(fila =>
-                    turnosDisponibles.every(t => {
-                        const h = parseInt(fila.turnos[t.id]?.hombres) || 0;
-                        const m = parseInt(fila.turnos[t.id]?.mujeres) || 0;
-                        return h === 0 && m === 0;
-                    })
-                );
-                renderizarTablaEgresados();
-                await actualizarInformeEgresados();
-            } else if (resultado.warning) {
-                alert(`⚠️ ${resultado.warning}`);
-            } else {
-                alert(`❌ Error: ${resultado.error || 'No se pudo guardar el avance'}`);
-            }
-           
-            // ========================================================================
-            // ...hasta aquí para activar el SP de Guardar Avance
-            // ========================================================================
-            
+                // Actualizar datosFilas en memoria directamente (estilo Titulados)
+                if (!datosFilas) datosFilas = [];
+                filasEgresados.forEach(f => {
+                    turnosDisponibles.forEach(t => {
+                        const tNom = t.nombre;
+                        const tId = t.id || t.nombre;
+                        const vals = f.turnos[tId] || { hombres: 0, mujeres: 0 };
+                        
+                        let regH = datosFilas.find(d => 
+                            d &&
+                            d.Nombre_Programa === f.programaNombre &&
+                            d.Modalidad === f.modalidadNombre &&
+                            String(d.Boleta) === String(f.boletaNombre) &&
+                            d.Generacion === f.generacionNombre &&
+                            (d.Grupo_Edad === f.edadNombre || d.Edad === f.edadNombre) &&
+                            d.Turno === tNom &&
+                            (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
+                        );
+                        if (regH) {
+                            regH.Egresados = parseInt(vals.hombres) || 0;
+                            regH.Id_Semaforo = 2;
+                        } else if (parseInt(vals.hombres) > 0) {
+                            datosFilas.push({
+                                Nombre_Programa: f.programaNombre,
+                                Modalidad: f.modalidadNombre,
+                                Boleta: f.boletaNombre,
+                                Generacion: f.generacionNombre,
+                                Grupo_Edad: f.edadNombre,
+                                Turno: tNom,
+                                Sexo: 'Hombre',
+                                Egresados: parseInt(vals.hombres) || 0,
+                                Id_Semaforo: 2
+                            });
+                        }
 
-            // 🟢 MENSAJE TEMPORAL (mientras el SP está pausado)
-            // alert(`✅ Datos guardados en Temp_Egresados\n\n` +
-            //       `📊 Registros guardados: ${filasEgresados.length}\n\n` +
-            //       `⚠️ NOTA: Los Stored Procedures están pausados.\n` +
-            //       `Los datos se guardan solo en la tabla temporal.`);
-            // console.log('✅ Guardado en Temp_Egresados (SP pausado)');
-            
-            // Mantener solo filas donde todos los turnos tienen 0 (las demás ya se guardaron)
-            filasEgresados = filasEgresados.filter(fila =>
-                turnosDisponibles.every(t => {
-                    const h = parseInt(fila.turnos[t.id]?.hombres) || 0;
-                    const m = parseInt(fila.turnos[t.id]?.mujeres) || 0;
-                    return h === 0 && m === 0;
-                })
-            );
-            renderizarTablaEgresados();
-            await actualizarInformeEgresados();
-            await actualizarSemaforoPestana();
+                        let regM = datosFilas.find(d => 
+                            d &&
+                            d.Nombre_Programa === f.programaNombre &&
+                            d.Modalidad === f.modalidadNombre &&
+                            String(d.Boleta) === String(f.boletaNombre) &&
+                            d.Generacion === f.generacionNombre &&
+                            (d.Grupo_Edad === f.edadNombre || d.Edad === f.edadNombre) &&
+                            d.Turno === tNom &&
+                            (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
+                        );
+                        if (regM) {
+                            regM.Egresados = parseInt(vals.mujeres) || 0;
+                            regM.Id_Semaforo = 2;
+                        } else if (parseInt(vals.mujeres) > 0) {
+                            datosFilas.push({
+                                Nombre_Programa: f.programaNombre,
+                                Modalidad: f.modalidadNombre,
+                                Boleta: f.boletaNombre,
+                                Generacion: f.generacionNombre,
+                                Grupo_Edad: f.edadNombre,
+                                Turno: tNom,
+                                Sexo: 'Mujer',
+                                Egresados: parseInt(vals.mujeres) || 0,
+                                Id_Semaforo: 2
+                            });
+                        }
+                    });
+                });
+
+                if (esBorrado) {
+                    filasEgresados = [];
+                } else {
+                    filasEgresados = filasEgresados.filter(fila =>
+                        turnosDisponibles.every(t => {
+                            const tId = t.id || t.nombre;
+                            const h = parseInt(fila.turnos[tId]?.hombres) || 0;
+                            const m = parseInt(fila.turnos[tId]?.mujeres) || 0;
+                            return h === 0 && m === 0;
+                        })
+                    );
+                }
+                renderizarTablaEgresados();
+                renderizarTablaEgresadosInforme(datosFilas);
+                filtrarPorSelects();
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: esBorrado ? '¡Registro eliminado!' : '¡Guardado exitoso!',
+                        text: esBorrado ? 'El registro ha sido eliminado correctamente y la tabla de informe ha sido actualizada.' : 'El avance se ha guardado y la tabla de informe ha sido actualizada.',
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+                } else {
+                    alert(esBorrado ? '✅ Registro eliminado exitosamente' : '✅ Avance guardado exitosamente');
+                }
+            } else if (resultado.warning) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Advertencia',
+                        text: resultado.warning,
+                        confirmButtonColor: '#750946',
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    alert(`⚠️ ${resultado.warning}`);
+                }
+            } else {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al guardar',
+                        text: resultado.error || 'No se pudo guardar el avance',
+                        confirmButtonColor: '#750946',
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    alert(`❌ Error: ${resultado.error || 'No se pudo guardar el avance'}`);
+                }
+            }
         } catch (error) {
             console.error('❌ Error al guardar avance:', error);
-            alert(`❌ Error al guardar avance: ${error.message}`);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al guardar',
+                    text: error.message || 'Error al guardar el avance',
+                    confirmButtonColor: '#750946',
+                    confirmButtonText: 'Entendido'
+                });
+            } else {
+                alert(`❌ Error al guardar avance: ${error.message}`);
+            }
         } finally {
             ocultarOverlayCarga();
         }
     }
+
     /**
      * Finalizar Captura de Egresados
      * Ejecuta el SP que marca el turno específico como completado (semáforo ID=3)
@@ -1807,12 +2271,12 @@
         const tieneFilas = Array.isArray(filasEgresados) && filasEgresados.length > 0;
         
         if (!programa || !programa.value) {
-            alert('⚠️ Por favor seleccione un Programa antes de finalizar');
+            mostrarAlerta('Por favor seleccione un programa antes de finalizar.', 'Campos incompletos');
             return;
         }
         
         if (!modalidad || !modalidad.value) {
-            alert('⚠️ Por favor seleccione una Modalidad antes de finalizar');
+            mostrarAlerta('Por favor seleccione una modalidad antes de finalizar.', 'Campos incompletos');
             return;
         }
         
@@ -1837,27 +2301,48 @@
         const programaNombre = programa.options[programa.selectedIndex].text;
         const modalidadNombre = modalidad.options[modalidad.selectedIndex].text;
         const totalFilas = tieneFilas ? filasEgresados.length : 0;
-        const confirmacionTexto = tieneFilas
-            ? `¿Está seguro de FINALIZAR la captura?\n\n` +
-              `📚 Programa: ${programaNombre}\n` +
-              `📋 Modalidad: ${modalidadNombre}\n` +
-              `📊 Total de filas: ${totalFilas}\n\n` +
-              `⚠️ Esta acción marcará la captura como completada.\n` +
-              `Los campos vacíos se guardarán como 0.`
-            : `¿Está seguro de FINALIZAR la captura?\n\n` +
-              `📚 Programa: ${programaNombre}\n` +
-              `📋 Modalidad: ${modalidadNombre}\n\n` +
-              `⚠️ No hay filas capturadas, pero la captura se cerrará igualmente.`;
         
-        if (!confirm(confirmacionTexto)) {
-            return;
+        if (typeof Swal !== 'undefined') {
+            const confirmacion = await Swal.fire({
+                title: '⚠️ ¿Desea finalizar la captura?',
+                text: 'Una vez finalizada, el estado de la captura cambiará a finalizado y no se podrán realizar más cambios.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#dc3545',
+                confirmButtonText: 'Sí, finalizar',
+                cancelButtonText: 'Cancelar'
+            });
+            if (!confirmacion.isConfirmed) return;
+
+            Swal.fire({
+                title: 'Finalizando captura...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+        } else {
+            const confirmacionTexto = tieneFilas
+                ? `¿Está seguro de FINALIZAR la captura?\n\n` +
+                  `📚 Programa: ${programaNombre}\n` +
+                  `📋 Modalidad: ${modalidadNombre}\n` +
+                  `📊 Total de filas: ${totalFilas}\n\n` +
+                  `⚠️ Esta acción marcará la captura como completada.\n` +
+                  `Los campos vacíos se guardarán como 0.`
+                : `¿Está seguro de FINALIZAR la captura?\n\n` +
+                  `📚 Programa: ${programaNombre}\n` +
+                  `📋 Modalidad: ${modalidadNombre}\n\n` +
+                  `⚠️ No hay filas capturadas, pero la captura se cerrará igualmente.`;
+            
+            if (!confirm(confirmacionTexto)) return;
+            mostrarOverlayCarga('Finalizando Captura...', 'Procesando datos y actualizando semáforo');
         }
         
         if (btnGuardar) btnGuardar.disabled = true;
         if (btnLimpiar) btnLimpiar.disabled = true;
         if (btnFinalizar) btnFinalizar.disabled = true;
-        
-        mostrarOverlayCarga('Finalizando Captura...', 'Procesando datos y actualizando semáforo');
         
         try {
             if (tieneFilas) {
@@ -1878,17 +2363,6 @@
                 }
                 
                 console.log('✅ Datos guardados en Temp_Egresados');
-                
-                await Swal.fire({
-                    title: 'Datos guardados en temporal',
-                    html: 'Revisa <b>Temp_Egresados</b> antes de finalizar la captura.',
-                    icon: 'info',
-                    timer: 4000,
-                    timerProgressBar: true,
-                    showConfirmButton: false,
-                    allowOutsideClick: false,
-                    allowEscapeKey: false
-                });
             }
             
             const response = await fetch('/egresados/finalizar_captura', {
@@ -1905,31 +2379,57 @@
             const resultado = await response.json();
             
             if (resultado.success) {
-                alert(`✅ Captura finalizada exitosamente\n\n` +
-                      `📚 Programa: ${programaNombre}\n` +
-                      `📋 Modalidad: ${modalidadNombre}\n` +
-                      `📊 Registros procesados: ${resultado.registros_procesados || 0}\n` +
-                      `🚦 Semáforo: ${resultado.semaforo_actualizado || 'Completado'}\n\n` +
-                      `La captura ha sido marcada como completada.`);
-
                 filasEgresados = [];
                 renderizarTablaEgresados();
                 ocultarSeccionCaptura();
                 const informePanel = document.getElementById('informe-panel');
                 if (informePanel) informePanel.style.display = 'block';
-                await actualizarInformeEgresados();
-                await actualizarSemaforoPestana();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                actualizarSemaforoEgresados();
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Captura Finalizada!',
+                        text: 'Se ha finalizado el programa y modalidad correctamente.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    alert('✅ Captura finalizada exitosamente');
+                    window.location.reload();
+                }
             } else {
                 const mensajeError = resultado.warning || resultado.error || 'No se pudo finalizar la captura';
-                alert(`❌ ${mensajeError}`);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al finalizar',
+                        text: mensajeError,
+                        confirmButtonColor: '#750946',
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    alert(`❌ ${mensajeError}`);
+                }
                 if (btnGuardar) btnGuardar.disabled = false;
                 if (btnLimpiar) btnLimpiar.disabled = false;
                 if (btnFinalizar) btnFinalizar.disabled = false;
             }
         } catch (error) {
             console.error('❌ Error al finalizar captura:', error);
-            alert(`❌ Error al finalizar captura: ${error.message}`);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al finalizar',
+                    text: error.message || 'Error al finalizar captura',
+                    confirmButtonColor: '#750946',
+                    confirmButtonText: 'Entendido'
+                });
+            } else {
+                alert(`❌ Error al finalizar captura: ${error.message}`);
+            }
             if (btnGuardar) btnGuardar.disabled = false;
             if (btnLimpiar) btnLimpiar.disabled = false;
             if (btnFinalizar) btnFinalizar.disabled = false;
@@ -1938,284 +2438,622 @@
         }
     }
     /* ==============================================
-       FUNCIONES DE INFORME
+       FUNCIONES DE INFORME (LÓGICA TITULADOS)
        ============================================== */
-    
-    /**
-     * Actualizar el informe de egresados desde el SP
-     */
-    async function actualizarInformeEgresados() {
-        const tbody = document.getElementById('informe-egresados-table')?.querySelector('tbody');
-        
-        if (!tbody) {
-            console.warn('⚠️ No se encontró la tabla de informe');
-            // Recargar la página para obtener el nuevo estado del semáforo
-            setTimeout(() => location.reload(), 1500);
-            return;
-        }
-        
-        // Mostrar mensaje de carga
-        tbody.innerHTML = `<tr>
-            <td colspan="8" style="text-align: center; padding: 30px; color: #999;">
-                <div style="font-size: 24px; margin-bottom: 10px;">⏳</div>
-                <div>Cargando datos del informe...</div>
-            </td>
-        </tr>`;
-        
-        try {
-            // Obtener datos del servidor (del SP)
-            const response = await fetch('/egresados/informe', {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
+
+    function agruparPorSexo(datos) {
+        const grupos = {};
+
+        (datos || []).forEach(fila => {
+            const clave = [
+                fila.Nombre_Programa,
+                fila.Modalidad,
+                fila.Turno,
+                fila.Boleta,
+                fila.Generacion,
+                fila.Grupo_Edad || fila.Edad
+            ].join('|');
+
+            if (!grupos[clave]) {
+                grupos[clave] = {
+                    Nombre_Programa: fila.Nombre_Programa,
+                    Modalidad: fila.Modalidad,
+                    Turno: fila.Turno,
+                    Boleta: fila.Boleta,
+                    Generacion: fila.Generacion,
+                    Grupo_Edad: fila.Grupo_Edad || fila.Edad,
+                    Hombres: 0,
+                    Mujeres: 0,
+                };
             }
-            
-            const resultado = await response.json();
-            
-            console.log('📦 Respuesta del servidor:', resultado);
-            console.log('📊 Datos recibidos:', resultado.datos);
 
-            const normalizarTexto = (valor) => String(valor || '')
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .trim()
-                .toLowerCase();
+            const sexo = (fila.Sexo || '').trim().toUpperCase();
+            const cantidad = Number(fila.Egresados !== undefined ? fila.Egresados : (fila.Titulados || 0)) || 0;
 
-            const selectPrograma = document.getElementById('programa');
-            const nombreProgramaSeleccionado =
-                selectPrograma && selectPrograma.value && selectPrograma.selectedOptions.length > 0
-                    ? selectPrograma.selectedOptions[0].textContent.trim()
-                    : '';
-
-            let datosInforme = resultado.datos || [];
-            if (!nombreProgramaSeleccionado) {
-                datosInforme = [];
-                console.log('ℹ️ Informe oculto: no hay programa seleccionado');
-            } else {
-                const programaSeleccionadoNorm = normalizarTexto(nombreProgramaSeleccionado);
-                datosInforme = datosInforme.filter(fila =>
-                    normalizarTexto(fila.Nombre_Programa) === programaSeleccionadoNorm
-                );
-                console.log(`🎯 Filtro por programa aplicado: '${nombreProgramaSeleccionado}' -> ${datosInforme.length} registro(s)`);
+            if (sexo === 'H' || sexo === 'HOMBRE' || sexo === 'M') {
+                grupos[clave].Hombres += cantidad;
+            } else if (sexo === 'F' || sexo === 'MUJER' || sexo === 'W') {
+                grupos[clave].Mujeres += cantidad;
             }
-            
-            if (resultado.success && datosInforme.length > 0) {
-                // Agrupar datos por combinación única incluyendo Turno
-                const registrosAgrupados = {};
-                
-                datosInforme.forEach(fila => {
-                    console.log('🔍 Procesando fila:', fila);
-                    
-                    // Crear clave única para agrupar (incluyendo Turno)
-                    const clave = `${fila.Nombre_Programa}_${fila.Modalidad}_${fila.Turno || ''}_${fila.Boleta}_${fila.Generacion}_${fila.Grupo_Edad || fila.Edad}`;
-                    
-                    if (!registrosAgrupados[clave]) {
-                        registrosAgrupados[clave] = {
-                            Nombre_Programa: fila.Nombre_Programa || '',
-                            Modalidad: fila.Modalidad || '',
-                            Turno: fila.Turno || '',
-                            Boleta: fila.Boleta || '',
-                            Generacion: fila.Generacion || '',
-                            Edad: fila.Grupo_Edad || fila.Edad || '',
-                            Hombres: 0,
-                            Mujeres: 0
-                        };
-                    }
-                    
-                    // Sumar según el sexo
-                    const egresados = parseInt(fila.Egresados) || 0;
-                    const sexo = (fila.Sexo || '').toLowerCase();
-                    
-                    if (sexo.includes('hombre')) {
-                        registrosAgrupados[clave].Hombres += egresados;
-                    } else if (sexo.includes('mujer')) {
-                        registrosAgrupados[clave].Mujeres += egresados;
-                    }
-                });
-                
-                console.log('📋 Registros agrupados:', registrosAgrupados);
-                
-                // Convertir a array y ORDENAR según especificaciones
-                const registrosOrdenados = Object.values(registrosAgrupados).sort((a, b) => {
-                    // 1. Ordenar por Programa
-                    if (a.Nombre_Programa !== b.Nombre_Programa) {
-                        return a.Nombre_Programa.localeCompare(b.Nombre_Programa);
-                    }
-                    // 2. Ordenar por Modalidad
-                    if (a.Modalidad !== b.Modalidad) {
-                        return a.Modalidad.localeCompare(b.Modalidad);
-                    }
-                    // 3. Ordenar por Turno
-                    if (a.Turno !== b.Turno) {
-                        return a.Turno.localeCompare(b.Turno);
-                    }
-                    // 4. Ordenar por Boleta (descendente - más reciente primero)
-                    if (a.Boleta !== b.Boleta) {
-                        return String(b.Boleta).localeCompare(String(a.Boleta));
-                    }
-                    // 5. Ordenar por Generación
-                    if (a.Generacion !== b.Generacion) {
-                        return a.Generacion.localeCompare(b.Generacion);
-                    }
-                    // 6. Ordenar por Edad (numérico cuando sea posible)
-                    const edadA = String(a.Edad);
-                    const edadB = String(b.Edad);
-                    
-                    // Extraer número si es posible para ordenar numéricamente
-                    const numA = parseInt(edadA) || 0;
-                    const numB = parseInt(edadB) || 0;
-                    
-                    if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
-                        return numA - numB;
-                    }
-                    
-                    // Si no son números, ordenar alfabéticamente
-                    return edadA.localeCompare(edadB);
-                });
-                
-                console.log('📊 Registros ordenados:', registrosOrdenados);
-                
-                let htmlFilas = '';
-                let totalGeneralHombres = 0;
-                let totalGeneralMujeres = 0;
-                
-                registrosOrdenados.forEach((registro, index) => {
-                    const hombres = registro.Hombres;
-                    const mujeres = registro.Mujeres;
-                    const total = hombres + mujeres;
+        });
 
-                    // No mostrar filas cuyo total sea 0 (no relevante)
-                    if (total === 0) return;
+        return Object.values(grupos).filter(g => g.Hombres > 0 || g.Mujeres > 0);
+    }
 
-                    totalGeneralHombres += hombres;
-                    totalGeneralMujeres += mujeres;
+    function renderizarTablaEgresadosInforme(datos) {
+        const tbody = document.querySelector('#informe-egresados-table tbody');
+        if (!tbody) return;
 
-                    const estiloFila = index % 2 === 0 ? 'background: #f9f9f9;' : 'background: white;';
-
-                    htmlFilas += `<tr data-hombres="${hombres}" data-mujeres="${mujeres}" style="${estiloFila}">
-                        <td style="padding: 10px; border: 1px solid #ddd;">${registro.Nombre_Programa}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">${registro.Modalidad}</td>
-                        <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${registro.Turno}</td>
-                        <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${registro.Boleta}</td>
-                        <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${registro.Generacion}</td>
-                        <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${registro.Edad}</td>
-                        <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: 600;">${hombres}</td>
-                        <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: 600;">${mujeres}</td>
-                        <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: 700; background: rgba(110, 3, 67, 0.05);">${total}</td>
-                    </tr>`;
-                });
-                
-                // Agregar fila de totales
-                const totalGeneral = totalGeneralHombres + totalGeneralMujeres;
-                htmlFilas += `<tr id="informe-total-row" style="background: linear-gradient(135deg, #750946 0%, #a3195b 100%); color: white; font-weight: 700;">
-                    <td colspan="6" style="padding: 12px; border: 1px solid #ddd; text-align: right;">TOTAL GENERAL:</td>
-                    <td class="total-hombres" style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralHombres}</td>
-                    <td class="total-mujeres" style="padding: 12px; text-align: center; border: 1px solid #ddd;">${totalGeneralMujeres}</td>
-                    <th class="total-general-egresados" style="padding: 12px; text-align: center; font-size: 18px;">${totalGeneral}</th>
-                </tr>`;
-                
-                tbody.innerHTML = htmlFilas;
-                
-                console.log('✅ Informe actualizado:', {
-                    registros: datosInforme.length,
-                    totalHombres: totalGeneralHombres,
-                    totalMujeres: totalGeneralMujeres,
-                    total: totalGeneral
-                });
-            } else {
-                const mensajeSinDatos = nombreProgramaSeleccionado
-                    ? `No hay datos guardados para el programa seleccionado: ${nombreProgramaSeleccionado}.`
-                    : 'Seleccione un programa para mostrar el informe.';
-
-                // Sin datos
-                tbody.innerHTML = `<tr>
-                    <td colspan="9" style="text-align: center; padding: 30px; color: #999;">
+        if (!datos || datos.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="10" style="text-align: center; padding: 30px; color: #999;">
                         <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
-                        <div>${mensajeSinDatos}</div>
+                        <div>No hay datos guardados aún. Guarde registros para ver el informe.</div>
                     </td>
                 </tr>`;
-                
-                console.log('ℹ️ No hay datos en el informe');
-            }
-        } catch (error) {
-            console.error('❌ Error al cargar el informe:', error);
-            tbody.innerHTML = `<tr>
-                <td colspan="9" style="text-align: center; padding: 30px; color: #dc3545;">
-                    <div style="font-size: 32px; margin-bottom: 10px;">⚠️</div>
-                    <div>Error al cargar el informe: ${error.message}</div>
+            return;
+        }
+
+        const filas = agruparPorSexo(datos);
+
+        if (filas.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="10" style="text-align: center; padding: 30px; color: #999;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
+                        <div>No hay datos guardados aún. Guarde registros para ver el informe.</div>
+                    </td>
+                </tr>`;
+            return;
+        }
+
+        let html = '';
+        let totalGeneralH = 0, totalGeneralM = 0;
+
+        filas.forEach((fila, i) => {
+            const total = fila.Hombres + fila.Mujeres;
+            const totalH = fila.Hombres;
+            const totalM = fila.Mujeres;
+            totalGeneralH += totalH;
+            totalGeneralM += totalM;
+
+            const progEnc = encodeURIComponent(fila.Nombre_Programa);
+            const modEnc = encodeURIComponent(fila.Modalidad);
+            const bolEnc = encodeURIComponent(fila.Boleta);
+            const genEnc = encodeURIComponent(fila.Generacion);
+            const edadEnc = encodeURIComponent(fila.Grupo_Edad);
+
+            const esFinalizado = (datos || []).some(d => 
+                d &&
+                d.Nombre_Programa === fila.Nombre_Programa &&
+                d.Modalidad === fila.Modalidad &&
+                d.Id_Semaforo === 3
+            );
+
+            html += `<tr style="background: ${i % 2 === 0 ? '#f9f9f9' : 'white'}">
+                <td style="padding:10px; text-align:center; border:1px solid #ddd;">
+                    ${esFinalizado ? '<input type="checkbox" disabled style="transform: scale(1.1); opacity: 0.5; cursor: not-allowed;" />' : `
+                    <input type="checkbox" class="seleccionar-fila-informe" 
+                           data-programa="${progEnc}" 
+                           data-modalidad="${modEnc}" 
+                           data-boleta="${bolEnc}" 
+                           data-generacion="${genEnc}" 
+                           data-edad="${edadEnc}" 
+                           data-turno="${encodeURIComponent(fila.Turno || '')}"
+                           style="transform: scale(1.1); cursor: pointer;" />
+                    `}
+                </td>
+                <td style="padding:10px; border:1px solid #ddd;">${fila.Nombre_Programa}</td>
+                <td style="padding:10px; border:1px solid #ddd;">${fila.Modalidad}</td>
+                <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Turno}</td>
+                <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Boleta}</td>
+                <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Generacion}</td>
+                <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Grupo_Edad}</td>
+                <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Hombres}</td>
+                <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Mujeres}</td>
+                <td style="padding:10px; text-align:center; border:1px solid #ddd; font-weight:700;">${total}</td>
+            </tr>`;
+        });
+
+        html += `<tr id="informe-total-row" style="background: linear-gradient(135deg, #750946 0%, #a3195b 100%); color:white; font-weight:700;">
+            <td colspan="7" style="padding:12px; border:1px solid #ddd; text-align:right;">TOTAL GENERAL:</td>
+            <td class="total-hombres" style="padding:12px; text-align:center; border:1px solid #ddd;">${totalGeneralH}</td>
+            <td class="total-mujeres" style="padding:12px; text-align:center; border:1px solid #ddd;">${totalGeneralM}</td>
+            <td class="total-general-egresados" style="padding:12px; text-align:center; font-size:18px; font-weight:700;">${totalGeneralH + totalGeneralM}</td>
+        </tr>`;
+
+        tbody.innerHTML = html;
+    }
+
+    function filtrarPorSelects() {
+        const selectPrograma = document.getElementById('programa');
+        const selectModalidad = document.getElementById('modalidad');
+        const table = document.getElementById('informe-egresados-table');
+        const tbody = table ? table.querySelector('tbody') : null;
+        if (!tbody) return;
+
+        const programaSeleccionado = selectPrograma ? (selectPrograma.options[selectPrograma.selectedIndex]?.text || selectPrograma.value) : '';
+        const modalidadSeleccionada = selectModalidad ? (selectModalidad.options[selectModalidad.selectedIndex]?.text || selectModalidad.value) : '';
+
+        if (!selectPrograma.value || !selectModalidad.value) {
+            tbody.innerHTML = `
+            <tr>
+                <td colspan="10" style="text-align: center; padding: 40px; color: #999;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
+                    <div>Seleccione un programa y modalidad para mostrar el informe.</div>
                 </td>
             </tr>`;
+            actualizarSemaforoEgresados();
+            return;
+        }
+
+        const existingRows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'informe-total-row' && !r.querySelector('td[colspan]'));
+        if (existingRows.length === 0) {
+            renderizarTablaEgresadosInforme(datosFilas);
+        }
+
+        const rows = Array.from(tbody.querySelectorAll('tr'))
+            .filter(row => row.id !== 'informe-total-row' && !row.querySelector('td[colspan]'));
+
+        datosFilasFiltrados = (datosFilas || []).filter(f => {
+            const coincidePrograma = !programaSeleccionado || f.Nombre_Programa === programaSeleccionado;
+            const coincideModalidad = !modalidadSeleccionada || f.Modalidad === modalidadSeleccionada;
+            return coincidePrograma && coincideModalidad && f.Egresados !== null;
+        });
+
+        rows.forEach(row => {
+            const programa = row.cells[1]?.textContent.trim();
+            const modalidad = row.cells[2]?.textContent.trim();
+
+            const coincidePrograma = !programaSeleccionado || programa === programaSeleccionado;
+            const coincideModalidad = !modalidadSeleccionada || modalidad === modalidadSeleccionada;
+
+            row.style.display = (coincidePrograma && coincideModalidad) ? '' : 'none';
+        });
+
+        // Recalcular totales
+        let totalH = 0, totalM = 0;
+        rows.forEach(row => {
+            if (row.style.display === 'none') return;
+            totalH += parseInt(row.cells[7]?.textContent.trim()) || 0;
+            totalM += parseInt(row.cells[8]?.textContent.trim()) || 0;
+        });
+
+        const totalRow = document.getElementById('informe-total-row');
+        if (totalRow) {
+            if (totalH + totalM === 0) {
+                totalRow.style.display = 'none';
+            } else {
+                totalRow.style.display = '';
+                const th = totalRow.querySelector('.total-hombres');
+                const tm = totalRow.querySelector('.total-mujeres');
+                const tg = totalRow.querySelector('.total-general-egresados');
+                if (th) th.textContent = totalH;
+                if (tm) tm.textContent = totalM;
+                if (tg) tg.textContent = totalH + totalM;
+            }
+        }
+
+        actualizarSemaforoEgresados();
+    }
+
+    function actualizarSemaforoEgresados() {
+        const pill = document.getElementById('pestana-semaforo-egresados');
+        const semaforoDot = document.getElementById('semaforo-dot-egresados');
+        const semaforoTexto = document.getElementById('semaforo-texto-egresados');
+        const accionesMultiples = document.getElementById('acciones-multiples-informe');
+
+        const selectPrograma = document.getElementById('programa');
+        const selectModalidad = document.getElementById('modalidad');
+
+        if (!selectPrograma || !selectModalidad || !selectPrograma.value || !selectModalidad.value) {
+            if (pill) pill.style.display = 'none';
+            if (accionesMultiples) accionesMultiples.style.display = 'none';
+            return;
+        }
+
+        const progNombre = selectPrograma.options[selectPrograma.selectedIndex]?.text.trim() || selectPrograma.value;
+        const modNombre = selectModalidad.options[selectModalidad.selectedIndex]?.text.trim() || selectModalidad.value;
+
+        const filasFiltradas = (datosFilas || []).filter(f => 
+            (f.Nombre_Programa === progNombre || f.Nombre_Programa === selectPrograma.value) && 
+            (f.Modalidad === modNombre || f.Modalidad === selectModalidad.value)
+        );
+
+        const semaforos = [...new Set(filasFiltradas.map(f => f.Id_Semaforo).filter(s => s !== undefined && s !== null))];
+
+        let valor = 1;
+        if (semaforos.includes(3)) {
+            valor = 3;
+        } else if (semaforos.includes(2) || filasFiltradas.some(f => (parseInt(f.Egresados) || 0) > 0)) {
+            valor = 2;
+        } else {
+            valor = 1;
+        }
+
+        const estados = {
+            1: { clase: 'semaforo-rojo', texto: 'No Capturado' },
+            2: { clase: 'semaforo-amarillo', texto: 'En Proceso De Captura' },
+            3: { clase: 'semaforo-verde', texto: 'Captura Finalizada' }
+        };
+
+        const estado = estados[valor] ?? estados[1];
+
+        if (pill && semaforoDot && semaforoTexto) {
+            pill.className = `pestana-semaforo ${estado.clase}`;
+            semaforoDot.className = `semaforo-dot ${estado.clase}`;
+            semaforoTexto.textContent = estado.texto;
+            pill.style.display = 'inline-flex';
+        }
+
+        if (accionesMultiples) {
+            accionesMultiples.style.display = (valor === 3) ? 'none' : 'flex';
+        }
+
+        const selectAllCheckbox = document.getElementById('seleccionar-todas-informe');
+        if (selectAllCheckbox) {
+            if (valor === 3) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.disabled = true;
+                selectAllCheckbox.style.cursor = 'not-allowed';
+                selectAllCheckbox.style.opacity = '0.5';
+            } else {
+                selectAllCheckbox.disabled = false;
+                selectAllCheckbox.style.cursor = 'pointer';
+                selectAllCheckbox.style.opacity = '1';
+            }
+        }
+
+        const btnFinalizar = document.getElementById('btn-finalizar-captura');
+        const filtrosSecundarios = document.getElementById('filtros-secundarios');
+        const accionesCaptura = document.querySelector('.actions-after-table');
+        const tablaContainer = document.querySelector('.tabla-matricula-container');
+
+        if (valor === 3) {
+            if (filtrosSecundarios) filtrosSecundarios.style.display = 'none';
+            if (btnFinalizar) btnFinalizar.disabled = true;
+            if (accionesCaptura) accionesCaptura.style.display = 'none';
+            if (tablaContainer) tablaContainer.style.display = 'none';
+        } else {
+            if (filtrosSecundarios) filtrosSecundarios.style.display = 'block';
+            if (btnFinalizar) btnFinalizar.disabled = false;
+            if (accionesCaptura) accionesCaptura.style.display = 'flex';
+            if (tablaContainer) tablaContainer.style.display = 'block';
         }
     }
+
+    /* ==============================================
+       ACCIONES MÚLTIPLES: EDITAR Y BORRAR SELECCIONADOS
+       ============================================== */
+
+    function editarFilasSeleccionadas() {
+        const selected = document.querySelectorAll('.seleccionar-fila-informe:checked');
+        if (selected.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sin selección',
+                text: 'Por favor, seleccione al menos una fila del informe para editar.',
+                confirmButtonColor: '#750946'
+            });
+            return;
+        }
+
+        Swal.fire({
+            title: '¿Cargar registros seleccionados?',
+            text: 'Se cargarán los registros para su edición.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#17a2b8',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, cargar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                filasEgresados = [];
+                const keysProcesadas = new Set();
+
+                const selectPrograma = document.getElementById('programa');
+                const selectModalidad = document.getElementById('modalidad');
+
+                selected.forEach(cb => {
+                    const progName = decodeURIComponent(cb.dataset.programa);
+                    const modName = decodeURIComponent(cb.dataset.modalidad);
+                    const bolName = decodeURIComponent(cb.dataset.boleta);
+                    const genName = decodeURIComponent(cb.dataset.generacion);
+                    const edadVal = decodeURIComponent(cb.dataset.edad);
+
+                    const claveFila = `${progName}|${modName}|${bolName}|${genName}|${edadVal}`;
+                    if (keysProcesadas.has(claveFila)) {
+                        return; // Ya procesado (turno opuesto)
+                    }
+                    keysProcesadas.add(claveFila);
+
+                    const turnosUsar = turnosDisponibles && turnosDisponibles.length > 0
+                        ? turnosDisponibles
+                        : [{ id: 1, nombre: 'Matutino' }, { id: 2, nombre: 'Vespertino' }];
+
+                    const turnosObj = {};
+                    turnosUsar.forEach(turno => {
+                        const turnoNom = turno.nombre || turno;
+                        const turnoId = turno.id || turnoNom;
+
+                        const registroHombre = (datosFilas || []).find(d =>
+                            d &&
+                            d.Nombre_Programa === progName &&
+                            d.Modalidad === modName &&
+                            String(d.Boleta) === String(bolName) &&
+                            d.Generacion === genName &&
+                            (d.Grupo_Edad === edadVal || d.Edad === edadVal) &&
+                            d.Turno === turnoNom &&
+                            (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
+                        );
+
+                        const registroMujer = (datosFilas || []).find(d =>
+                            d &&
+                            d.Nombre_Programa === progName &&
+                            d.Modalidad === modName &&
+                            String(d.Boleta) === String(bolName) &&
+                            d.Generacion === genName &&
+                            (d.Grupo_Edad === edadVal || d.Edad === edadVal) &&
+                            d.Turno === turnoNom &&
+                            (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
+                        );
+
+                        const cantH = registroHombre ? (registroHombre.Egresados !== undefined ? registroHombre.Egresados : registroHombre.Titulados) : '';
+                        const cantM = registroMujer ? (registroMujer.Egresados !== undefined ? registroMujer.Egresados : registroMujer.Titulados) : '';
+
+                        turnosObj[turnoId] = {
+                            hombres: (cantH !== null && cantH !== undefined) ? cantH : '',
+                            mujeres: (cantM !== null && cantM !== undefined) ? cantM : ''
+                        };
+                    });
+
+                    const selectBoleta = document.getElementById('filtro-boleta');
+                    let bolVal = bolName;
+                    if (selectBoleta) {
+                        const opt = Array.from(selectBoleta.options).find(o => o.text.trim() === bolName.trim());
+                        if (opt) bolVal = opt.value;
+                    }
+
+                    const selectGen = document.getElementById('filtro-generacion');
+                    let genVal = genName;
+                    if (selectGen) {
+                        const opt = Array.from(selectGen.options).find(o => o.text.trim() === genName.trim());
+                        if (opt) genVal = opt.value;
+                    }
+
+                    filasEgresados.push({
+                        id: Date.now() + Math.random(),
+                        programa: selectPrograma ? selectPrograma.value : '',
+                        programaNombre: progName,
+                        modalidad: selectModalidad ? selectModalidad.value : '',
+                        modalidadNombre: modName,
+                        boleta: bolVal,
+                        boletaNombre: bolName,
+                        generacion: genVal,
+                        generacionNombre: genName,
+                        edad: edadVal,
+                        edadNombre: edadVal,
+                        turnos: turnosObj
+                    });
+                });
+
+                generarCabeceraTabla();
+                renderizarTablaEgresados();
+
+                const topElement = document.getElementById('contenedor-matricula-principal') || document.getElementById('seccion-captura-egresados');
+                if (topElement) {
+                    topElement.scrollIntoView({ behavior: 'smooth' });
+                }
+
+                selected.forEach(cb => cb.checked = false);
+                const selectAll = document.getElementById('seleccionar-todas-informe');
+                if (selectAll) selectAll.checked = false;
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Registros cargados',
+                    text: `${keysProcesadas.size} registros cargados para editar.`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+        });
+    }
+
+    function borrarFilasSeleccionadas() {
+        const selected = document.querySelectorAll('.seleccionar-fila-informe:checked');
+        if (selected.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sin selección',
+                text: 'Por favor, seleccione al menos una fila del informe para eliminar.',
+                confirmButtonColor: '#750946'
+            });
+            return;
+        }
+
+        const keysProcesadas = new Set();
+        selected.forEach(cb => {
+            const progName = decodeURIComponent(cb.dataset.programa);
+            const modName = decodeURIComponent(cb.dataset.modalidad);
+            const bolName = decodeURIComponent(cb.dataset.boleta);
+            const genName = decodeURIComponent(cb.dataset.generacion);
+            const edadVal = decodeURIComponent(cb.dataset.edad);
+            const claveFila = `${progName}|${modName}|${bolName}|${genName}|${edadVal}`;
+            keysProcesadas.add(claveFila);
+        });
+
+        Swal.fire({
+            title: '⚠️ ¿Está seguro de eliminar los registros seleccionados?',
+            text: `Se establecerán a cero los valores de hombres y mujeres para los ${keysProcesadas.size} registros seleccionados en la base de datos.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                filasEgresados = [];
+                const keysAgregadas = new Set();
+
+                const selectPrograma = document.getElementById('programa');
+                const selectModalidad = document.getElementById('modalidad');
+
+                selected.forEach(cb => {
+                    const progName = decodeURIComponent(cb.dataset.programa);
+                    const modName = decodeURIComponent(cb.dataset.modalidad);
+                    const bolName = decodeURIComponent(cb.dataset.boleta);
+                    const genName = decodeURIComponent(cb.dataset.generacion);
+                    const edadVal = decodeURIComponent(cb.dataset.edad);
+
+                    const claveFila = `${progName}|${modName}|${bolName}|${genName}|${edadVal}`;
+                    if (keysAgregadas.has(claveFila)) return;
+                    keysAgregadas.add(claveFila);
+
+                    const turnosUsar = turnosDisponibles && turnosDisponibles.length > 0
+                        ? turnosDisponibles
+                        : [{ id: 1, nombre: 'Matutino' }, { id: 2, nombre: 'Vespertino' }];
+
+                    const turnosObj = {};
+                    turnosUsar.forEach(turno => {
+                        const turnoId = turno.id || turno.nombre || turno;
+                        turnosObj[turnoId] = { hombres: 0, mujeres: 0 };
+                    });
+
+                    filasEgresados.push({
+                        id: Date.now() + Math.random(),
+                        programa: selectPrograma ? selectPrograma.value : '',
+                        programaNombre: progName,
+                        modalidad: selectModalidad ? selectModalidad.value : '',
+                        modalidadNombre: modName,
+                        boleta: String(bolName),
+                        boletaNombre: String(bolName),
+                        generacion: genName,
+                        generacionNombre: genName,
+                        edad: edadVal,
+                        edadNombre: edadVal,
+                        turnos: turnosObj
+                    });
+                });
+
+                guardarAvanceEgresados(true);
+            }
+        });
+    }
+
+    // EVENT DELEGATION FOR MULTI-SELECT CHECKBOXES (SINCRONIZA TURNOS OPUESTOS)
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'seleccionar-todas-informe') {
+            const checkboxes = document.querySelectorAll('.seleccionar-fila-informe');
+            checkboxes.forEach(cb => {
+                if (!cb.disabled) {
+                    const row = cb.closest('tr');
+                    if (row && row.style.display !== 'none') {
+                        cb.checked = e.target.checked;
+                        
+                        const prog = cb.dataset.programa;
+                        const mod = cb.dataset.modalidad;
+                        const bol = cb.dataset.boleta;
+                        const gen = cb.dataset.generacion;
+                        const edad = cb.dataset.edad;
+                        const turno = cb.dataset.turno;
+
+                        const opposite = Array.from(document.querySelectorAll('.seleccionar-fila-informe'))
+                            .find(other => 
+                                other !== cb &&
+                                other.dataset.programa === prog &&
+                                other.dataset.modalidad === mod &&
+                                other.dataset.boleta === bol &&
+                                other.dataset.generacion === gen &&
+                                other.dataset.edad === edad &&
+                                other.dataset.turno !== turno
+                            );
+                        if (opposite && opposite.checked !== cb.checked) {
+                            opposite.checked = cb.checked;
+                        }
+                    }
+                }
+            });
+        } else if (e.target && e.target.classList.contains('seleccionar-fila-informe')) {
+            const cb = e.target;
+            const isChecked = cb.checked;
+
+            const prog = cb.dataset.programa;
+            const mod = cb.dataset.modalidad;
+            const bol = cb.dataset.boleta;
+            const gen = cb.dataset.generacion;
+            const edad = cb.dataset.edad;
+            const turno = cb.dataset.turno;
+
+            // Buscar fila con el turno opuesto
+            const opposite = Array.from(document.querySelectorAll('.seleccionar-fila-informe'))
+                .find(other => 
+                    other !== cb &&
+                    other.dataset.programa === prog &&
+                    other.dataset.modalidad === mod &&
+                    other.dataset.boleta === bol &&
+                    other.dataset.generacion === gen &&
+                    other.dataset.edad === edad &&
+                    other.dataset.turno !== turno
+                );
+
+            if (opposite && opposite.checked !== isChecked) {
+                opposite.checked = isChecked;
+            }
+
+            const selectAll = document.getElementById('seleccionar-todas-informe');
+            if (selectAll) {
+                const visibleCheckboxes = Array.from(document.querySelectorAll('.seleccionar-fila-informe'))
+                    .filter(c => {
+                        const row = c.closest('tr');
+                        return row && row.style.display !== 'none';
+                    });
+                const allChecked = visibleCheckboxes.length > 0 && visibleCheckboxes.every(c => c.checked);
+                selectAll.checked = allChecked;
+            }
+        }
+    });
     
     /* ==============================================
        FUNCIONES DE BANNER Y NOTIFICACIONES
        ============================================== */
     
-    /**
-     * Cerrar el banner de rechazo (ocultarlo temporalmente)
-     */
-    function cerrarBannerRechazo() {
-        const banner = document.getElementById('banner-rechazo');
-        if (banner) {
-            banner.style.animation = 'slideDownBanner 0.3s ease-out reverse';
-            setTimeout(() => {
-                banner.style.display = 'none';
-            }, 300);
-        }
-    }
-    
-    /**
-     * Mostrar el banner de rechazo
-     */
-    function mostrarBannerRechazo() {
-        const banner = document.getElementById('banner-rechazo');
-        if (banner) {
-            banner.style.display = 'flex';
-            banner.style.animation = 'slideDownBanner 0.5s ease-out';
+    function inicializarValoresAutocompletados() {
+        const selectPrograma = document.getElementById('programa');
+        const selectModalidad = document.getElementById('modalidad');
+        if (selectPrograma && selectPrograma.value) {
+            console.log('Autocompletado detectado para programa:', selectPrograma.value);
+            selectPrograma.dispatchEvent(new Event('change'));
             
-            // Cerrar el panel de notificaciones
-            const panel = document.getElementById('panel-notificaciones');
-            if (panel) {
-                panel.style.display = 'none';
-            }
-            
-            // Hacer scroll suave hasta el banner
             setTimeout(() => {
-                banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (selectModalidad && selectModalidad.value) {
+                    console.log('Autocompletado detectado para modalidad:', selectModalidad.value);
+                    selectModalidad.dispatchEvent(new Event('change'));
+                }
             }, 100);
         }
-    }
-    
-    /**
-     * Toggle panel de notificaciones
-     */
-    function togglePanelNotificaciones() {
-        const panel = document.getElementById('panel-notificaciones');
-        if (panel) {
-            if (panel.style.display === 'none' || panel.style.display === '') {
-                panel.style.display = 'block';
-            } else {
-                panel.style.display = 'none';
-            }
+        
+        const selectNivelSuperior = document.getElementById('select-nivel-superior');
+        if (selectNivelSuperior && selectNivelSuperior.value) {
+            selectNivelSuperior.dispatchEvent(new Event('change'));
+        }
+
+        const selectNivelDirector = document.getElementById('select-nivel-director');
+        if (selectNivelDirector && selectNivelDirector.value) {
+            selectNivelDirector.dispatchEvent(new Event('change'));
         }
     }
-    
-    /* ==============================================
-       INICIALIZACIÓN AL CARGAR LA PÁGINA
-       ============================================== */
-    
+
     // Event listeners al cargar el DOM
     document.addEventListener('DOMContentLoaded', function() {
         // Obtener referencias a los selectores principales (fuera del bloque de roles)
         const selectPrograma = document.getElementById('programa');
         const selectModalidad = document.getElementById('modalidad');
+        const selectBoleta = document.getElementById('filtro-boleta');
+        const selectGeneracion = document.getElementById('filtro-generacion');
         
         // === LÓGICA PARA ROLES 4-9 (SELECTOR DE PERIODO/UA/NIVEL) ===
         const esRolDirector = {{ 'true' if es_rol_director else 'false' }};
@@ -2252,12 +3090,12 @@
                     const idPeriodo = selectPeriodoDirector.value;
 
                     if (!idNivel || !idPeriodo) {
-                        alert('Por favor, seleccione Periodo y Nivel');
+                        mostrarAlerta('Por favor, seleccione Periodo y Nivel', 'Campos incompletos');
                         return;
                     }
 
                     if (!uaFijaSiglaDirector) {
-                        alert('No se pudo identificar la Unidad Académica del usuario');
+                        mostrarAlerta('No se pudo identificar la Unidad Académica del usuario', 'Información', 'error');
                         return;
                     }
 
@@ -2360,7 +3198,7 @@
                     const idPeriodo = selectPeriodoSuperior.value;
 
                     if (!idNivel || !idUA || !idPeriodo) {
-                        alert('Por favor, seleccione Periodo, Nivel y Unidad Académica');
+                        mostrarAlerta('Por favor, seleccione Periodo, Nivel y Unidad Académica', 'Campos incompletos');
                         return;
                     }
 
@@ -2395,41 +3233,70 @@
             checkbox.addEventListener('change', actualizarContadorEdades);
         });
         
-        // Configurar filtrado de modalidades
+        // Configurar filtrado de modalidades y selectores en cascada
         if (selectPrograma && selectModalidad) {
-            selectModalidad.disabled = true;
+            resetSelect(selectModalidad, '-- Primero seleccione un Programa Académico --');
+            resetSelect(selectBoleta, '-- Seleccione Boleta --');
+            resetSelect(selectGeneracion, '-- Seleccione Generación --');
             
             selectPrograma.addEventListener('change', function() {
-                // Al cambiar programa, regresar al estado de informe y no reabrir captura si ya se finalizó
                 ocultarSeccionCaptura();
-                selectModalidad.value = '';
+                resetSelect(selectBoleta, '-- Seleccione Boleta --');
+                resetSelect(selectGeneracion, '-- Seleccione Generación --');
+                
+                const programaId = this.value;
+                if (!programaId) {
+                    resetSelect(selectModalidad, '-- Primero seleccione un Programa Académico --');
+                    actualizarBannerSeleccion();
+                    filtrarPorSelects();
+                    return;
+                }
+                
                 filtrarModalidadesPorPrograma();
                 actualizarBannerSeleccion();
-                actualizarInformeEgresados();
+                filtrarPorSelects();
             });
             
             selectModalidad.addEventListener('change', function() {
-                if (selectPrograma.value && selectModalidad.value) {
+                filasEgresados = [];
+                renderizarTablaEgresados();
+
+                resetSelect(selectBoleta, '-- Seleccione Boleta --');
+                resetSelect(selectGeneracion, '-- Seleccione Generación --');
+
+                if (selectPrograma.value && this.value) {
                     mostrarSeccionCaptura();
                     actualizarBannerSeleccion();
-                    actualizarSemaforoPestana();
+
+                    llenarSelect(selectBoleta, catalogoBoletas);
+                    selectBoleta.disabled = false;
+
+                    renderizarTablaEgresadosInforme(datosFilas);
+                    filtrarPorSelects();
+                    actualizarSemaforoEgresados();
                 } else {
                     ocultarSeccionCaptura();
+                    actualizarBannerSeleccion();
+                    filtrarPorSelects();
                 }
             });
+
+            if (selectBoleta) {
+                selectBoleta.addEventListener('change', function() {
+                    resetSelect(selectGeneracion, '-- Seleccione Generación --');
+
+                    if (!this.value) return;
+
+                    llenarSelect(selectGeneracion, catalogoGeneraciones);
+                    selectGeneracion.disabled = false;
+                });
+            }
 
             window.addEventListener('resize', function() {
                 ajustarTamanoBannerSeleccion();
             });
             
-            setTimeout(function() {
-                if (selectPrograma.value) {
-                    filtrarModalidadesPorPrograma();
-                } else {
-                    selectModalidad.innerHTML = '<option value="">-- Primero seleccione un Programa Académico --</option>';
-                    selectModalidad.disabled = true;
-                }
-            }, 100);
+            inicializarValoresAutocompletados();
         }
         
         // Cerrar panel de notificaciones al hacer clic fuera
@@ -2455,7 +3322,10 @@
         
         // Cargar el informe de egresados al iniciar (solo para capturistas)
         if (esCapturista) {
-            actualizarInformeEgresados();
+            if (datosFilas && datosFilas.length > 0) {
+                renderizarTablaEgresadosInforme(datosFilas);
+                filtrarPorSelects();
+            }
             initTableFilters();
         }
         
@@ -2852,8 +3722,8 @@
             const dh = row.dataset && row.dataset.hombres ? parseInt(row.dataset.hombres) : NaN;
             const dm = row.dataset && row.dataset.mujeres ? parseInt(row.dataset.mujeres) : NaN;
 
-            let h = !isNaN(dh) ? dh : (parseInt(row.cells[6]?.textContent.trim()) || 0);
-            let m = !isNaN(dm) ? dm : (parseInt(row.cells[7]?.textContent.trim()) || 0);
+            let h = !isNaN(dh) ? dh : (parseInt(row.cells[7]?.textContent.trim()) || 0);
+            let m = !isNaN(dm) ? dm : (parseInt(row.cells[8]?.textContent.trim()) || 0);
 
             totalVisibleHombres += h;
             totalVisibleMujeres += m;
@@ -2883,5 +3753,6 @@
     }
     
 </script>
+<script src="/static/js/notificacion.js"></script>
 
 {% endblock %}

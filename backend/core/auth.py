@@ -85,17 +85,20 @@ class VerificarAccesoUA:
         sess: SessionData = Depends(get_current_session)
     ) -> SessionData:
         
-        # 1. Reutilizamos tu lógica: estos roles son administradores globales en el sistema
-        es_admin = sess.id_rol in [1, 6, 7, 8, 9]
+        id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+        nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
 
+        # 1. Administradores globales en el sistema
+        es_admin = id_rol in [1, 6, 7, 8, 9] or nombre_rol in ["administrador", "analista", "jefe de departamento", "jefe de división", "directora"]
         if es_admin:
-            return sess # Los administradores pueden ver cualquier URL
+            return sess
 
-        # 2. Si no es admin (ej. capturista), verificamos su UA asignada
-        # Nota: Asegúrate de que cuando creas la sesión (SessionData), estés guardando el 'id_ua' del usuario.
-        ua_asignada = getattr(sess, 'id_', None)
+        # 2. Si no es admin (ej. capturista, ceget, titular), verificamos su UA asignada
+        ua_asignada = getattr(sess, 'id_unidad_academica', None)
+        if ua_asignada is not None:
+            ua_asignada = int(ua_asignada)
 
-        if ua_asignada != ua_id:
+        if ua_asignada != int(ua_id):
             print(f"[seguridad] Intento de acceso no autorizado. Usuario {sess.id_usuario} intentó acceder a UA {ua_id}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -116,13 +119,17 @@ class VerificarAccesoInstitucional:
         sess: SessionData = Depends(get_current_session)
     ) -> SessionData:
         
+        id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+        nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
+
         # 1. Los administradores globales tienen acceso sin restricciones
-        es_admin = sess.id_rol in [1, 6, 7, 8, 9]
+        es_admin = id_rol in [1, 6, 7, 8, 9] or nombre_rol in ["administrador", "analista", "jefe de departamento", "jefe de división", "directora"]
         if es_admin:
             return sess 
 
         # 2. Verificar la Unidad Académica
-        if sess.id_unidad_academica != ua_id:
+        ua_asignada = int(getattr(sess, 'id_unidad_academica', 0) or 0)
+        if ua_asignada != int(ua_id):
             print(f"[seguridad] Alerta: Usuario {sess.usuario} intentó acceder a la UA {ua_id}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -130,12 +137,16 @@ class VerificarAccesoInstitucional:
             )
             
         # 3. Verificar el Nivel (si la URL contiene un {nivel_id})
-        if nivel_id is not None and sess.id_nivel != nivel_id:
-            print(f"[seguridad] Alerta: Usuario {sess.usuario} intentó acceder al nivel {nivel_id}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Acceso denegado: No tienes permisos para este nivel académico."
-            )
+        # Roles como CEGET (4) y Titular (5) gestionan todos los niveles de su Unidad Académica
+        es_ceget_o_titular = id_rol in [4, 5] or "ceget" in nombre_rol or "titular" in nombre_rol
+        if not es_ceget_o_titular:
+            nivel_asignado = int(getattr(sess, 'id_nivel', 0) or 0)
+            if nivel_id is not None and nivel_asignado != int(nivel_id):
+                print(f"[seguridad] Alerta: Usuario {sess.usuario} intentó acceder al nivel {nivel_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Acceso denegado: No tienes permisos para este nivel académico."
+                )
 
         return sess
     
@@ -146,28 +157,36 @@ class VerificarAccesoAcuse:
     """
     async def __call__(self, unidad: str = Query(None), nivel: str = Query(None), sess: SessionData = Depends(get_current_session)):
 
-        # 1. Tu lista de roles administradores (tienen permitido modificar la URL y ver todo)
-        es_admin = sess.id_rol in [1, 6, 7, 8, 9]
+        id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+        nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
+
+        # 1. Administradores globales (pueden ver cualquier UA y Nivel)
+        es_admin = id_rol in [1, 6, 7, 8, 9] or nombre_rol in ["administrador", "analista", "jefe de departamento", "jefe de división", "directora"]
         if es_admin:
             return sess 
 
-        search_unidad = unidad if (unidad and unidad.strip()) else sess.sigla_unidad_academica
-        search_nivel = nivel if (nivel and nivel.strip()) else sess.nombre_nivel
+        search_unidad = (unidad or "").strip() or (getattr(sess, 'sigla_unidad_academica', '') or "").strip()
+        search_nivel = (nivel or "").strip() or (getattr(sess, 'nombre_nivel', '') or "").strip()
 
-        # 2. Si no es admin, validar la Unidad Académica contra sus siglas en la sesión
-        if sess.sigla_unidad_academica.strip().lower() != search_unidad.strip().lower():
+        # 2. Validar la Unidad Académica contra sus siglas en la sesión
+        sigla_sess = (getattr(sess, 'sigla_unidad_academica', '') or "").strip().lower()
+        if search_unidad and sigla_sess and sigla_sess != search_unidad.lower():
             print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL a la unidad: {search_unidad}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Acceso denegado: No tienes permisos para consultar esta Unidad Académica."
             )
 
-        # 3. Validar el Nivel Académico contra el nombre del nivel en la sesión
-        if sess.nombre_nivel.strip().lower() != search_nivel.strip().lower():
-            print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL al nivel: {search_nivel}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Acceso denegado: No tienes permisos para consultar este nivel académico."
-            )
+        # 3. Validar el Nivel Académico solo si el rol está restringido por nivel (ej. Capturista = 3).
+        # Roles como CEGET (4) y Titular (5) gestionan todos los niveles de su Unidad Académica.
+        es_ceget_o_titular = id_rol in [4, 5] or "ceget" in nombre_rol or "titular" in nombre_rol
+        if not es_ceget_o_titular:
+            nivel_sess = (getattr(sess, 'nombre_nivel', '') or "").strip().lower()
+            if search_nivel and nivel_sess and nivel_sess != search_nivel.lower():
+                print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL al nivel: {search_nivel}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Acceso denegado: No tienes permisos para consultar este nivel académico."
+                )
         
         return sess

@@ -87,35 +87,47 @@ function agregarFilasTitulados() {
         }
 
         // 2. BUSCAR DATOS PREVIOS EN LA VARIABLE GLOBAL (datosFilas)
+        const progNom = programa.options[programa.selectedIndex].text.trim();
+        const modNom = modalidad.options[modalidad.selectedIndex].text.trim();
+        const bolNom = boleta.options[boleta.selectedIndex].text.trim();
+        const tipoNom = tipoTitulacion.options[tipoTitulacion.selectedIndex].text.trim();
+        const edNom = edadNombre.trim();
+
         const turnosObj = {};
 
-        turnosDisponibles.forEach(turno => {
+        turnosDisponibles.forEach(t => {
+            const turno = (t.nombre || t).trim();
             // Buscamos si existe registro guardado para este turno en versión HOMBRE
-            const registroHombre = datosFilas.find(d =>
-                d.Nombre_Programa === programa.options[programa.selectedIndex].text &&
-                d.Modalidad === modalidad.options[modalidad.selectedIndex].text &&
-                String(d.Boleta) === String(boleta.options[boleta.selectedIndex].text) &&
-                d.Tipo_Titulacion === tipoTitulacion.options[tipoTitulacion.selectedIndex].text &&
-                d.Grupo_Edad === edadNombre &&
-                d.Turno === turno &&
-                d.Sexo === 'Hombre'
+            const registroHombre = (datosFilas || []).find(d =>
+                d &&
+                (d.Nombre_Programa || '').trim() === progNom &&
+                (d.Modalidad || '').trim() === modNom &&
+                String(d.Boleta || '').trim() === bolNom &&
+                (d.Tipo_Titulacion || '').trim() === tipoNom &&
+                String(d.Grupo_Edad || d.Edad || '').trim() === edNom &&
+                (d.Turno || '').trim() === turno &&
+                (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
             );
 
             // Buscamos si existe registro guardado para este turno en versión MUJER
-            const registroMujer = datosFilas.find(d =>
-                d.Nombre_Programa === programa.options[programa.selectedIndex].text &&
-                d.Modalidad === modalidad.options[modalidad.selectedIndex].text &&
-                String(d.Boleta) === String(boleta.options[boleta.selectedIndex].text) &&
-                d.Tipo_Titulacion === tipoTitulacion.options[tipoTitulacion.selectedIndex].text &&
-                d.Grupo_Edad === edadNombre &&
-                d.Turno === turno &&
-                d.Sexo === 'Mujer'
+            const registroMujer = (datosFilas || []).find(d =>
+                d &&
+                (d.Nombre_Programa || '').trim() === progNom &&
+                (d.Modalidad || '').trim() === modNom &&
+                String(d.Boleta || '').trim() === bolNom &&
+                (d.Tipo_Titulacion || '').trim() === tipoNom &&
+                String(d.Grupo_Edad || d.Edad || '').trim() === edNom &&
+                (d.Turno || '').trim() === turno &&
+                (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
             );
+
+            const cantH = registroHombre ? (registroHombre.Titulados !== undefined ? registroHombre.Titulados : registroHombre.Egresados) : '';
+            const cantM = registroMujer ? (registroMujer.Titulados !== undefined ? registroMujer.Titulados : registroMujer.Egresados) : '';
 
             // Asignamos el valor encontrado en la BD, o un string vacío si no hay antecedentes
             turnosObj[turno] = {
-                hombres: registroHombre ? registroHombre.Titulados : '',
-                mujeres: registroMujer ? registroMujer.Titulados : ''
+                hombres: (cantH !== null && cantH !== undefined && cantH !== '') ? cantH : '',
+                mujeres: (cantM !== null && cantM !== undefined && cantM !== '') ? cantM : ''
             };
         });
 
@@ -563,6 +575,46 @@ function actualizarDatosFilasDesdeCaptura() {
 }
 
 function guardarAvance(esBorrado = false) {
+    if (!esBorrado) {
+        if (!filasTitulados || filasTitulados.length === 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sin datos para guardar',
+                    text: 'No hay datos para guardar. Por favor agregue al menos un registro en la tabla de captura.',
+                    confirmButtonColor: '#750946',
+                    confirmButtonText: 'Entendido'
+                });
+            } else {
+                alert('No hay datos para guardar. Por favor agregue al menos un registro en la tabla de captura.');
+            }
+            return;
+        }
+
+        const tieneDatos = filasTitulados.some(fila =>
+            Object.values(fila.turnos || {}).some(t => {
+                const h = parseInt(t.hombres) || 0;
+                const m = parseInt(t.mujeres) || 0;
+                return h > 0 || m > 0;
+            })
+        );
+
+        if (!tieneDatos) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sin datos para guardar',
+                    text: 'No hay datos para guardar. Por favor ingrese cantidades mayores a cero en la tabla de captura.',
+                    confirmButtonColor: '#750946',
+                    confirmButtonText: 'Entendido'
+                });
+            } else {
+                alert('No hay datos para guardar. Por favor ingrese cantidades mayores a cero en la tabla de captura.');
+            }
+            return;
+        }
+    }
+
     const loadingTitle = esBorrado ? 'Eliminando registro...' : 'Guardando avance...';
     const successTitle = esBorrado ? '¡Registro eliminado!' : '¡Guardado exitoso!';
     const successText = esBorrado 
@@ -593,9 +645,13 @@ function guardarAvance(esBorrado = false) {
         },
         body: JSON.stringify(filasTitulados)
     })
-    .then(response => {
+    .then(async response => {
+        if (response.status === 401) {
+            throw new Error('SESSION_EXPIRED');
+        }
         if (!response.ok) {
-            throw new Error('Error en la respuesta del servidor');
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || errData.detail || 'Error en la respuesta del servidor');
         }
         return response.json();
     })
@@ -637,6 +693,23 @@ function guardarAvance(esBorrado = false) {
     })
     .catch(error => {
         console.error('Error:', error);
+        if (error.message === 'SESSION_EXPIRED') {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sesión expirada',
+                    text: 'Su sesión ha expirado debido al reinicio del servidor. Por favor inicie sesión nuevamente.',
+                    confirmButtonColor: '#750946',
+                    confirmButtonText: 'Iniciar Sesión'
+                }).then(() => {
+                    window.location.href = '/login/';
+                });
+            } else {
+                alert('Su sesión ha expirado. Por favor inicie sesión nuevamente.');
+                window.location.href = '/login/';
+            }
+            return;
+        }
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: 'error',
@@ -728,8 +801,14 @@ async function finalizarCapturaTitulados() {
             origen: filasTitulados.length > 0 ? "captura" : "db"
         })
     })
-        .then(response => {
-            if (!response.ok) throw new Error('Error en la respuesta del servidor');
+        .then(async response => {
+            if (response.status === 401) {
+                throw new Error('SESSION_EXPIRED');
+            }
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.detail || 'Error en la respuesta del servidor');
+            }
             return response.json();
         })
         .then(data => {
@@ -751,16 +830,33 @@ async function finalizarCapturaTitulados() {
         })
         .catch(error => {
             console.error('Error:', error);
+            if (error.message === 'SESSION_EXPIRED') {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Sesión expirada',
+                        text: 'Su sesión ha expirado debido al reinicio del servidor. Por favor inicie sesión nuevamente.',
+                        confirmButtonColor: '#750946',
+                        confirmButtonText: 'Iniciar Sesión'
+                    }).then(() => {
+                        window.location.href = '/login/';
+                    });
+                } else {
+                    alert('Su sesión ha expirado. Por favor inicie sesión nuevamente.');
+                    window.location.href = '/login/';
+                }
+                return;
+            }
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error al finalizar',
-                    text: 'Error al finalizar programa modalidad, por favor intente de nuevo.',
+                    text: error.message || 'Error al finalizar programa modalidad, por favor intente de nuevo.',
                     confirmButtonColor: '#750946',
                     confirmButtonText: 'Entendido'
                 });
             } else {
-                alert('Error al finalizar programa modalidad, por favor intente de nuevo.');
+                alert(error.message || 'Error al finalizar programa modalidad, por favor intente de nuevo.');
             }
         });
 }

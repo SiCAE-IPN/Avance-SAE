@@ -359,13 +359,32 @@
         <div class="acuse-footer">
 
             {% if usuario_ya_valido %}
-                <div class="estado-validacion estado-validado">✅ APROVECHAMIENTO VALIDADO</div>
+                <div class="estado-validacion estado-validado">
+                    ✅ APROVECHAMIENTO VALIDADO
+                </div>
+                {% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %}
+                <div class="estado-validacion estado-pendiente">
+                    ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
+                </div>
+                {% endif %}
             {% elif usuario_ya_rechazo %}
-                <div class="estado-validacion estado-rechazado">❌ APROVECHAMIENTO RECHAZADO</div>
-            {% elif puede_validar %}
-                <div class="estado-validacion estado-pendiente">⏳ PENDIENTE DE VALIDAR</div>
+                <div class="estado-validacion estado-rechazado">
+                    ❌ APROVECHAMIENTO RECHAZADO
+                </div>
+            {% elif puede_validar or pendiente_validacion %}
+                {% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %}
+                <div class="estado-validacion estado-pendiente">
+                    ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
+                </div>
+                {% else %}
+                    <div class="estado-validacion estado-validado">
+                        ✅ APROVECHAMIENTO VALIDADO
+                    </div>
+                {% endif %}
             {% else %}
-                <div class="estado-validacion estado-esperando">⏸️ EN ESPERA DE VALIDACIÓN</div>
+                <div class="estado-validacion estado-esperando">
+                    ⏸️ EN ESPERA DE VALIDACIÓN
+                </div>
             {% endif %}
 
             {% if not exportando_pdf %}

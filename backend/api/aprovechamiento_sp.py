@@ -24,6 +24,7 @@ from backend.database.models.CatNivel import CatNivel
 from backend.database.models.CatSemaforo import CatSemaforo
 from backend.database.models.Validacion import Validacion
 from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcademica
+from backend.database.models.CatRoles import CatRoles
 from backend.database.models.Usuario import Usuario
 from backend.services.nivel_service import get_niveles_by_unidad_academica
 from backend.core.auth import VerificarAccesoAcuse, get_current_session
@@ -363,7 +364,11 @@ async def obtener_contexto_aprovechamiento(
         ua_obj = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Sigla == unidad).first()
         Id_Unidad_Academica = ua_obj.Id_Unidad_Academica if ua_obj else None
 
-        if not exportando_pdf and id_rol in SEMAFORO_REQUERIDO and Id_Periodo_anterior and Id_Unidad_Academica and Id_Nivel:
+        estado_semaforo_actual = 0
+        esperando_por_rol = "Capturista"
+        pendiente_validacion = False
+
+        if Id_Periodo_anterior and Id_Unidad_Academica and Id_Nivel:
             semaforo_actual = db.query(SemaforoUnidadAcademica).filter(
                 SemaforoUnidadAcademica.Id_Periodo == Id_Periodo_anterior,
                 SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
@@ -372,11 +377,35 @@ async def obtener_contexto_aprovechamiento(
             ).first()
             if semaforo_actual:
                 estado_semaforo = semaforo_actual.Id_Semaforo
-                semaforo_requerido = SEMAFORO_REQUERIDO.get(id_rol)
-                if estado_semaforo == semaforo_requerido and periodo_activo:
-                    puede_validar = True
-                elif estado_semaforo >= id_rol:
-                    usuario_ya_valido = True
+                estado_semaforo_actual = estado_semaforo
+                
+                # Calcular puede_validar / usuario_ya_valido solo si id_rol está en SEMAFORO_REQUERIDO y periodo_activo es True
+                if not exportando_pdf and id_rol in SEMAFORO_REQUERIDO:
+                    semaforo_requerido = SEMAFORO_REQUERIDO.get(id_rol)
+                    if estado_semaforo == semaforo_requerido and periodo_activo:
+                        puede_validar = True
+                    elif estado_semaforo >= id_rol:
+                        usuario_ya_valido = True
+                
+                # ==== CALCULAR QUIÉN SIGUE ====
+                semaforo_a_siguiente_rol = {
+                    3: 4,  # Semáforo 3 -> Sigue CEGET (4)
+                    4: 5,  # Semáforo 4 -> Sigue Titular (5)
+                    5: 6,  # Semáforo 5 -> Sigue Analista (6)
+                    6: 7,  # Semáforo 6 -> Sigue Jefe Depto (7)
+                    7: 8,  # Semáforo 7 -> Sigue Jefe División (8)
+                    8: 9,  # Semáforo 8 -> Sigue Director (9)
+                }
+                
+                # Obtenemos el ID del rol que sigue (si es menor a 3, sigue siendo Capturista)
+                siguiente_rol_id = semaforo_a_siguiente_rol.get(estado_semaforo_actual, 3)
+                
+                # Consultamos el nombre real del rol en la base de datos
+                rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == siguiente_rol_id).first()
+                if rol_obj:
+                    esperando_por_rol = rol_obj.Rol
+
+            if not exportando_pdf and id_rol in SEMAFORO_REQUERIDO and id_usuario_actual and Id_Periodo_anterior:
                 validacion_rechazo = db.query(Validacion).filter(
                     Validacion.Id_Periodo == Id_Periodo_anterior,
                     Validacion.Id_Usuario == id_usuario_actual,
@@ -386,6 +415,11 @@ async def obtener_contexto_aprovechamiento(
                 if validacion_rechazo and not puede_validar:
                     usuario_ya_rechazo = True
                     puede_validar = False
+
+            # Si existe un estado previo pero ya no hay rechazo vigente ni es turno de validar,
+            # mostramos el estado como pendiente en lugar de "rechazado".
+            if not puede_validar and not usuario_ya_valido and not usuario_ya_rechazo and estado_semaforo_actual > 0:
+                pendiente_validacion = True
 
         resultado = db.execute(
             text("""
@@ -436,6 +470,9 @@ async def obtener_contexto_aprovechamiento(
         "error": error,
         "exportando_pdf": exportando_pdf,
         "fecha_hoy": datetime.now().strftime("%d/%m/%Y"),
+        "estado_semaforo_actual": estado_semaforo_actual,
+        "esperando_por_rol": esperando_por_rol,
+        "pendiente_validacion": pendiente_validacion,
     }
 
 # ============================================================================
@@ -699,7 +736,8 @@ def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db
                 "nombre_usuario": nombre_completo,
                 "periodo_activo_literal": PPeriodo,
                 "unidad_academica": UUnidad_Academica,
-                "mi_unidad_id": id_nivel,
+                "mi_unidad_sigla": UUnidad_Academica,
+                "mi_unidad_id": Id_Unidad_Academica,
                 "niveles": niveles,
                 "request": request,
                 "no_validado": True,
@@ -919,9 +957,14 @@ async def resumen_aprovechamiento_dinamico_view(
     context["unidad_id"] = unidad_id
 
     periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
-    Id_Unidad_Academica = context["unidad_id"] 
-    print("Id Unidad:", Id_Unidad_Academica)
-    id_nivel = context["session"].id_nivel
+    
+    ua_obj = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Sigla == final_unidad).first()
+    if not ua_obj and unidad_id:
+        ua_obj = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Id_Unidad_Academica == unidad_id).first()
+    Id_Unidad_Academica = ua_obj.Id_Unidad_Academica if ua_obj else int(getattr(sess, 'id_unidad_academica', 0) or 0)
+
+    nivel_obj = db.query(CatNivel).filter(CatNivel.Nivel == final_nivel).first()
+    id_nivel = nivel_obj.Id_Nivel if nivel_obj else int(getattr(sess, 'id_nivel', 0) or 0)
 
     semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
         SemaforoUnidadAcademica.Id_Periodo          == periodo_anterior_id,
@@ -938,10 +981,7 @@ async def resumen_aprovechamiento_dinamico_view(
 
     print("Valor de no validado: ", no_validado)
     context["no_validado"] = no_validado
-    
-    id_rol = int(getattr(sess, 'id_rol', 0) or 0)
-    if(id_rol == 4 or id_rol ==5):
-        Id_Unidad_Academica=int(getattr(sess, 'id_unidad_academica', 0) or 0)
+    context["unidad_id"] = Id_Unidad_Academica
 
     encargados = obtener_encargados(db, Id_Unidad_Academica, 2)
     context["nombre_capturista"] = encargados['nombre_capturista'] 
