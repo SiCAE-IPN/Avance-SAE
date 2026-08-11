@@ -4,16 +4,225 @@
 
 {% block styles %}
     {% if not exportando_pdf %}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
-   
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
+    {% else %}
+        <style>
+            /* === MARGEN DE PÁGINA PARA RESERVAR ESPACIO A LAS FIRMAS FIJAS === */
+            @page {
+                size: letter;
+                margin: 0.9cm 1.2cm 2.9cm 1.2cm;
+            }
+
+            body {
+                font-family: Arial, sans-serif !important;
+                font-size: 9.5px !important;
+                color: #333 !important;
+                background: #fff !important;
+            }
+
+            .contenedor-acuse {
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+            }
+
+            .acuse-header {
+                border-bottom: 2.5px solid #2c3e50 !important;
+                margin-bottom: 10px !important;
+                padding-bottom: 6px !important;
+                text-align: center !important;
+            }
+
+            .acuse-header h1 {
+                font-size: 15px !important;
+                font-weight: bold !important;
+                color: #2c3e50 !important;
+                margin: 0 0 6px 0 !important;
+            }
+
+            .total-resumen {
+                background-color: #ecf0f1 !important;
+                border-left: 4px solid #3498db !important;
+                border-radius: 3px !important;
+                text-align: center !important;
+                padding: 5px 8px !important;
+                margin-top: 6px !important;
+                margin-bottom: 10px !important;
+            }
+
+            .total-resumen-numero {
+                font-size: 20px !important;
+                color: #2c3e50 !important;
+                font-weight: bold !important;
+            }
+
+            /* === ESTRUCTURA DE 2 COLUMNAS COMPACTAS Y EQUILIBRADAS === */
+            .contenedor-columnas {
+                display: table !important;
+                width: 100% !important;
+                table-layout: fixed !important;
+            }
+
+            .columna-izq, .columna-der {
+                display: table-cell !important;
+                width: 50% !important;
+                vertical-align: top !important;
+            }
+
+            .columna-izq { padding-right: 10px !important; }
+            .columna-der { padding-left: 10px !important; }
+
+            .tabla-seccion {
+                page-break-inside: avoid !important;
+                margin-bottom: 10px !important;
+            }
+
+            .tabla-titulo {
+                background-color: #34495e !important;
+                color: white !important;
+                padding: 4px 6px !important;
+                font-weight: bold !important;
+                font-size: 10px !important;
+                margin-bottom: 3px !important;
+                border-radius: 2px !important;
+                border-left: 3px solid #3498db !important;
+                text-align: left !important;
+            }
+
+            .tabla-acuse {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                font-size: 9px !important;
+                margin-bottom: 2px !important;
+            }
+
+            .tabla-acuse thead {
+                background-color: #ecf0f1 !important;
+                border-bottom: 1.5px solid #2c3e50 !important;
+            }
+
+            .tabla-acuse th {
+                padding: 3px 4px !important;
+                text-align: center !important;
+                font-weight: bold !important;
+                color: #2c3e50 !important;
+                border-right: 1px solid #bdc3c7 !important;
+                background-color: #ecf0f1 !important;
+                font-size: 9px !important;
+            }
+
+            .tabla-acuse th:last-child {
+                border-right: none !important;
+            }
+
+            .tabla-acuse td {
+                padding: 2.5px 4px !important;
+                border-right: 1px solid #d0d0d0 !important;
+                border-bottom: 1px solid #d0d0d0 !important;
+                text-align: center !important;
+                font-size: 9px !important;
+            }
+
+            .tabla-acuse td:first-child {
+                text-align: left !important;
+                font-weight: 500 !important;
+            }
+
+            .tabla-acuse td:last-child {
+                border-right: none !important;
+            }
+
+            .tabla-acuse tbody tr:nth-child(odd) {
+                background-color: #fafafa !important;
+            }
+
+            .tabla-acuse tbody tr:nth-child(even) {
+                background-color: #ffffff !important;
+            }
+
+            .tabla-acuse tfoot {
+                background-color: #e8f4f8 !important;
+                border-top: 1.5px solid #2c3e50 !important;
+                font-weight: bold !important;
+                color: #2c3e50 !important;
+            }
+
+            .tabla-acuse tfoot td {
+                background-color: #e8f4f8 !important;
+                font-weight: bold !important;
+                color: #2c3e50 !important;
+                padding: 3px 4px !important;
+            }
+
+            /* === MARCA DE AGUA CENTRADA === */
+            .marca-agua {
+                position: fixed !important;
+                top: 40% !important;
+                left: -10% !important;
+                width: 120% !important;
+                text-align: center !important;
+                transform: rotate(-35deg) !important;
+                font-size: 55px !important;
+                font-weight: bold !important;
+                color: rgba(128, 128, 128, 0.22) !important;
+                text-transform: uppercase !important;
+                pointer-events: none !important;
+                z-index: 9999 !important;
+                white-space: nowrap !important;
+            }
+
+            /* === FIRMAS FIJAS EN PIE DE PÁGINA === */
+            .firmas-container {
+                position: fixed !important;
+                bottom: -2.6cm !important;
+                left: 0 !important;
+                right: 0 !important;
+                margin: 0 !important;
+                display: table !important;
+                width: 100% !important;
+            }
+
+            .firma-box {
+                display: table-cell !important;
+                width: 33.33% !important;
+                text-align: center !important;
+                vertical-align: bottom !important;
+                padding: 0 8px !important;
+            }
+
+            .firma-linea {
+                border-bottom: 1px solid #333 !important;
+                margin-bottom: 3px !important;
+                height: 1px !important;
+            }
+
+            .firma-nombre {
+                font-weight: bold !important;
+                font-size: 10px !important;
+                color: #2c3e50 !important;
+                margin-bottom: 1px !important;
+            }
+
+            .firma-rol {
+                font-size: 9px !important;
+                color: #7f8c8d !important;
+            }
+
+            .estado-validacion,
+            .acciones-validacion,
+            .panel-rechazo {
+                display: none !important;
+            }
+        </style>
     {% endif %}
 {% endblock %}
 
 {% block content %}
 
-    {% if no_validado %}
+    {% if no_validado or (estado_semaforo_actual is defined and estado_semaforo_actual < 9) %}
         <div class="marca-agua">Sin Validez Oficial</div>
     {% endif %}
 
@@ -23,13 +232,12 @@
     <div class="acuse-header">
         <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - TITULADOS</h1>
 
-        <div style="text-align: center; font-size: 13px; margin-top: 12px; margin-bottom: 25px; color: #333;">
+        <div style="text-align: center; font-size: 12px; margin-top: 8px; margin-bottom: 16px; color: #333;">
             <strong>Período:</strong> {{ periodo }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
             <strong>Nivel:</strong> {{ nivel }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
             <strong>Unidad:</strong> {{ unidad }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-            <strong>Fecha:</strong> <span id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
+            <strong>Fecha:</strong> <span id="fecha-actual">{{ fecha_hoy or '' }}</span>
         </div>
-
 
         <div class="total-resumen">
             <div class="total-resumen-numero">{{ total_t }}</div>
@@ -40,23 +248,58 @@
     {# ── TABLAS ── #}
 <div class="contenedor-columnas">
 
-    {# ── Columna izquierda: Titulación · Boleta · Edad ── #}
+    {# ── Columna izquierda: Boleta (1) · Tipo de Titulación (2) ── #}
     <div class="columna-izq">
+
+        {% if tabla_boletas %}
+        <div class="tabla-seccion">
+            <div class="tabla-titulo">
+                {{ '1. ' if exportando_pdf else '1️⃣ ' }}Boleta
+            </div>
+            <table class="tabla-acuse">
+                <thead>
+                    <tr>
+                        <th>Boleta</th>
+                        <th style="width:16%;">H</th>
+                        <th style="width:16%;">M</th>
+                        <th style="width:16%;">T</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_boletas %}
+                    <tr>
+                        <td>{{ fila.nombre }}</td>
+                        <td>{{ fila.hombres }}</td>
+                        <td>{{ fila.mujeres }}</td>
+                        <td><strong>{{ fila.total }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total</td>
+                        <td><strong>{{ totales_boletas.hombres }}</strong></td>
+                        <td><strong>{{ totales_boletas.mujeres }}</strong></td>
+                        <td><strong>{{ totales_boletas.total }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endif %}
 
         {% if tabla_tipo_tit %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
-                {{ '1. ' if exportando_pdf else '1️⃣ ' }}Tipo de Titulación
+                {{ '2. ' if exportando_pdf else '2️⃣ ' }}Tipo de Titulación
             </div>
             <table class="tabla-acuse">
                 <thead>
                     <tr>
                         <th>Tipo de Titulación</th>
-                        <th style="width:15%;">H</th>
-                        <th style="width:15%;">M</th>
-                        <th style="width:15%;">T</th>
+                        <th style="width:16%;">H</th>
+                        <th style="width:16%;">M</th>
+                        <th style="width:16%;">T</th>
                     </tr>
-                  
                 </thead>
                 <tbody>
                     {% for fila in tabla_tipo_tit %}
@@ -80,46 +323,9 @@
         </div>
         {% endif %}
 
-        <div class="tabla-seccion">
-            <div class="tabla-titulo">
-                {{ '2. ' if exportando_pdf else '2️⃣ ' }}Boleta
-            </div>
-            <table class="tabla-acuse">
-                <thead>
-                    <tr>
-                        <th>Boleta</th>
-                        <th style="width:15%;">H</th>
-                        <th style="width:15%;">M</th>
-                        <th style="width:15%;">T</th>
-                    </tr>
-                    
-                </thead>
-                <tbody>
-                    {% for fila in tabla_boletas %}
-                    <tr>
-                        <td>{{ fila.nombre }}</td>
-                        <td>{{ fila.hombres }}</td>
-                        <td>{{ fila.mujeres }}</td>
-                        <td><strong>{{ fila.total }}</strong></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td>Total</td>
-                        <td><strong>{{ totales_boletas.hombres }}</strong></td>
-                        <td><strong>{{ totales_boletas.mujeres }}</strong></td>
-                        <td><strong>{{ totales_boletas.total }}</strong></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-
-        
-
     </div>{# fin columna-izq #}
 
-    {# ── Columna derecha: Programa · Modalidad · Turno ── #}
+    {# ── Columna derecha: Grupo de Edad (3) · Programa Académico (4) · Modalidad (5) · Turno (6) ── #}
     <div class="columna-der">
 
         {% if tabla_edades %}
@@ -131,9 +337,9 @@
                 <thead>
                     <tr>
                         <th>Grupo de Edad</th>
-                        <th style="width:15%;">H</th>
-                        <th style="width:15%;">M</th>
-                        <th style="width:15%;">T</th>
+                        <th style="width:16%;">H</th>
+                        <th style="width:16%;">M</th>
+                        <th style="width:16%;">T</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -158,6 +364,7 @@
         </div>
         {% endif %}
 
+        {% if tabla_programas %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
                 {{ '4. ' if exportando_pdf else '4️⃣ ' }}Programa Académico
@@ -166,9 +373,9 @@
                 <thead>
                     <tr>
                         <th>Programa</th>
-                        <th style="width:15%;">H</th>
-                        <th style="width:15%;">M</th>
-                        <th style="width:15%;">T</th>
+                        <th style="width:16%;">H</th>
+                        <th style="width:16%;">M</th>
+                        <th style="width:16%;">T</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -191,6 +398,7 @@
                 </tfoot>
             </table>
         </div>
+        {% endif %}
 
         {% if tabla_modalidades %}
         <div class="tabla-seccion">
@@ -201,9 +409,9 @@
                 <thead>
                     <tr>
                         <th>Modalidad</th>
-                        <th style="width:15%;">H</th>
-                        <th style="width:15%;">M</th>
-                        <th style="width:15%;">T</th>
+                        <th style="width:16%;">H</th>
+                        <th style="width:16%;">M</th>
+                        <th style="width:16%;">T</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -237,9 +445,9 @@
                 <thead>
                     <tr>
                         <th>Turno</th>
-                        <th style="width:15%;">H</th>
-                        <th style="width:15%;">M</th>
-                        <th style="width:15%;">T</th>
+                        <th style="width:16%;">H</th>
+                        <th style="width:16%;">M</th>
+                        <th style="width:16%;">T</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -267,9 +475,9 @@
     </div>{# fin columna-der #}
 
 </div>{# fin contenedor-columnas #}
-    {# ── PIE: estado de validación + acciones ── #}
 
-        <div class="firmas-container">
+    {# ── PIE: FIRMAS + ESTADO ── #}
+    <div class="firmas-container">
         <div class="firma-box">
             <div class="firma-linea"></div>
             <div class="firma-nombre">{{ nombre_capturista }}</div>
@@ -286,6 +494,7 @@
             <div class="firma-rol">Titular de la Unidad Académica</div>
         </div>
     </div>
+
     <div class="acuse-footer">
 
         {% if usuario_ya_valido %}
@@ -488,15 +697,6 @@
             + `&unidad=${encodeURIComponent(unidad)}`;
         window.location.href = url;
     }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.tabla-acuse td, .tabla-acuse th').forEach(function(cell) {
-            const txt = cell.textContent.trim();
-            if (/^\d+$/.test(txt)) {
-                cell.textContent = Number(txt).toLocaleString('en-US');
-            }
-        });
-    });
 </script>
 {% endif %}
 

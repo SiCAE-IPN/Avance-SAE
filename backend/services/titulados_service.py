@@ -151,16 +151,25 @@ def _nueva_tabla() -> Dict[str, int]:
     return {'H': 0, 'M': 0, 'T': 0}
 
 def a_lista(d: dict, orden=None) -> list[dict]:
-        items = sorted(d.items(), key=orden or (lambda x: str(x[0]).lower()))
-        return [
-            {'nombre': k, 'hombres': v['H'], 'mujeres': v['M'], 'total': v['T']}
-            for k, v in items
-        ]
+    items = sorted(d.items(), key=orden or (lambda x: str(x[0]).lower()))
+    return [
+        {
+            'nombre': k,
+            'hombres': f"{v['H']:,}",
+            'mujeres': f"{v['M']:,}",
+            'total': f"{v['T']:,}"
+        }
+        for k, v in items
+    ]
 
 def _sumar(d: dict) -> dict:
     h = sum(v['H'] for v in d.values())
     m = sum(v['M'] for v in d.values())
-    return {'hombres': h, 'mujeres': m, 'total': h + m}
+    return {
+        'hombres': f"{h:,}",
+        'mujeres': f"{m:,}",
+        'total': f"{(h + m):,}"
+    }
 
 
 def procesar_titulados(filas: list[dict]) -> dict:
@@ -207,7 +216,7 @@ def procesar_titulados(filas: list[dict]) -> dict:
         'totales_turnos'     : _sumar(turno),
 
         # Total general para el encabezado
-        'total_t': sum(v['T'] for v in programa.values()),
+        'total_t': f"{sum(v['T'] for v in programa.values()):,}",
     }
 
 

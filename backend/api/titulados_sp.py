@@ -34,6 +34,7 @@ from backend.services.envio_correo_service import notificar_rechazo_global, obte
 from backend.core.auth import VerificarAccesoAcuse
 import traceback
 from pathlib import Path
+from datetime import datetime
 
 host = "Test"
 fila = []
@@ -634,12 +635,15 @@ async def acuse_titulados_view(
 
 
 
+    fecha_hoy = datetime.now().strftime("%d/%m/%Y")
+
     return templates.TemplateResponse("titulados_acuse.html", {
         "request"       : request,
         "periodo"       : contexto_sp.get("Periodo"),
         "unidad"        : contexto_sp.get("Sigla"),
         "nivel"         : nivel,
         "exportando_pdf": exportando_pdf,
+        "fecha_hoy"     : fecha_hoy,
         "nombre_capturista" : nombre_capturista,
         "nombre_ceget"  : nombre_ceget,
         "nombre_titular": nombre_titular,
@@ -676,10 +680,16 @@ async def acuse_titulados_pdf(
         # Tu vista devuelve JSONResponse en caso de error (p. ej. periodo no encontrado)
         return resp
 
-    html_text = bytes(resp.body).decode('utf-8')
+    if isinstance(resp.body, memoryview):
+        html_text = resp.body.tobytes().decode('utf-8')
+    else:
+        html_text = bytes(resp.body).decode('utf-8')
 
     base_path = Path(__file__).resolve().parents[2] / 'frontend' / 'static'
-    ruta_css = base_path / 'css' / 'components' / 'egresados_acuse.css'
+    ruta_css = base_path / 'css' / 'components' / 'matricula_acuse.css'
+
+    if not ruta_css.exists():
+        ruta_css = base_path / 'css' / 'components' / 'egresados_acuse.css'
 
     if not ruta_css.exists():
         raise HTTPException(
@@ -691,7 +701,7 @@ async def acuse_titulados_pdf(
         pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
             stylesheets=[
                 weasyprint.CSS(filename=str(ruta_css)),
-                weasyprint.CSS(string='@page { size: Letter; margin: 1cm 1cm 3.5cm 1cm }')
+                weasyprint.CSS(string='@page { size: Letter; margin: 0.9cm 1.2cm 2.9cm 1.2cm; }')
             ]
         )
     except Exception as e:
