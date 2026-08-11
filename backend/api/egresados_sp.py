@@ -1730,62 +1730,75 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
             db.commit()
 
             # =========================================================================
-            # NUEVA LÓGICA AUTOMÁTICA: Verificar si todos los semáforos están en 3 (Completado)
+            # NUEVA LÓGICA AUTOMÁTICA CORREGIDA: Periodo Activo ID - 1 (Egresados)
             # =========================================================================
             try:
-                # 1. Extraer de forma segura el periodo actual como string puro (por si viene como tupla)
-                p_actual_str = periodo[1] if isinstance(periodo, tuple) else str(periodo)
-                
-                # Obtener el objeto del periodo actual para extraer su ID numérico
-                periodo_db = db.query(Periodo).filter(Periodo.Periodo == p_actual_str).first()
-                id_periodo_check = periodo_db.Id_Periodo if periodo_db else None
-                
-                id_unidad_check = int(sess.id_unidad_academica) if getattr(sess, 'id_unidad_academica', None) else None
-                
-                id_nivel_cookie = getattr(sess, 'id_nivel', None)
-                id_nivel_check = 0 if id_nivel_cookie in ("None", None, "") else int(id_nivel_cookie)
+                # 1. Obtener el Periodo Activo de la base de datos
+                # Usamos la variable local 'periodo' que definiste arriba en tu endpoint
+                periodo_activo = db.query(Periodo).filter(Periodo.Periodo == periodo).first()
 
-                if id_periodo_check and id_unidad_check and id_nivel_check:
-                    # 2. Contar cuántos registros de la UA/Periodo/Nivel/Formato=3 NO están en estado 3
-                    pendientes = db.query(SemaforoSemestreUnidadAcademica).filter(
-                        SemaforoSemestreUnidadAcademica.Id_Periodo == id_periodo_check,
-                        SemaforoSemestreUnidadAcademica.Id_Unidad_Academica == id_unidad_check,
-                        SemaforoSemestreUnidadAcademica.Id_Nivel == id_nivel_check,
-                        SemaforoSemestreUnidadAcademica.Id_Formato == 3,
-                        SemaforoSemestreUnidadAcademica.Id_Semaforo != 3
-                    ).count()
+                if periodo_activo:
+                    # 2. Aplicar la regla matemática (-1 al ID del activo: Ej. 20 - 1 = 19)
+                    id_periodo_check = periodo_activo.Id_Periodo - 1
 
-                    print(f"🔍 [Automatización] Semáforos pendientes por finalizar (Formato 3): {pendientes}")
+                    # 3. Obtener el objeto del Periodo Anterior para extraer su texto/nombre (Ej: "2024-2025/1")
+                    periodo_anterior_obj = db.query(Periodo).filter(Periodo.Id_Periodo == id_periodo_check).first()
+                    p_anterior_str = periodo_anterior_obj.Periodo if periodo_anterior_obj else str(periodo_busqueda)
 
-                    # 3. Si ya no hay pendientes (todos están en '3'), ejecutamos el SP Final
-                    if pendientes == 0:
-                        print("🎉 ¡Todos los semáforos están en 3! Ejecutando SP_Finaliza_Captura_Egresados...")
-                        
-                        # 4. Forzar que el periodo anterior sea un STRING PURO para evitar el error de TVP de pyodbc
-                        p_anterior_str = periodo_busqueda[1] if isinstance(periodo_busqueda, tuple) else str(periodo_busqueda)
-                        
-                        sql_finaliza = text("""
-                            EXEC [dbo].[SP_Finaliza_Captura_Egresados]
-                                @PPeriodo = :periodo,
-                                @UUnidad_Academica = :unidad,
-                                @MModalidad = :modalidad,
-                                @PPrograma = :programa,
-                                @UUsuario = :usuario,
-                                @HHost = :host,
-                                @NNivel = :nivel
-                        """)
-                        
-                        db.execute(sql_finaliza, {
-                            'periodo': p_anterior_str,     # Se envía el periodo ANTERIOR como un string limpio (ej: '2024-2025/2')
-                            'unidad': unidad_sigla,
-                            'modalidad': modalidad_nombre,
-                            'programa': programa_nombre,
-                            'usuario': usuario_sp,
-                            'host': host_sp,
-                            'nivel': nivel
-                        })
-                        db.commit()
-                        print(f"✅ SP_Finaliza_Captura_Egresados ejecutado con éxito usando el periodo anterior: '{p_anterior_str}'")
+                    # 4. Obtener el ID numérico de la Unidad Académica que se está procesando
+                    unidad_db = db.query(Unidad_Academica).filter(Unidad_Academica.Sigla == unidad_sigla).first()
+                    id_unidad_check = unidad_db.Id_Unidad_Academica if unidad_db else None
+
+                    id_nivel_cookie = getattr(sess, 'id_nivel', None)
+                    id_nivel_check = 0 if id_nivel_cookie in ("None", None, "") else int(id_nivel_cookie)
+
+                    if id_unidad_check and id_nivel_check:
+                        # 5. Contar cuántos semáforos NO están en 3 para el Id_Periodo exacto (19)
+                        pendientes = db.query(SemaforoSemestreUnidadAcademica).filter(
+                            SemaforoSemestreUnidadAcademica.Id_Periodo == id_periodo_check,
+                            SemaforoSemestreUnidadAcademica.Id_Unidad_Academica == id_unidad_check,
+                            SemaforoSemestreUnidadAcademica.Id_Nivel == id_nivel_check,
+                            SemaforoSemestreUnidadAcademica.Id_Formato == 3,
+                            SemaforoSemestreUnidadAcademica.Id_Semaforo != 3
+                        ).count()
+
+                        # Contar el total de semáforos existentes para ese periodo anterior
+                        total_registros = db.query(SemaforoSemestreUnidadAcademica).filter(
+                            SemaforoSemestreUnidadAcademica.Id_Periodo == id_periodo_check,
+                            SemaforoSemestreUnidadAcademica.Id_Unidad_Academica == id_unidad_check,
+                            SemaforoSemestreUnidadAcademica.Id_Nivel == id_nivel_check,
+                            SemaforoSemestreUnidadAcademica.Id_Formato == 3
+                        ).count()
+
+                        print(f"🔍 [Egresados] Periodo Activo ID: {periodo_activo.Id_Periodo} | Evaluando Periodo Egresados ID: {id_periodo_check}")
+                        print(f"🔍 [Egresados] Semáforos Formato 3: {total_registros} totales, {pendientes} pendientes por finalizar")
+
+                        # 6. Disparar el SP de cierre solo si existen registros y TODOS están en estado 3
+                        if total_registros > 0 and pendientes == 0:
+                            print(f"🎉 ¡Todos los semáforos del periodo ID {id_periodo_check} ({p_anterior_str}) están en 3! Ejecutando SP_Finaliza_Captura_Egresados...")
+                            
+                            sql_finaliza = text("""
+                                EXEC [dbo].[SP_Finaliza_Captura_Egresados]
+                                    @PPeriodo = :periodo,
+                                    @UUnidad_Academica = :unidad,
+                                    @MModalidad = :modalidad,
+                                    @PPrograma = :programa,
+                                    @UUsuario = :usuario,
+                                    @HHost = :host,
+                                    @NNivel = :nivel
+                            """)
+                            
+                            db.execute(sql_finaliza, {
+                                'periodo': p_anterior_str,
+                                'unidad': unidad_sigla,
+                                'modalidad': modalidad_nombre,
+                                'programa': programa_nombre,
+                                'usuario': usuario_sp,
+                                'host': host_sp,
+                                'nivel': nivel
+                            })
+                            db.commit()
+                            print(f"✅ SP_Finaliza_Captura_Egresados ejecutado exitosamente para '{p_anterior_str}' (ID: {id_periodo_check})")
             except Exception as e_check:
                 print(f"⚠️ Error en la automatización del SP final o validación de semáforos: {str(e_check)}")
             # =========================================================================
