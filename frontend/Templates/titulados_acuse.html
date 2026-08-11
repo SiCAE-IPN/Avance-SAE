@@ -488,6 +488,15 @@
             + `&unidad=${encodeURIComponent(unidad)}`;
         window.location.href = url;
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.tabla-acuse td, .tabla-acuse th').forEach(function(cell) {
+            const txt = cell.textContent.trim();
+            if (/^\d+$/.test(txt)) {
+                cell.textContent = Number(txt).toLocaleString('en-US');
+            }
+        });
+    });
 </script>
 {% endif %}
 

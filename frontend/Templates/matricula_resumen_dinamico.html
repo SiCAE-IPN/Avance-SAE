@@ -1291,5 +1291,20 @@
         function cerrarPanelRechazo() { window.__validacionRechazo?.cerrarPanelRechazo(); }
         function actualizarContador() { window.__validacionRechazo?.actualizarContador(); }
         function confirmarRechazo() { window.__validacionRechazo?.ejecutarRechazo(); }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.tabla-resumen td, .tabla-resumen th, .mini-tabla td, .mini-tabla th').forEach(function(cell) {
+                if (cell.classList.contains('celda-programa') || 
+                    cell.classList.contains('td-total-label') || 
+                    cell.classList.contains('mini-label') ||
+                    cell.classList.contains('th-programa')) {
+                    return;
+                }
+                const txt = cell.textContent.trim();
+                if (/^\d+$/.test(txt)) {
+                    cell.textContent = Number(txt).toLocaleString('en-US');
+                }
+            });
+        });
     </script>
 {% endblock %}

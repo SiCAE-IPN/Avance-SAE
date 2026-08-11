@@ -851,6 +851,16 @@
                 btnConfirmar.disabled = false;
             }
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.tabla-resumen td, .tabla-resumen th, .total-general .numero, .total-general').forEach(function(cell) {
+                if (cell.classList.contains('subseccion-title') || cell.classList.contains('programa-title')) return;
+                const txt = cell.textContent.trim();
+                if (/^\d+$/.test(txt)) {
+                    cell.textContent = Number(txt).toLocaleString('en-US');
+                }
+            });
+        });
     </script>
 </body>
 </html>

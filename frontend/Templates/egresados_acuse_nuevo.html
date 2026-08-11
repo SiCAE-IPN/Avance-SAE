@@ -630,6 +630,15 @@
             const url = `/egresados/acuse-validacion/pdf?periodo=${periodo}&nivel=${nivel}&unidad=${unidad}`;
             window.location.href = url;
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.tabla-seccion table td, .tabla-seccion table th').forEach(function(cell) {
+                const txt = cell.textContent.trim();
+                if (/^\d+$/.test(txt)) {
+                    cell.textContent = Number(txt).toLocaleString('en-US');
+                }
+            });
+        });
     </script>
     {% endif %}
 {% endblock %}

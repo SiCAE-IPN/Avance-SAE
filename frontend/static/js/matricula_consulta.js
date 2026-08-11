@@ -2202,11 +2202,15 @@ const label = document.createElement('span');
                                     id="input_${tipoId}_${grupoIdBD}_${turno.id}_M" 
                                     value="${valorM}" 
                                     min="0" 
+                                    max="9999"
+                                    maxlength="4"
                                     class="input-matricula-nueva" 
                                     data-tipo-ingreso="${tipoId}" 
                                     data-grupo-edad="${grupoIdBD}" 
                                     data-turno="${turno.id}"
                                     data-sexo="M" 
+                                    onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4)"
                                     style="width:34px;padding:1px 2px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:10px;line-height:1.1;" 
                                     placeholder="">
                             </div>
@@ -2217,11 +2221,15 @@ const label = document.createElement('span');
                                     id="input_${tipoId}_${grupoIdBD}_${turno.id}_F" 
                                     value="${valorF}" 
                                     min="0" 
+                                    max="9999"
+                                    maxlength="4"
                                     class="input-matricula-nueva" 
                                     data-tipo-ingreso="${tipoId}" 
                                     data-grupo-edad="${grupoIdBD}" 
                                     data-turno="${turno.id}"
                                     data-sexo="F" 
+                                    onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4)"
                                     style="width:34px;padding:1px 2px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#c2185b;font-weight:600;text-align:center;font-size:10px;line-height:1.1;" 
                                     placeholder="">
                             </div>
@@ -2353,19 +2361,19 @@ const label = document.createElement('span');
         
         // Actualizar si los elementos existen
         if (totalMasculinoEl) {
-            totalMasculinoEl.textContent = totalMasculino;
+            totalMasculinoEl.textContent = totalMasculino.toLocaleString('en-US');
         } else {
             console.warn('⚠️ Elemento total_masculino no encontrado');
         }
         
         if (totalFemeninoEl) {
-            totalFemeninoEl.textContent = totalFemenino;
+            totalFemeninoEl.textContent = totalFemenino.toLocaleString('en-US');
         } else {
             console.warn('⚠️ Elemento total_femenino no encontrado');
         }
         
         if (totalGeneralEl) {
-            totalGeneralEl.textContent = totalGeneral;
+            totalGeneralEl.textContent = totalGeneral.toLocaleString('en-US');
         } else {
             console.warn('⚠️ Elemento total_general no encontrado');
         }
@@ -2505,12 +2513,15 @@ const label = document.createElement('span');
                                 id="input_${tipo.id}_${edadObj.id}_${turno.id}_M" 
                                 value="" 
                                 min="0" 
+                                max="9999"
+                                maxlength="4"
                                 class="input-matricula-nueva" 
                                 data-tipo-ingreso="${tipo.id}" 
                                 data-grupo-edad="${edadObj.id}" 
                                 data-turno="${turno.id}"
                                 data-sexo="M" 
-                                oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                                onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4)"
                                 style="width:34px;padding:1px 2px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:10px;line-height:1.1;" 
                                 placeholder="">
                         </div>
@@ -2521,12 +2532,15 @@ const label = document.createElement('span');
                                 id="input_${tipo.id}_${edadObj.id}_${turno.id}_F" 
                                 value="" 
                                 min="0" 
+                                max="9999"
+                                maxlength="4"
                                 class="input-matricula-nueva" 
                                 data-tipo-ingreso="${tipo.id}" 
                                 data-grupo-edad="${edadObj.id}" 
                                 data-turno="${turno.id}"
                                 data-sexo="F" 
-                                oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                                onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4)"
                                 style="width:34px;padding:1px 2px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#c2185b;font-weight:600;text-align:center;font-size:10px;line-height:1.1;" 
                                 placeholder="">
                         </div>
@@ -5641,9 +5655,9 @@ function updateInputsBySemestre(semestreNum) {
                 if (totalFila > 0) {
                     htmlTipo += `<tr>
                         <td>${data.label}</td>
-                        <td>${data.M}</td>
-                        <td>${data.F}</td>
-                        <td>${totalFila}</td>
+                        <td>${Number(data.M || 0).toLocaleString('en-US')}</td>
+                        <td>${Number(data.F || 0).toLocaleString('en-US')}</td>
+                        <td>${Number(totalFila || 0).toLocaleString('en-US')}</td>
                     </tr>`;
                 }
             }
@@ -5669,9 +5683,9 @@ function updateInputsBySemestre(semestreNum) {
                 if (totalFila > 0) {
                     htmlEdad += `<tr>
                         <td>${data.label}</td>
-                        <td>${data.M}</td>
-                        <td>${data.F}</td>
-                        <td>${totalFila}</td>
+                        <td>${Number(data.M || 0).toLocaleString('en-US')}</td>
+                        <td>${Number(data.F || 0).toLocaleString('en-US')}</td>
+                        <td>${Number(totalFila || 0).toLocaleString('en-US')}</td>
                     </tr>`;
                 }
             });
@@ -5750,3 +5764,32 @@ function updateInputsBySemestre(semestreNum) {
             }
         }
     });
+
+    // Restricción global para inputs de captura numérica (4 dígitos, sin signos ni puntos)
+    document.addEventListener('keydown', function(e) {
+        if (e.target && (e.target.matches('.input-matricula-nueva') || (e.target.type === 'number' && e.target.closest('#tabla-matricula, #tabla-captura, .capture-table, .tabla-matricula-container')))) {
+            if (['-', '.', '+', 'e', 'E', ','].includes(e.key)) {
+                e.preventDefault();
+            }
+        }
+    }, true);
+
+    document.addEventListener('input', function(e) {
+        if (e.target && (e.target.matches('.input-matricula-nueva') || (e.target.type === 'number' && e.target.closest('#tabla-matricula, #tabla-captura, .capture-table, .tabla-matricula-container')))) {
+            const clean = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+            if (e.target.value !== clean) {
+                e.target.value = clean;
+            }
+        }
+    }, true);
+
+    document.addEventListener('paste', function(e) {
+        if (e.target && (e.target.matches('.input-matricula-nueva') || (e.target.type === 'number' && e.target.closest('#tabla-matricula, #tabla-captura, .capture-table, .tabla-matricula-container')))) {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+            const clean = text.replace(/[^0-9]/g, '').slice(0, 4);
+            e.target.value = clean;
+            e.target.dispatchEvent(new Event('input', { bubbles: true }));
+            e.target.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }, true);

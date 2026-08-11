@@ -256,9 +256,9 @@ function renderizarTablaTituladosCaptura() {
             <td style="padding:8px; text-align:center;">
                 <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 4px;background:#e3f2fd;border-radius:4px;border:1px solid #90caf9;line-height:1;">
                     <div style="font-weight:700;color:#1976d2;font-size:11px;min-width:14px;text-align:center;">H</div>
-                    <input type="number" min="0"
+                    <input type="number" min="0" max="9999" maxlength="4"
                         value="${vals.hombres}"
-                        onkeydown="if(event.key==='-'||event.key==='.'||event.key==='e') event.preventDefault()"
+                        onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
                         oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); actualizarValorTitulado(${fila.id}, '${turno}', 'hombres', this.value)"
                         style="width:42px;padding:2px 3px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:11px;">
                 </div>
@@ -266,9 +266,9 @@ function renderizarTablaTituladosCaptura() {
             <td style="padding:8px; text-align:center;">
                 <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 4px;background:#fce4ec;border-radius:4px;border:1px solid #f48fb1;line-height:1;">
                     <div style="font-weight:700;color:#c2185b;font-size:11px;min-width:14px;text-align:center;">M</div>
-                    <input type="number" min="0"
+                    <input type="number" min="0" max="9999" maxlength="4"
                         value="${vals.mujeres}"
-                        onkeydown="if(event.key==='-'||event.key==='.'||event.key==='e') event.preventDefault()"
+                        onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
                         oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); actualizarValorTitulado(${fila.id}, '${turno}', 'mujeres', this.value)"
                         style="width:42px;padding:2px 3px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#c2185b;font-weight:600;text-align:center;font-size:11px;">
                 </div>
@@ -969,17 +969,17 @@ function renderizarTablaTitulados(datosFilas) {
             <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Boleta}</td>
             <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Tipo_Titulacion}</td>
             <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Grupo_Edad}</td>
-            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Hombres}</td>
-            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Mujeres}</td>
-            <td style="padding:10px; text-align:center; border:1px solid #ddd; font-weight:700;">${total}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${Number(fila.Hombres || 0).toLocaleString('en-US')}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${Number(fila.Mujeres || 0).toLocaleString('en-US')}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd; font-weight:700;">${Number(total || 0).toLocaleString('en-US')}</td>
         </tr>`;
     });
 
     html += `<tr id="informe-total-row-titulados" style="background: linear-gradient(135deg, #750946 0%, #a3195b 100%); color:white; font-weight:700;">
         <td colspan="7" style="padding:12px; border:1px solid #ddd; text-align:right;">TOTAL GENERAL:</td>
-        <td class="total-h" style="padding:12px; text-align:center; border:1px solid #ddd;">${totalGeneralH}</td>
-        <td class="total-m" style="padding:12px; text-align:center; border:1px solid #ddd;">${totalGeneralM}</td>
-        <td class="total-g" style="padding:12px; text-align:center; font-size:18px;">${totalGeneralH + totalGeneralM}</td>
+        <td class="total-h" style="padding:12px; text-align:center; border:1px solid #ddd;">${Number(totalGeneralH || 0).toLocaleString('en-US')}</td>
+        <td class="total-m" style="padding:12px; text-align:center; border:1px solid #ddd;">${Number(totalGeneralM || 0).toLocaleString('en-US')}</td>
+        <td class="total-g" style="padding:12px; text-align:center; font-size:18px;">${Number(totalGeneralH + totalGeneralM || 0).toLocaleString('en-US')}</td>
     </tr>`;
 
     tbody.innerHTML = html;
@@ -1373,8 +1373,8 @@ function calculateDynamicDropdownWidth(values, headerElement) {
 
         rows.forEach(row => {
             if (row.style.display === 'none') return;
-            totalH += parseInt(row.cells[7]?.textContent.trim()) || 0;
-            totalM += parseInt(row.cells[8]?.textContent.trim()) || 0;
+            totalH += parseInt((row.cells[7]?.textContent || '').replace(/,/g, '').trim()) || 0;
+            totalM += parseInt((row.cells[8]?.textContent || '').replace(/,/g, '').trim()) || 0;
         });
 
         // Actualizar fila de totales
@@ -1384,9 +1384,9 @@ function calculateDynamicDropdownWidth(values, headerElement) {
                 totalRow.style.display = 'none';
             } else {
                 totalRow.style.display = '';
-                totalRow.querySelector('.total-h').textContent = totalH;
-                totalRow.querySelector('.total-m').textContent = totalM;
-                totalRow.querySelector('.total-g').textContent = totalH + totalM;
+                totalRow.querySelector('.total-h').textContent = totalH.toLocaleString('en-US');
+                totalRow.querySelector('.total-m').textContent = totalM.toLocaleString('en-US');
+                totalRow.querySelector('.total-g').textContent = (totalH + totalM).toLocaleString('en-US');
             }
         }
 
@@ -1472,8 +1472,8 @@ function calculateDynamicDropdownWidth(values, headerElement) {
         let totalH = 0, totalM = 0;
         rows.forEach(row => {
             if (row.style.display === 'none') return;
-            totalH += parseInt(row.cells[7]?.textContent.trim()) || 0;
-            totalM += parseInt(row.cells[8]?.textContent.trim()) || 0;
+            totalH += parseInt((row.cells[7]?.textContent || '').replace(/,/g, '').trim()) || 0;
+            totalM += parseInt((row.cells[8]?.textContent || '').replace(/,/g, '').trim()) || 0;
         });
 
         const totalRow = document.getElementById('informe-total-row-titulados');
@@ -1482,9 +1482,9 @@ function calculateDynamicDropdownWidth(values, headerElement) {
                 totalRow.style.display = 'none';
             } else {
                 totalRow.style.display = '';
-                totalRow.querySelector('.total-h').textContent = totalH;
-                totalRow.querySelector('.total-m').textContent = totalM;
-                totalRow.querySelector('.total-g').textContent = totalH + totalM;
+                totalRow.querySelector('.total-h').textContent = totalH.toLocaleString('en-US');
+                totalRow.querySelector('.total-m').textContent = totalM.toLocaleString('en-US');
+                totalRow.querySelector('.total-g').textContent = (totalH + totalM).toLocaleString('en-US');
             }
         }
     }
@@ -2183,4 +2183,33 @@ function borrarFilasSeleccionadas() {
         }
     });
 }
+
+// Restricción global para inputs de captura numérica (4 dígitos, sin signos ni puntos)
+document.addEventListener('keydown', function(e) {
+    if (e.target && e.target.type === 'number' && e.target.closest('#tabla-titulados-body, .tabla-matricula-container, .capture-table')) {
+        if (['-', '.', '+', 'e', 'E', ','].includes(e.key)) {
+            e.preventDefault();
+        }
+    }
+}, true);
+
+document.addEventListener('input', function(e) {
+    if (e.target && e.target.type === 'number' && e.target.closest('#tabla-titulados-body, .tabla-matricula-container, .capture-table')) {
+        const clean = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+        if (e.target.value !== clean) {
+            e.target.value = clean;
+        }
+    }
+}, true);
+
+document.addEventListener('paste', function(e) {
+    if (e.target && e.target.type === 'number' && e.target.closest('#tabla-titulados-body, .tabla-matricula-container, .capture-table')) {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+        const clean = text.replace(/[^0-9]/g, '').slice(0, 4);
+        e.target.value = clean;
+        e.target.dispatchEvent(new Event('input', { bubbles: true }));
+        e.target.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+}, true);
 

@@ -33,13 +33,13 @@ async def recuperar_password_view(request: Request):
 
 @router.post("/password", response_class=JSONResponse)
 async def recuperar_password(
-    username: str = Form(...), 
-    email: str = Form(...), 
+    email: str = Form(...),
+    username: Optional[str] = Form(None),
     request: Request = None,
     db: Session = Depends(get_db)
 ):
-    # Pasar el objeto request directamente a la función
-    ok = reset_password(db, username, email, request)
+    # Pasar el email directamente a la función
+    ok, msg = reset_password(db, email=email, request=request, username=username)
     if ok:
         # bitácora adicional opcional para el endpoint
         try:
@@ -57,11 +57,11 @@ async def recuperar_password(
             id_periodo, _ = get_ultimo_periodo(db)  # Periodo dinámico
             if not id_periodo:
                 id_periodo = 1  # Fallback solo si no hay periodos
-            registrar_bitacora(db, id_usuario=0, id_modulo=1, id_periodo=id_periodo, accion=f"Reset password solicitado para usuario {username}", host=host)
+            registrar_bitacora(db, id_usuario=0, id_modulo=1, id_periodo=id_periodo, accion=f"Reset password solicitado para correo {email}", host=host)
         except Exception:
             pass
-        return {"mensaje": "Si los datos son correctos, se envió una nueva contraseña al correo registrado."}
-    return JSONResponse(status_code=400, content={"mensaje": "No se pudo completar la operación."})
+        return {"mensaje": msg}
+    return JSONResponse(status_code=400, content={"mensaje": msg})
 
 @router.get("/cambiar", response_class=HTMLResponse)
 async def cambiar_password_view(request: Request, sess=Depends(get_current_session)):

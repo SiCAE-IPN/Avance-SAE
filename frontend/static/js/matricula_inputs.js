@@ -28,7 +28,7 @@ function crearInputMatricula(tipoId, grupoId, sexo, valor = '') {
     const boxStyle = isMale ? MATRICULA_CONFIG.inputStyles.boxMale : MATRICULA_CONFIG.inputStyles.boxFemale;
     const labelStyle = isMale ? MATRICULA_CONFIG.inputStyles.labelMale : MATRICULA_CONFIG.inputStyles.labelFemale;
     const inputStyle = isMale ? MATRICULA_CONFIG.inputStyles.inputMale : MATRICULA_CONFIG.inputStyles.inputFemale;
-    return `<div class="matricula-box ${isMale ? 'matricula-hombre' : 'matricula-mujer'}" style="${boxStyle}"><span class="matricula-label" style="${labelStyle}">${label}</span><input type="number" id="input_${tipoId}_${grupoId}_${sexo}" value="${valor}" min="0" class="input-matricula-nueva" data-tipo-ingreso="${tipoId}" data-grupo-edad="${grupoId}" data-sexo="${sexo}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" style="${inputStyle}" placeholder=""></div>`;
+    return `<div class="matricula-box ${isMale ? 'matricula-hombre' : 'matricula-mujer'}" style="${boxStyle}"><span class="matricula-label" style="${labelStyle}">${label}</span><input type="number" id="input_${tipoId}_${grupoId}_${sexo}" value="${valor}" min="0" max="9999" maxlength="4" class="input-matricula-nueva" data-tipo-ingreso="${tipoId}" data-grupo-edad="${grupoId}" data-sexo="${sexo}" onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4)" style="${inputStyle}" placeholder=""></div>`;
 }
 
 // Función para crear una celda completa con ambos sexos (en línea horizontal)

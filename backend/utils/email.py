@@ -31,12 +31,17 @@ def send_email(
 
     try:
         # 2. Configurar autenticación con Microsoft Entra ID
-        # Asegúrate de mapear estas variables en tu objeto 'settings' o usar os.getenv
-        client_id = settings.MICROSOFT_CLIENT_ID
-        tenant_id = settings.MICROSOFT_TENANT_ID
-        client_secret = settings.MICROSOFT_CLIENT_SECRET
+        client_id = settings.MICROSOFT_CLIENT_ID or os.getenv("MICROSOFT_CLIENT_ID") or os.getenv("AZURE_CLIENT_ID") or ""
+        tenant_id = settings.MICROSOFT_TENANT_ID or os.getenv("MICROSOFT_TENANT_ID") or os.getenv("AZURE_TENANT_ID") or ""
+        client_secret = settings.MICROSOFT_CLIENT_SECRET or os.getenv("MICROSOFT_CLIENT_SECRET") or os.getenv("AZURE_CLIENT_SECRET") or ""
         
-        authority = f"https://login.microsoftonline.com/{tenant_id}"
+        if not tenant_id or not client_id or not client_secret:
+            raise EmailSendError(
+                "Faltan credenciales de Microsoft Graph en el archivo .env. "
+                "Asegúrese de definir MICROSOFT_CLIENT_ID, MICROSOFT_TENANT_ID y MICROSOFT_CLIENT_SECRET en su archivo .env"
+            )
+
+        authority = f"https://login.microsoftonline.com/{tenant_id.strip('/')}"
         
         app = msal.ConfidentialClientApplication(
             client_id,

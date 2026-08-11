@@ -476,16 +476,18 @@ function crearFilaInput(tbody, titulo, turnos, datosMapa, esSoloLectura, claseFi
             <div style="display:inline-flex; gap:8px; justify-content:center; align-items:center;">
                 <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px; background:#e3f2fd; border-radius:6px; border:1px solid #90caf9;">
                     <div style="font-weight:700; color:#1976d2; font-size:12px; min-width:14px; text-align:center;">H</div>
-                    <input type="number" min="0"
+                    <input type="number" min="0" max="9999" maxlength="4"
                         class="input-matricula-nueva"
                         data-tipo="${titulo}" data-turno="${t}" data-sexo="Hombre"
+                        onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
                         value="${valH}" oninput="registrarCambio(this)" ${attr}>
                 </div>
                 <div style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px; background:#fce4ec; border-radius:6px; border:1px solid #f48fb1;">
                     <div style="font-weight:700; color:#c2185b; font-size:12px; min-width:14px; text-align:center;">M</div>
-                    <input type="number" min="0"
+                    <input type="number" min="0" max="9999" maxlength="4"
                         class="input-matricula-nueva"
                         data-tipo="${titulo}" data-turno="${t}" data-sexo="Mujer"
+                        onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
                         value="${valM}" oninput="registrarCambio(this)" ${attr}>
                 </div>
             </div>
@@ -532,6 +534,7 @@ function crearFilaTotalizador(tbody, titulo, turnos, idBase, colorFondo) {
 // 10. Cálculos
 // ==========================================
 window.registrarCambio = function (input) {
+    input.value = input.value.replace(/[^0-9]/g, '').slice(0, 4);
     const key = `${semestreActual}|${input.dataset.tipo}|${input.dataset.turno}|${input.dataset.sexo}`;
     cambiosGlobales[key] = input.value === '' ? '' : parseInt(input.value);
     calcularTablaUnificada();
@@ -547,7 +550,7 @@ window.calcularTablaUnificada = function () {
     });
     Object.entries(sumaMatricula).forEach(([key, val]) => {
         const span = document.getElementById(`total-matricula-${key}`);
-        if (span) span.textContent = val;
+        if (span) span.textContent = Number(val || 0).toLocaleString('en-US');
     });
 
     // 2. Calcular la suma de los campos de Aprovechamiento EDITABLES (Aprobados, Reprobados...)
@@ -571,7 +574,7 @@ window.calcularTablaUnificada = function () {
                 // Inyectamos el valor en la fila gris
                 const spanDesercion = document.getElementById(`desercion-${t}-${s}`);
                 if (spanDesercion) {
-                    spanDesercion.textContent = desercionCalculada;
+                    spanDesercion.textContent = Number(desercionCalculada || 0).toLocaleString('en-US');
                 }
 
                 // 4. Actualizar el Totalizador Final (Aprovechamiento Completo = Editables + Deserción)
@@ -582,10 +585,10 @@ window.calcularTablaUnificada = function () {
 
                 if (totalM !== totalAprovechamientoCompleto) {
                     spanTotalAprov.style.color = '#dc3545';
-                    spanTotalAprov.innerHTML = `${totalAprovechamientoCompleto} <i class="fas fa-exclamation-circle" style="font-size:16px;"></i>`;
+                    spanTotalAprov.innerHTML = `${Number(totalAprovechamientoCompleto || 0).toLocaleString('en-US')} <i class="fas fa-exclamation-circle" style="font-size:16px;"></i>`;
                 } else {
                     spanTotalAprov.style.color = '#198754';
-                    spanTotalAprov.innerHTML = `${totalAprovechamientoCompleto} <i class="fas fa-check" style="font-size:16px;"></i>`;
+                    spanTotalAprov.innerHTML = `${Number(totalAprovechamientoCompleto || 0).toLocaleString('en-US')} <i class="fas fa-check" style="font-size:16px;"></i>`;
                 }
             });
         });
@@ -666,9 +669,9 @@ function renderizarSeccionTotales() {
                 <td style="padding:12px 20px; border:1px solid #e0e0e0; font-size:14px; color:${colorTexto}; font-weight:${esDesercion ? '700' : '500'};">
                     ${concepto} ${esDesercion ? '<span style="font-size:11px; font-weight:normal; color:#dc2626;">(Calculada)</span>' : ''}
                 </td>
-                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#1565c0; font-weight:700;">${H.toLocaleString()}</td>
-                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#ad1457; font-weight:700;">${M.toLocaleString()}</td>
-                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#750946; font-weight:800;">${total.toLocaleString()}</td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#1565c0; font-weight:700;">${Number(H || 0).toLocaleString('en-US')}</td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#ad1457; font-weight:700;">${Number(M || 0).toLocaleString('en-US')}</td>
+                <td style="padding:12px 20px; border:1px solid #e0e0e0; text-align:center; font-size:15px; color:#750946; font-weight:800;">${Number(total || 0).toLocaleString('en-US')}</td>
             </tr>`;
         }).join('')
         : `<tr><td colspan="4" style="padding:24px; text-align:center; color:#999; font-style:italic; font-size:14px;">Sin datos capturados aún</td></tr>`;
@@ -690,9 +693,9 @@ function renderizarSeccionTotales() {
                     <tfoot>
                         <tr>
                             <td style="padding:14px 20px; text-align:center; font-weight:800; font-size:15px; background:linear-gradient(135deg,#750946,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">TOTAL</td>
-                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:rgba(21,101,192,.85); color:white; border:1px solid rgba(255,255,255,.2);">${totalH.toLocaleString()}</td>
-                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:rgba(173,20,87,.85); color:white; border:1px solid rgba(255,255,255,.2);">${totalM.toLocaleString()}</td>
-                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:linear-gradient(135deg,#750946,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">${totalGeneral.toLocaleString()}</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:rgba(21,101,192,.85); color:white; border:1px solid rgba(255,255,255,.2);">${Number(totalH || 0).toLocaleString('en-US')}</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:rgba(173,20,87,.85); color:white; border:1px solid rgba(255,255,255,.2);">${Number(totalM || 0).toLocaleString('en-US')}</td>
+                            <td style="padding:14px 20px; text-align:center; font-weight:900; font-size:20px; background:linear-gradient(135deg,#750946,#8B0A4A); color:white; border:1px solid rgba(255,255,255,.2);">${Number(totalGeneral || 0).toLocaleString('en-US')}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -2042,3 +2045,32 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }, 100);
 });
+
+// Restricción global para inputs de captura numérica (4 dígitos, sin signos ni puntos)
+document.addEventListener('keydown', function(e) {
+    if (e.target && (e.target.matches('.input-matricula-nueva') || (e.target.type === 'number' && e.target.closest('#tabla-unificada, #tabla-body, .tabla-matricula-container')))) {
+        if (['-', '.', '+', 'e', 'E', ','].includes(e.key)) {
+            e.preventDefault();
+        }
+    }
+}, true);
+
+document.addEventListener('input', function(e) {
+    if (e.target && (e.target.matches('.input-matricula-nueva') || (e.target.type === 'number' && e.target.closest('#tabla-unificada, #tabla-body, .tabla-matricula-container')))) {
+        const clean = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+        if (e.target.value !== clean) {
+            e.target.value = clean;
+        }
+    }
+}, true);
+
+document.addEventListener('paste', function(e) {
+    if (e.target && (e.target.matches('.input-matricula-nueva') || (e.target.type === 'number' && e.target.closest('#tabla-unificada, #tabla-body, .tabla-matricula-container')))) {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+        const clean = text.replace(/[^0-9]/g, '').slice(0, 4);
+        e.target.value = clean;
+        e.target.dispatchEvent(new Event('input', { bubbles: true }));
+        e.target.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+}, true);

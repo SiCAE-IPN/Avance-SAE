@@ -119,15 +119,41 @@ def has_temporary_password(db: Session, user_id: int) -> bool:
         return False
 
 # Funciones para manejo de contraseñas
-def reset_password(db: Session, username: str, email: str, request = None) -> bool:
-    """Genera una contraseña temporal y la envía al correo si username & email coinciden.
-    Respuesta siempre booleana sin detallar causa para no filtrar existencia.
+def reset_password(db: Session, email: str, request = None, username: str = None) -> tuple[bool, str]:
+    """Genera una contraseña temporal y la envía al correo si existe.
+    Si no encuentra por correo exacto, recorta antes del '@' para buscar por usuario.
     """
     try:
-        user = read_user_by_username(db, username)
-        if not user or user.Email.lower() != email.lower():
-            # Responder éxito falso pero sin detalle
-            return False
+        email_clean = (email or "").strip()
+        user = read_user_by_email(db, email_clean)
+        
+        # Si no se encuentra por email directo, recortar la parte previa al '@' y buscar por usuario
+        if not user:
+            user_part = email_clean.split('@')[0].strip() if '@' in email_clean else email_clean
+            user = read_user_by_username(db, user_part)
+            
+        if not user:
+            # Búsqueda case-insensitive adicional por seguridad
+            from backend.database.models.Usuario import Usuario
+            from sqlalchemy import func
+            user_part = email_clean.split('@')[0].strip() if '@' in email_clean else email_clean
+            user = db.query(Usuario).filter(
+                (func.lower(Usuario.Email) == email_clean.lower()) | 
+                (func.lower(Usuario.Usuario) == user_part.lower()),
+                Usuario.Id_Estatus == 1
+            ).first()
+
+        if not user:
+            return False, "No se encontró ningún usuario registrado con ese correo o nombre de usuario."
+            
+        if username and user.Usuario.lower().strip() != username.lower().strip():
+            return False, "El usuario y correo no coinciden."
+        
+        # Determinar correo destino
+        correo_destino = user.Email if (user.Email and '@' in user.Email) else email_clean
+        if not correo_destino or '@' not in correo_destino:
+            correo_destino = email_clean
+
         nueva = generate_random_password()
         user.Password = hash_password(nueva)
         from datetime import datetime, timezone
@@ -161,6 +187,7 @@ def reset_password(db: Session, username: str, email: str, request = None) -> bo
         except Exception as bitacora_error:
             print(f"❌ Error al registrar en bitácora: {bitacora_error}")
             # No fallar el registro por error en bitácora
+
         # Enviar correo
         cuerpo = f"""
         <html>
@@ -170,7 +197,8 @@ def reset_password(db: Session, username: str, email: str, request = None) -> bo
                 <p>Hola <strong>{user.Nombre}</strong>,</p>
                 <p>Se ha generado una nueva contraseña temporal para tu cuenta.</p>
                 <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p><strong>Contraseña temporal:</strong> <span style="color: #750946; font-size: 18px; font-weight: bold;">{nueva}</span></p>
+                    <p style="margin: 0 0 10px 0;"><strong>Usuario:</strong> <span style="font-weight: bold; color: #333;">{user.Usuario}</span></p>
+                    <p style="margin: 0;"><strong>Contraseña temporal:</strong> <span style="color: #750946; font-size: 18px; font-weight: bold;">{nueva}</span></p>
                 </div>
                 <p style="color: #d9534f; font-weight: bold;">⚠️ Por seguridad, cámbiela después de Iniciar Sesión.</p>
                 <p style="margin-top: 20px;">Para acceder al sistema, haz clic en el siguiente enlace:</p>
@@ -185,15 +213,17 @@ def reset_password(db: Session, username: str, email: str, request = None) -> bo
         </html>
         """
         try:
-            send_email(user.Email, "Recuperación de contraseña", cuerpo)
-        except EmailSendError:
+            send_email(correo_destino, "Recuperación de contraseña", cuerpo)
+        except EmailSendError as e:
             # Revertir si falla envío
             db.rollback()
-            return False
-        return True
-    except Exception:
+            print(f"❌ Error al enviar correo de recuperación: {e}")
+            return False, str(e)
+        return True, "Si el correo está registrado, se envió una nueva contraseña temporal a su correo."
+    except Exception as e:
         db.rollback()
-        return False
+        print(f"❌ Error inesperado en reset_password: {e}")
+        return False, str(e)
 
 def change_password(db: Session, user_id: int, request, new_password: str) -> bool:
     """
