@@ -299,44 +299,55 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
             "session": sess
         })
 
-    # === VERIFICAR RECHAZO PARA CAPTURISTAS ===
+    # =========================================================================
+    # NUEVA LÓGICA: Buscar el ÚLTIMO estatus de validación (Formato 3 = Egresados)
+    # =========================================================================
     rechazo_info = None
-    matricula_rechazada = False
-    
-    if es_capturista and id_unidad_academica > 0:
-        try:
-            periodo_validacion_id = int(periodo_default_id) - 1
-            print(f"DEBUG: Buscando rechazos en PeriodoID anterior: {periodo_validacion_id}")
-            
-            ultimo_rechazo = db.query(Validacion).filter(
-                Validacion.Id_Periodo == periodo_validacion_id,
-                Validacion.Id_Formato == 3,  # Formato 3 = Egresados
-                Validacion.Validado == 0
-            ).order_by(Validacion.Fecha.desc()).first()
+    matricula_rechazada = False 
+        
+    if periodo_anterior_id and id_unidad_academica and id_nivel:
+        print(f"DEBUG: Consultando último movimiento de validación Egresados para PeriodoID: {periodo_anterior_id}")
 
-            #Dependiendo del Id_Rol de Validación buscar el nombre del Usuario en el modelo de Usuarios por su ID
-            if ultimo_rechazo:
-                usuario = db.query(Usuario).filter(Usuario.Id_Usuario == ultimo_rechazo.Id_Usuario).first()
-                rol_rechazo = db.query(CatRoles).filter(CatRoles.Id_Rol == usuario.Id_Rol).first() if usuario else None
-                fecha = ultimo_rechazo.Fecha.strftime("%d/%m/%Y %H:%M:%S") if ultimo_rechazo.Fecha else "Fecha desconocida"
+        # Traemos solo el registro más reciente ordenando por fecha de mayor a menor
+        ultima_validacion = db.query(Validacion).filter(
+            Validacion.Id_Periodo == periodo_anterior_id,
+            Validacion.Id_Unidad_Academica == id_unidad_academica,
+            Validacion.Id_Nivel == id_nivel,
+            Validacion.Id_Formato == 3
+        ).order_by(Validacion.Fecha.desc()).first() 
 
-            if ultimo_rechazo:
-                print(f"DEBUG: ¡RECHAZO ENCONTRADO en periodo {periodo_validacion_id}! Motivo: {ultimo_rechazo.Nota}")
-                matricula_rechazada = True
-                rechazo_info = {
-                    "motivo": ultimo_rechazo.Nota,
-                    "rechazado_por": f"{usuario.Nombre} {usuario.Paterno} {usuario.Materno}" if usuario else "Usuario desconocido",
-                    "nombre_rol": rol_rechazo.Rol if rol_rechazo else "Rol desconocido",
-                    "fecha_rechazo": fecha,
-                    "periodo": periodo_default_literal # Mantenemos el literal actual para mostrarlo
-                }
-            else:
-                print(f"DEBUG: No se encontró rechazo para el periodo {periodo_validacion_id}.")
+        if ultima_validacion:
+            # Si el campo 'Validado' es 0 (False), significa que el ÚLTIMO movimiento fue rechazo
+            if ultima_validacion.Validado == 0 or ultima_validacion.Validado is False:
                 
-        except Exception as e:
-            print(f"DEBUG: ERROR al consultar la tabla de Validacion: {str(e)}")
+                # 1. Obtenemos datos del usuario y rol para el Frontend (Opcional, pero recomendado)
+                usr_rechazo = db.query(Usuario).filter(Usuario.Id_Usuario == ultima_validacion.Id_Usuario).first()
+                rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == usr_rechazo.Id_Rol).first() if usr_rechazo else None
+                
+                nombre_validador = f"{usr_rechazo.Nombre} {usr_rechazo.Paterno} {usr_rechazo.Materno}".strip() if usr_rechazo else "Autoridad Validadora"
+                nombre_rol_validador = rol_obj.Rol if rol_obj else "CEGET"
+                fecha_format = ultima_validacion.Fecha.strftime("%d/%m/%Y %H:%M") if ultima_validacion.Fecha else "Reciente"
+                
+                # 2. Armar el diccionario EXACTO que el HTML de egresados espera
+                rechazo_info = {
+                    "motivo": ultima_validacion.Nota,
+                    "rechazado_por": nombre_validador,
+                    "nombre_rol": nombre_rol_validador,
+                    "fecha_rechazo": fecha_format,
+                    "fecha": ultima_validacion.Fecha.strftime("%d/%m/%Y") if ultima_validacion.Fecha else ""
+                }
+                
+                # 3. Encender la bandera de rechazo
+                matricula_rechazada = True
+                
+                print(f"DEBUG: ¡RECHAZO ACTIVO ENCONTRADO! Motivo: {rechazo_info['motivo']}")
+            else:
+                print("DEBUG: La captura ya está validada en verde. Se ocultan notas pasadas.")
+        else:
+            print("DEBUG: No hay historial de validaciones/rechazos para esta escuela.")
     else:
-        print(f"DEBUG: No se verificó rechazo (es_capturista={es_capturista})")
+        print("DEBUG: Faltan datos (Periodo, UA o Nivel) para buscar validaciones.")
+        # =========================================================================
 
     # === OBTENER INFORMACIÓN DE UNIDAD ACADÉMICA ===
     unidad_actual = None
@@ -681,11 +692,15 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
     usuario_ya_valido = False
     usuario_ya_rechazo = False
     puede_validar = False
+
+    if id_nivel == 0 and len(niveles_disponibles) > 0:
+        id_nivel = niveles_disponibles[0]["Id_Nivel"]
+        print(f"🔄 Nivel auto-asignado para validación de semáforo: {id_nivel}")
     
     # Consultar semáforo para esta UA/Periodo/Nivel/Formato=3 (Egresados)
     semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
         SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
-        SemaforoUnidadAcademica.Id_Periodo == periodo_default_id,
+        SemaforoUnidadAcademica.Id_Periodo == periodo_anterior_id,
         SemaforoUnidadAcademica.Id_Nivel == id_nivel,
         SemaforoUnidadAcademica.Id_Formato == 3  # Formato 3 = Egresados
     ).first()
@@ -2174,6 +2189,19 @@ async def resumen_egresados_dinamico_view(
         # ------------------------------------------------------------
         # Estado de validación/rechazo (roles 4-9)
         # ------------------------------------------------------------
+
+        # === RESOLVER UNIDAD Y NIVEL EVALUADOS DESDE LA URL QUERIED ===
+        ua_obj = db.query(Unidad_Academica).filter(
+            (Unidad_Academica.Sigla == final_unidad) | (Unidad_Academica.Nombre == final_unidad)
+        ).first()
+        id_ua_evaluar = ua_obj.Id_Unidad_Academica if ua_obj else int(getattr(sess, 'id_unidad_academica', 0) or 0)
+
+        nivel_obj = db.query(Nivel).filter(Nivel.Nivel == final_nivel).first()
+        id_nivel_evaluar = nivel_obj.Id_Nivel if nivel_obj else int(getattr(sess, 'id_nivel', 0) or 0)
+
+        # === OBTENER EL PERIODO ANTERIOR (EN EGRESADOS EL SEMÁFORO PERTENECE AL PERIODO ANTERIOR) ===
+        periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
+
         puede_validar = False
         usuario_ya_valido = False
         usuario_ya_rechazo = False
@@ -2182,8 +2210,9 @@ async def resumen_egresados_dinamico_view(
         try:
             if id_rol in [4, 5, 6, 7, 8, 9] and periodo_id is not None:
                 semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
-                    SemaforoUnidadAcademica.Id_Periodo == periodo_id,
-                    SemaforoUnidadAcademica.Id_Unidad_Academica == int(sess.id_unidad_academica),
+                    SemaforoUnidadAcademica.Id_Periodo == periodo_anterior_id,
+                    SemaforoUnidadAcademica.Id_Unidad_Academica == id_ua_evaluar,
+                    SemaforoUnidadAcademica.Id_Nivel == id_nivel_evaluar,
                     SemaforoUnidadAcademica.Id_Formato == 3  # Formato 3 = Egresados
                 ).first()
 
