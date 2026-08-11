@@ -3,45 +3,110 @@
 {% block title %}Acuse Validación - Egresados{% endblock %}
 
 {% block styles %}
+    {# En el PDF, el CSS se inyecta desde Python. En la web, se carga normal. #}
     {% if not exportando_pdf %}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="/static/css/components/egresados_acuse.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
+    {% else %}
+        <style>
+            /* === MARGEN DE PÁGINA PARA RESERVAR ESPACIO A LAS FIRMAS FIJAS === */
+            @page {
+                size: letter;
+                margin: 1.2cm 1.5cm 3.2cm 1.5cm;
+            }
+
+            /* === ESTRUCTURA DE FIRMAS REPETIDAS EN EL PIE DE PÁGINA DEL PDF === */
+            .firmas-container {
+                position: fixed !important;
+                bottom: -2.8cm !important;
+                left: 0 !important;
+                right: 0 !important;
+                margin: 0 !important;
+                display: table !important;
+                width: 100% !important;
+            }
+
+            .firma-box {
+                display: table-cell !important;
+                width: 33.33% !important;
+                text-align: center !important;
+                vertical-align: bottom !important;
+                padding: 0 10px !important;
+            }
+
+            .firma-linea {
+                border-bottom: 1px solid #333 !important;
+                margin-bottom: 5px !important;
+                height: 1px !important;
+            }
+
+            .firma-nombre {
+                font-weight: bold !important;
+                font-size: 11px !important;
+                color: #2c3e50 !important;
+                margin-bottom: 2px !important;
+            }
+
+            .firma-rol {
+                font-size: 10px !important;
+                color: #7f8c8d !important;
+            }
+
+            /* === TRUCO PARA MANTENER LAS 2 COLUMNAS SIN ROMPER EL PDF === */
+            .contenedor-columnas {
+                display: table;
+                width: 100%;
+                table-layout: fixed;
+            }
+            .columna-izq, .columna-der {
+                display: table-cell;
+                width: 50%;
+                vertical-align: top;
+            }
+            .columna-izq { padding-right: 15px; }
+            .columna-der { padding-left: 15px; }
+
+            .tabla-seccion {
+                page-break-inside: avoid;
+                margin-bottom: 20px;
+            }
+        </style>
     {% endif %}
-    
 {% endblock %}
 
 {% block content %}
-    {% if estado_semaforo_actual is defined and estado_semaforo_actual < 9 %}
-        <div class="marca-agua"> Sin Validez Oficial </div>
+    {% if no_validado or (estado_semaforo_actual is defined and estado_semaforo_actual < 9) or (estado_semaforo is defined and estado_semaforo < 9) %}
+        <div class="marca-agua">Sin Validez Oficial</div>
+    {% endif %}
+
+    {% if estado_semaforo is defined and estado_semaforo >= 1 and estado_semaforo <= 8 %}
+        <div class="marca-agua">DOCUMENTO EN REVISIÓN</div>
     {% endif %}
 
     <div class="contenedor-acuse">
         <div class="acuse-header">
             <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - EGRESADOS</h1>
 
-            <div class="header-info-grid">
-                <div class="header-item">
-                    <span class="header-item-label">Período:</span>
-                    <span class="header-item-value">{{ periodo }}</span>
+            {% if exportando_pdf %}
+                <div style="text-align: center; font-size: 13px; margin-top: 12px; margin-bottom: 25px; color: #333;">
+                    <strong>Período:</strong> {{ periodo_anterior }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+                    <strong>Nivel:</strong> {{ nivel }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+                    <strong>Unidad:</strong> {{ unidad }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+                    <strong>Fecha:</strong> <span id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
                 </div>
-                <div class="header-item">
-                    <span class="header-item-label">Nivel:</span>
-                    <span class="header-item-value">{{ nivel }}</span>
+            {% else %}
+                <div style="text-align: center; font-size: 13px; margin-top: 12px; margin-bottom: 25px; color: #333;">
+                    <strong>Período:</strong> {{ periodo_anterior }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+                    <strong>Nivel:</strong> {{ nivel }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+                    <strong>Unidad:</strong> {{ unidad }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+                    <strong>Fecha:</strong> <span id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
                 </div>
-                <div class="header-item">
-                    <span class="header-item-label">Unidad:</span>
-                    <span class="header-item-value">{{ unidad }}</span>
-                </div>
-                <div class="header-item">
-                    <span class="header-item-label">Fecha:</span>
-                    <span class="header-item-value" id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
-                </div>
-            </div>
+            {% endif %}
 
             <div class="total-resumen">
-                <div class="total-resumen-texto">Total de Egresados en Matrícula</div>
-                <div class="total-resumen-numero">{{ total_general.total_t if total_general is defined else 0 }}</div>
+                <div class="total-resumen-texto">Total de Egresados</div>
+                <div class="total-resumen-numero">{{ total_general.total_t if total_general is defined else (total_t if total_t is defined else 0) }}</div>
             </div>
         </div>
 
@@ -51,201 +116,276 @@
             </div>
         {% else %}
         
-        <div class="mosaico-resumen">
-                    
-                    <div class="columna-izq" style="display: flex; flex-direction: column; gap: 18px;">
-                        
-                        <div class="tabla-seccion">
-                            <div class="tabla-titulo">Boleta</div>
-                            <div class="tabla-wrap">
-                                <table class="tabla-acuse centrar-primera-columna">
-                                <thead><tr><th>Boleta</th><th>H</th><th>M</th><th>T</th></tr></thead>
-                                    <tbody>
-                                        {% for boleta in boletas_columnas %}
-                                            {% set boleta_tot = total_general.boletas[boleta] if total_general is defined and total_general.boletas is defined and boleta in total_general.boletas else {'regular': {'H': 0, 'M': 0, 'T': 0}, 'extemporaneo': {'H': 0, 'M': 0, 'T': 0}} %}
-                                            {% set boleta_h = boleta_tot.regular.H + boleta_tot.extemporaneo.H %}
-                                            {% set boleta_m = boleta_tot.regular.M + boleta_tot.extemporaneo.M %}
-                                            {% set boleta_t = boleta_tot.regular.T + boleta_tot.extemporaneo.T %}
-                                            <tr><td class="label-izq">{{ boleta }}</td><td><strong>{{ boleta_h }}</strong></td><td><strong>{{ boleta_m }}</strong></td><td><strong>{{ boleta_t }}</strong></td></tr>
-                                        {% endfor %}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr class="fila-total"><td class="label-izq">Total</td>
-                                            <td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td>
-                                            <td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td>
-                                            <td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="tabla-seccion">
-                            <div class="tabla-titulo">Grupo de Edad</div>
-                            <div class="tabla-wrap">
-                                <table class="tabla-acuse centrar-primera-columna">
-                                    <thead><tr><th>Edad</th><th>H</th><th>M</th><th>T</th></tr></thead>
-                                    <tbody>
-                                        {% for fila in filas_edad_turno %}
-                                            {% set edad_tot = totales_tabla2.edades[fila.edad] if totales_tabla2 is defined and totales_tabla2.edades is defined and fila.edad in totales_tabla2.edades else {'H': 0, 'M': 0, 'T': 0} %}
-                                            {% set _ = fila.update({'total_h': edad_tot.H}) %}
-                                            {% set _ = fila.update({'total_m': edad_tot.M}) %}
-                                            {% set _ = fila.update({'total_t': edad_tot.T}) %}
-                                            <tr><td class="label-izq">{{ fila.edad }}</td>
-                                                <td><strong>{{ fila.total_h }}</strong></td>
-                                                <td><strong>{{ fila.total_m }}</strong></td>
-                                                <td><strong>{{ fila.total_t }}</strong></td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr class="fila-total"><td class="label-izq">Total</td>
-                                            <td><strong>{{ totales_tabla2.total_h if totales_tabla2 is defined else 0 }}</strong></td>
-                                            <td><strong>{{ totales_tabla2.total_m if totales_tabla2 is defined else 0 }}</strong></td>
-                                            <td><strong>{{ totales_tabla2.total_t if totales_tabla2 is defined else 0 }}</strong></td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        </div>
-
-                    </div> <div class="columna-der" style="display: flex; flex-direction: column; gap: 18px;">
-                        
-                        <div class="tabla-seccion">
-                            <div class="tabla-titulo">Programa Académico</div>
-                            <div class="tabla-wrap">
-                                <table class="tabla-acuse">
-                                    <thead><tr><th>Programa</th><th>H</th><th>M</th><th>T</th></tr></thead>
-                                    <tbody>
-                                        {% set ns_programa = namespace(actual='', h=0, m=0, t=0, iniciado=false) %}
-                                        {% for fila in filas_pivot %}
-                                            {% if not ns_programa.iniciado %}
-                                                {% set ns_programa.actual = fila.programa %}
-                                                {% set ns_programa.iniciado = true %}
-                                            {% endif %}
-                                            {% if fila.programa != ns_programa.actual %}
-                                                <tr>
-                                                    <td class="label-izq">{{ ns_programa.actual }}</td>
-                                                    <td><strong>{{ ns_programa.h }}</strong></td>
-                                                    <td><strong>{{ ns_programa.m }}</strong></td>
-                                                    <td><strong>{{ ns_programa.t }}</strong></td>
-                                                </tr>
-                                                {% set ns_programa.actual = fila.programa %}
-                                                {% set ns_programa.h = 0 %}
-                                                {% set ns_programa.m = 0 %}
-                                                {% set ns_programa.t = 0 %}
-                                            {% endif %}
-                                            {% set ns_programa.h = ns_programa.h + fila.total_h %}
-                                            {% set ns_programa.m = ns_programa.m + fila.total_m %}
-                                            {% set ns_programa.t = ns_programa.t + fila.total_t %}
-                                            {% if loop.last %}
-                                                <tr>
-                                                    <td class="label-izq">{{ ns_programa.actual }}</td>
-                                                    <td><strong>{{ ns_programa.h }}</strong></td>
-                                                    <td><strong>{{ ns_programa.m }}</strong></td>
-                                                    <td><strong>{{ ns_programa.t }}</strong></td>
-                                                </tr>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </tbody>
-                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td></tr></tfoot>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="tabla-seccion">
-                            <div class="tabla-titulo">Modalidad</div>
-                            <div class="tabla-wrap">
-                                <table class="tabla-acuse">
-                                    <thead><tr><th>Modalidad</th><th>H</th><th>M</th><th>T</th></tr></thead>
-                                    <tbody>
-                                        {% for modalidad in modalidades_columnas %}
-                                            {% set mod_tot = totales_tabla1.modalidades[modalidad] if totales_tabla1 is defined and totales_tabla1.modalidades is defined and modalidad in totales_tabla1.modalidades else {'H': 0, 'M': 0, 'T': 0} %}
-                                            <tr>
-                                                <td class="label-izq">{{ modalidad }}</td>
-                                                <td><strong>{{ mod_tot.H }}</strong></td>
-                                                <td><strong>{{ mod_tot.M }}</strong></td>
-                                                <td><strong>{{ mod_tot.T }}</strong></td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ totales_tabla1.total_h if totales_tabla1 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla1.total_m if totales_tabla1 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla1.total_t if totales_tabla1 is defined else 0 }}</strong></td></tr></tfoot>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="tabla-seccion">
-                            <div class="tabla-titulo">Generación</div>
-                            <div class="tabla-wrap">
-                                <table class="tabla-acuse">
-                                    <thead><tr><th>Tipo</th><th>H</th><th>M</th><th>T</th></tr></thead>
-                                    <tbody>
-                                        {% set gen_regular = subtotales_generacion_tabla1.regular if subtotales_generacion_tabla1 is defined else {'total_h': 0, 'total_m': 0, 'total_t': 0} %}
-                                        {% set gen_ext = subtotales_generacion_tabla1.extemporaneo if subtotales_generacion_tabla1 is defined else {'total_h': 0, 'total_m': 0, 'total_t': 0} %}
-                                        <tr>
-                                            <td class="label-izq">Regular</td>
-                                            <td><strong>{{ gen_regular.total_h if gen_regular is defined else 0 }}</strong></td>
-                                            <td><strong>{{ gen_regular.total_m if gen_regular is defined else 0 }}</strong></td>
-                                            <td><strong>{{ gen_regular.total_t if gen_regular is defined else 0 }}</strong></td>
-                                        </tr>
-                                        <tr>
-                                            <td class="label-izq">Extemporáneo</td>
-                                            <td><strong>{{ gen_ext.total_h if gen_ext is defined else 0 }}</strong></td>
-                                            <td><strong>{{ gen_ext.total_m if gen_ext is defined else 0 }}</strong></td>
-                                            <td><strong>{{ gen_ext.total_t if gen_ext is defined else 0 }}</strong></td>
-                                        </tr>
-                                    </tbody>
-                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td><td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td></tr></tfoot>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="tabla-seccion">
-                            <div class="tabla-titulo">Turno</div>
-                            <div class="tabla-wrap">
-                                <table class="tabla-acuse">
-                                    <thead><tr><th>Turno</th><th>H</th><th>M</th><th>T</th></tr></thead>
-                                    <tbody>
-                                        {% for turno in turnos_columnas %}
-                                            {% set turno_tot = totales_tabla2.turnos[turno] if totales_tabla2 is defined and totales_tabla2.turnos is defined and turno in totales_tabla2.turnos else {'H': 0, 'M': 0, 'T': 0} %}
-                                            <tr>
-                                                <td class="label-izq">{{ turno }}</td>
-                                                <td><strong>{{ turno_tot.H }}</strong></td>
-                                                <td><strong>{{ turno_tot.M }}</strong></td>
-                                                <td><strong>{{ turno_tot.T }}</strong></td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                    <tfoot><tr class="fila-total"><td class="label-izq">Total</td><td><strong>{{ totales_tabla2.total_h if totales_tabla2 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla2.total_m if totales_tabla2 is defined else 0 }}</strong></td><td><strong>{{ totales_tabla2.total_t if totales_tabla2 is defined else 0 }}</strong></td></tr></tfoot>
-                                </table>
-                            </div>
-                        </div>
-
-                    </div> </div>
-                    {% endif %}
-
-                    <div class="firmas-container">
-                        <div class="firma-box">
-                            <div class="firma-linea"></div>
-                            <div class="firma-nombre">{{ nombre_capturista }}</div>
-                            <div class="firma-rol">Capturista</div>
-                        </div>
-                        <div class="firma-box">
-                            <div class="firma-linea"></div>
-                            <div class="firma-nombre">{{ nombre_ceget }}</div>
-                            <div class="firma-rol">CEGET</div>
-                        </div>
-                        <div class="firma-box">
-                            <div class="firma-linea"></div>
-                            <div class="firma-nombre">{{ nombre_titular }}</div>
-                            <div class="firma-rol">Titular de la Unidad Académica</div>
-                        </div>
+        <div class="contenedor-columnas">
+            <div class="columna-izq">
+                
+                <div class="tabla-seccion">
+                    <div class="tabla-titulo">{{ '1. ' if exportando_pdf else '' }}Boleta</div>
+                    <div class="tabla-wrap">
+                        <table class="tabla-acuse">
+                            <thead>
+                                <tr>
+                                    <th>Boleta</th>
+                                    <th>H</th>
+                                    <th>M</th>
+                                    <th>T</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for boleta in boletas_columnas %}
+                                    {% set boleta_tot = total_general.boletas[boleta] if total_general is defined and total_general.boletas is defined and boleta in total_general.boletas else {'regular': {'H': 0, 'M': 0, 'T': 0}, 'extemporaneo': {'H': 0, 'M': 0, 'T': 0}} %}
+                                    {% set boleta_h = boleta_tot.regular.H + boleta_tot.extemporaneo.H %}
+                                    {% set boleta_m = boleta_tot.regular.M + boleta_tot.extemporaneo.M %}
+                                    {% set boleta_t = boleta_tot.regular.T + boleta_tot.extemporaneo.T %}
+                                    <tr>
+                                        <td class="label-izq">{{ boleta }}</td>
+                                        <td><strong>{{ boleta_h }}</strong></td>
+                                        <td><strong>{{ boleta_m }}</strong></td>
+                                        <td><strong>{{ boleta_t }}</strong></td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td class="label-izq">Total</td>
+                                    <td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td>
+                                    <td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td>
+                                    <td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
+                </div>
+
+                <div class="tabla-seccion">
+                    <div class="tabla-titulo">{{ '2. ' if exportando_pdf else '' }}Grupo de Edad</div>
+                    <div class="tabla-wrap">
+                        <table class="tabla-acuse">
+                            <thead>
+                                <tr>
+                                    <th>Edad</th>
+                                    <th>H</th>
+                                    <th>M</th>
+                                    <th>T</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fila in filas_edad_turno %}
+                                    {% set edad_tot = totales_tabla2.edades[fila.edad] if totales_tabla2 is defined and totales_tabla2.edades is defined and fila.edad in totales_tabla2.edades else {'H': 0, 'M': 0, 'T': 0} %}
+                                    <tr>
+                                        <td class="label-izq">{{ fila.edad }}</td>
+                                        <td><strong>{{ edad_tot.H }}</strong></td>
+                                        <td><strong>{{ edad_tot.M }}</strong></td>
+                                        <td><strong>{{ edad_tot.T }}</strong></td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td class="label-izq">Total</td>
+                                    <td><strong>{{ totales_tabla2.total_h if totales_tabla2 is defined else 0 }}</strong></td>
+                                    <td><strong>{{ totales_tabla2.total_m if totales_tabla2 is defined else 0 }}</strong></td>
+                                    <td><strong>{{ totales_tabla2.total_t if totales_tabla2 is defined else 0 }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+            </div> 
+            
+            <div class="columna-der">
+                
+                <div class="tabla-seccion">
+                    <div class="tabla-titulo">{{ '3. ' if exportando_pdf else '' }}Programa Académico</div>
+                    <div class="tabla-wrap">
+                        <table class="tabla-acuse">
+                            <thead>
+                                <tr>
+                                    <th>Programa</th>
+                                    <th>H</th>
+                                    <th>M</th>
+                                    <th>T</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set ns_programa = namespace(actual='', h=0, m=0, t=0, iniciado=false) %}
+                                {% for fila in filas_pivot %}
+                                    {% if not ns_programa.iniciado %}
+                                        {% set ns_programa.actual = fila.programa %}
+                                        {% set ns_programa.iniciado = true %}
+                                    {% endif %}
+                                    {% if fila.programa != ns_programa.actual %}
+                                        <tr>
+                                            <td class="label-izq">{{ ns_programa.actual }}</td>
+                                            <td><strong>{{ ns_programa.h }}</strong></td>
+                                            <td><strong>{{ ns_programa.m }}</strong></td>
+                                            <td><strong>{{ ns_programa.t }}</strong></td>
+                                        </tr>
+                                        {% set ns_programa.actual = fila.programa %}
+                                        {% set ns_programa.h = 0 %}
+                                        {% set ns_programa.m = 0 %}
+                                        {% set ns_programa.t = 0 %}
+                                    {% endif %}
+                                    {% set ns_programa.h = ns_programa.h + fila.total_h %}
+                                    {% set ns_programa.m = ns_programa.m + fila.total_m %}
+                                    {% set ns_programa.t = ns_programa.t + fila.total_t %}
+                                    {% if loop.last %}
+                                        <tr>
+                                            <td class="label-izq">{{ ns_programa.actual }}</td>
+                                            <td><strong>{{ ns_programa.h }}</strong></td>
+                                            <td><strong>{{ ns_programa.m }}</strong></td>
+                                            <td><strong>{{ ns_programa.t }}</strong></td>
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td class="label-izq">Total</td>
+                                    <td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td>
+                                    <td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td>
+                                    <td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="tabla-seccion">
+                    <div class="tabla-titulo">{{ '4. ' if exportando_pdf else '' }}Modalidad</div>
+                    <div class="tabla-wrap">
+                        <table class="tabla-acuse">
+                            <thead>
+                                <tr>
+                                    <th>Modalidad</th>
+                                    <th>H</th>
+                                    <th>M</th>
+                                    <th>T</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for modalidad in modalidades_columnas %}
+                                    {% set mod_tot = totales_tabla1.modalidades[modalidad] if totales_tabla1 is defined and totales_tabla1.modalidades is defined and modalidad in totales_tabla1.modalidades else {'H': 0, 'M': 0, 'T': 0} %}
+                                    <tr>
+                                        <td class="label-izq">{{ modalidad }}</td>
+                                        <td><strong>{{ mod_tot.H }}</strong></td>
+                                        <td><strong>{{ mod_tot.M }}</strong></td>
+                                        <td><strong>{{ mod_tot.T }}</strong></td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td class="label-izq">Total</td>
+                                    <td><strong>{{ totales_tabla1.total_h if totales_tabla1 is defined else 0 }}</strong></td>
+                                    <td><strong>{{ totales_tabla1.total_m if totales_tabla1 is defined else 0 }}</strong></td>
+                                    <td><strong>{{ totales_tabla1.total_t if totales_tabla1 is defined else 0 }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="tabla-seccion">
+                    <div class="tabla-titulo">{{ '5. ' if exportando_pdf else '' }}Generación</div>
+                    <div class="tabla-wrap">
+                        <table class="tabla-acuse">
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>H</th>
+                                    <th>M</th>
+                                    <th>T</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set gen_regular = subtotales_generacion_tabla1.regular if subtotales_generacion_tabla1 is defined else {'total_h': 0, 'total_m': 0, 'total_t': 0} %}
+                                {% set gen_ext = subtotales_generacion_tabla1.extemporaneo if subtotales_generacion_tabla1 is defined else {'total_h': 0, 'total_m': 0, 'total_t': 0} %}
+                                <tr>
+                                    <td class="label-izq">Regular</td>
+                                    <td><strong>{{ gen_regular.total_h if gen_regular is defined else 0 }}</strong></td>
+                                    <td><strong>{{ gen_regular.total_m if gen_regular is defined else 0 }}</strong></td>
+                                    <td><strong>{{ gen_regular.total_t if gen_regular is defined else 0 }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="label-izq">Extemporáneo</td>
+                                    <td><strong>{{ gen_ext.total_h if gen_ext is defined else 0 }}</strong></td>
+                                    <td><strong>{{ gen_ext.total_m if gen_ext is defined else 0 }}</strong></td>
+                                    <td><strong>{{ gen_ext.total_t if gen_ext is defined else 0 }}</strong></td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td class="label-izq">Total</td>
+                                    <td><strong>{{ total_general.total_h if total_general is defined else 0 }}</strong></td>
+                                    <td><strong>{{ total_general.total_m if total_general is defined else 0 }}</strong></td>
+                                    <td><strong>{{ total_general.total_t if total_general is defined else 0 }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="tabla-seccion">
+                    <div class="tabla-titulo">{{ '6. ' if exportando_pdf else '' }}Turno</div>
+                    <div class="tabla-wrap">
+                        <table class="tabla-acuse">
+                            <thead>
+                                <tr>
+                                    <th>Turno</th>
+                                    <th>H</th>
+                                    <th>M</th>
+                                    <th>T</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for turno in turnos_columnas %}
+                                    {% set turno_tot = totales_tabla2.turnos[turno] if totales_tabla2 is defined and totales_tabla2.turnos is defined and turno in totales_tabla2.turnos else {'H': 0, 'M': 0, 'T': 0} %}
+                                    <tr>
+                                        <td class="label-izq">{{ turno }}</td>
+                                        <td><strong>{{ turno_tot.H }}</strong></td>
+                                        <td><strong>{{ turno_tot.M }}</strong></td>
+                                        <td><strong>{{ turno_tot.T }}</strong></td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td class="label-izq">Total</td>
+                                    <td><strong>{{ totales_tabla2.total_h if totales_tabla2 is defined else 0 }}</strong></td>
+                                    <td><strong>{{ totales_tabla2.total_m if totales_tabla2 is defined else 0 }}</strong></td>
+                                    <td><strong>{{ totales_tabla2.total_t if totales_tabla2 is defined else 0 }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+            </div> 
+        </div>
+        {% endif %}
+
+        <div class="firmas-container">
+            <div class="firma-box">
+                <div class="firma-linea"></div>
+                <div class="firma-nombre">{{ nombre_capturista if nombre_capturista else '' }}</div>
+                <div class="firma-rol">Capturista</div>
+            </div>
+            <div class="firma-box">
+                <div class="firma-linea"></div>
+                <div class="firma-nombre">{{ nombre_ceget if nombre_ceget else '' }}</div>
+                <div class="firma-rol">CEGET</div>
+            </div>
+            <div class="firma-box">
+                <div class="firma-linea"></div>
+                <div class="firma-nombre">{{ nombre_titular if nombre_titular else '' }}</div>
+                <div class="firma-rol">Titular de la Unidad Académica</div>
+            </div>
+        </div>
 
         {% if not exportando_pdf %}
         <div class="acuse-footer">
-            
-            <!-- 1. MENSAJES DE ESTADO -->
             {% if usuario_ya_valido %}
                 <div class="estado-validacion estado-validado">✅ EGRESADOS VALIDADOS POR TI</div>
                 <div class="estado-validacion estado-pendiente">
@@ -263,10 +403,8 @@
                 </div>
             {% endif %}
 
-            <!-- 2. BOTONES DE ACCIÓN -->
             <div class="acciones-validacion" id="acciones-validacion">
                 {% if id_rol in [4, 5, 6, 7, 8, 9] %}
-                    <!-- Observa la condición agregada: "not puede_validar" -->
                     <button class="btn btn-success" id="btn-validar" onclick="validarEgresados()"
                             {% if not puede_validar or usuario_ya_valido or usuario_ya_rechazo %}disabled title="No puedes validar en este momento"{% endif %}>
                         ✅ Validar Egresados
@@ -279,7 +417,6 @@
                 <button class="btn btn-info" onclick="exportarPdf()">📄 Exportar vista</button>
             </div>
 
-            <!-- 3. PANEL DE RECHAZO -->
             {% if id_rol in [4, 5, 6, 7, 8, 9] %}
             <div class="panel-rechazo" id="panel-rechazo">
                 <h4>
@@ -313,7 +450,6 @@
             {% endif %}
         </div>
         {% endif %}
-
     </div>
 
     {% if not exportando_pdf %}
@@ -488,8 +624,10 @@
         function confirmarRechazo() { window.__validacionRechazo?.ejecutarRechazo(); }
 
         function exportarPdf() {
-            const url = `/egresados/acuse-validacion/pdf?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}`;
-            // Navegar al endpoint que descarga directamente el PDF
+            const periodo = encodeURIComponent("{{ periodo }}");
+            const nivel = encodeURIComponent("{{ nivel }}");
+            const unidad = encodeURIComponent("{{ unidad }}");
+            const url = `/egresados/acuse-validacion/pdf?periodo=${periodo}&nivel=${nivel}&unidad=${unidad}`;
             window.location.href = url;
         }
     </script>
