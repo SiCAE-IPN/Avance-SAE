@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Tuple, Optional
 from fastapi import HTTPException
 from datetime import datetime
 import time
+import weasyprint
 
 from backend.api.catalogos import semaforo
 from backend.core.templates import templates
@@ -811,39 +812,7 @@ async def consultar_egresados(request: Request, sess=Depends(get_current_session
             raise HTTPException(status_code=400, detail="Faltan datos requeridos: periodo, unidad o nivel")
 
         unidad_sigla = unidad.Sigla
-
-        resp = await resumen_egresados_dinamico_view(request, periodo, nivel, unidad, sess, db)
-        if isinstance(resp, RedirectResponse):
-            return resp
-
-        if isinstance(resp.body, memoryview):
-            html_text = resp.body.tobytes().decode('utf-8')
-        else:
-            html_text = bytes(resp.body).decode('utf-8')
-
-        base_path = Path(__file__).resolve().parents[2] / 'frontend' / 'static'
-        ruta_css = base_path / 'css' / 'components' / 'egresados_acuse_print.css'
-
-        if not ruta_css.exists():
-            raise HTTPException(
-                status_code=500, 
-                detail=f"No se encontró el archivo CSS en: {ruta_css}." 
-            )
-
-        try:
-            pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
-                stylesheets=[
-                    weasyprint.CSS(filename=str(ruta_css)),
-                    weasyprint.CSS(string='@page { size: Letter; margin: 1cm }')
-                ]
-            )
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
-
-        filename = f"acuse_egresados_{unidad}_{periodo}.pdf".replace(' ', '_')
-        return Response(content=pdf_bytes, media_type='application/pdf', headers={
-            'Content-Disposition': f'attachment; filename="{filename}"'
-        })
+        periodo_literal = periodo.Periodo
         nivel_nombre = nivel.Nivel
 
         print(f"\n{'='*60}")
@@ -2126,8 +2095,10 @@ async def resumen_egresados_dinamico_view(
     unidad: str = None, 
     sess=Depends(validar_acuse),
     db: Session = Depends(get_db),
-    vista: str = 'resumen'
+    vista: str = 'resumen',
+    exportando_pdf: bool = False
 ):
+    fecha_hoy = datetime.now().strftime('%d/%m/%Y')
 
     final_unidad = unidad if (unidad and unidad.strip()) else sess.sigla_unidad_academica
     final_nivel = nivel if (nivel and nivel.strip()) else sess.nombre_nivel
@@ -2306,6 +2277,8 @@ async def resumen_egresados_dinamico_view(
                 "usuario_ya_rechazo": usuario_ya_rechazo,
                 "esperando_por_rol": esperando_por_rol,
                 "error_message": "No hay datos disponibles para los filtros seleccionados",
+                "exportando_pdf": exportando_pdf,
+                "fecha_hoy": fecha_hoy,
                 "session": sess
             })
 
@@ -2585,14 +2558,14 @@ async def resumen_egresados_dinamico_view(
             else:
                 sexo = 'M'
 
-            # Egresados (filtrar 0 para no "inflar" tablas con combinaciones vacías)
+            # Egresados (ya NO se descartan los ceros: si una combinación de
+            # catálogo no tiene egresados, igual debe aparecer con 0 en las
+            # tablas de Modalidad/Turno/Edad, igual que ya pasa en Boleta y Programa)
             eg_raw = _get_row_value(row, 'Egresados', default=0)
             try:
                 eg = int(float(eg_raw)) if eg_raw not in (None, '') else 0
             except (TypeError, ValueError):
                 eg = 0
-            if eg <= 0:
-                continue
 
             # Tipo de generación (regular/extemporaneo)
             generacion_lower = generacion.lower()
@@ -2813,7 +2786,7 @@ async def resumen_egresados_dinamico_view(
             right = col_right[i] if i < len(col_right) else None
             tablas_filas.append((left, right))
 
-        periodo_anterior_literal = get_periodo_anterior_al_ultimo(periodo)
+        id_periodo_anterior, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
 
         return templates.TemplateResponse(nombre_template, {
             "request": request,
@@ -2851,6 +2824,8 @@ async def resumen_egresados_dinamico_view(
             "nombre_titular": nombre_titular,
             "estado_semaforo_actual": estado_semaforo if ('estado_semaforo' in locals() and estado_semaforo is not None) else 0,
             "error_message": None,
+            "exportando_pdf": exportando_pdf,
+            "fecha_hoy": fecha_hoy,
             "session": sess
         })
         
@@ -2864,8 +2839,8 @@ async def resumen_egresados_dinamico_view(
             "nombre_rol": nombre_rol,
             "id_rol": id_rol,
             "periodo": periodo,
-            "periodo_id": None,
-            "periodo_anterior": None,
+            "periodo_id": periodo_id,
+            "periodo_anterior": periodo_anterior_literal,
             "nivel": final_nivel,
             "unidad": final_unidad,
             "datos_resumen": [],
@@ -2889,8 +2864,69 @@ async def resumen_egresados_dinamico_view(
             "nombre_ceget": None,
             "nombre_titular": None,
             "error_message": f"Error al procesar datos: {str(e)}",
+            "exportando_pdf": exportando_pdf,
+            "fecha_hoy": fecha_hoy,
             "session": sess
         })
+
+@router.get('/acuse-validacion/pdf')
+async def exportar_acuse_egresados_pdf(
+    request: Request,
+    periodo: str = None,
+    nivel: str = None,
+    unidad: str = None,
+    sess=Depends(validar_acuse),
+    db: Session = Depends(get_db)
+):
+    """
+    Genera y descarga el PDF del Acuse de Validación de Egresados.
+    Reutiliza la misma vista de resumen dinámico (vista='acuse') pero
+    renderizada en modo impresión (exportando_pdf=True), igual que se
+    hace para el acuse de Matrícula.
+    """
+    resp = await resumen_egresados_dinamico_view(
+        request=request,
+        periodo=periodo,
+        nivel=nivel,
+        unidad=unidad,
+        sess=sess,
+        db=db,
+        vista='acuse',
+        exportando_pdf=True
+    )
+
+    if isinstance(resp, RedirectResponse):
+        return resp
+
+    if isinstance(resp.body, memoryview):
+        html_text = resp.body.tobytes().decode('utf-8')
+    else:
+        html_text = bytes(resp.body).decode('utf-8')
+
+    base_path = Path(__file__).resolve().parents[2] / 'frontend' / 'static'
+    ruta_css = base_path / 'css' / 'components' / 'matricula_acuse.css'
+
+    if not ruta_css.exists():
+        raise HTTPException(
+            status_code=500,
+            detail=f"No se encontró el archivo CSS en: {ruta_css}."
+        )
+
+    try:
+        pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
+            stylesheets=[
+                weasyprint.CSS(filename=str(ruta_css)),
+                weasyprint.CSS(string='@page { size: Letter; margin: 1cm }')
+            ]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
+
+    filename = f"acuse_egresados_{unidad}_{periodo}.pdf".replace(' ', '_')
+    return Response(content=pdf_bytes, media_type='application/pdf', headers={
+        'Content-Disposition': f'attachment; filename="{filename}"'
+    })
+
 
 @router.post("/fijar-nivel-temporal")
 async def fijar_nivel_temporal(
