@@ -31,12 +31,15 @@ async def logout(request: Request):
     clear_session_cookie(resp)
     return resp
 
+from backend.core.rate_limiter import limiter_login
+
 @router.post("/", response_class=HTMLResponse)
 async def login(
     request: Request,
     usuario_email: str = Form(...),
     password: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _rate_limit = Depends(limiter_login)
 ):
     exito = False
     mensaje = ""
@@ -103,18 +106,6 @@ async def login(
             )
             session_id = session_store.create(sess, ttl_seconds=SESSION_TTL_SECONDS)
             set_session_cookie(response, session_id)
-            
-            # (Opcional) limpiar cookies legacy si existían de versiones anteriores
-            for legacy in [
-                "id_rol","nombre_rol","id_nivel","nombre_nivel","id_usuario","usuario",
-                "id_unidad_academica","sigla_unidad_academica","nombre_usuario","apellidoP_usuario","apellidoM_usuario",
-                "requiere_cambio_password"
-            ]:
-                try:
-                    response.delete_cookie(legacy, path='/')
-                except Exception:
-                    pass
-            
             return response
         else:
             mensaje = "Usuario o contraseña incorrectos."
@@ -128,13 +119,6 @@ async def login(
     )
 
 
-"""@router.post("/", response_model=UsuarioResponse)
-async def register_user_endpoint(user: UsuarioCreate, db: Session = Depends(get_db)):
-    try:
-        return register_usuario(db, user)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))"""
-
 # --- MODO CAMALEÓN (SIMULACIÓN DE ROLES) ---
 ROLES_SICAE = {
     3: "capturista",
@@ -147,8 +131,6 @@ ROLES_SICAE = {
 }
 
 ID_ROL_ADMINISTRADOR = 1
-
-# Asegúrate de importar Form si no lo tienes: from fastapi import Form
 
 @router.post("/simular")
 async def simular_identidad(

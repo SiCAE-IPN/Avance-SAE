@@ -12,12 +12,18 @@ from backend.services.usuario_service import is_super_admin
 
 router = APIRouter(prefix="/recuperacion", tags=["recuperacion"])
 
+from backend.core.rate_limiter import limiter_recuperacion
+
 @router.get("/usuario", response_class=HTMLResponse)
 async def recuperar_usuario_view(request: Request):
     return templates.TemplateResponse("recuperar_usuario.html", {"request": request})
 
 @router.post("/usuario", response_class=JSONResponse)
-async def recuperar_usuario(email: str = Form(...), db: Session = Depends(get_db)):
+async def recuperar_usuario(
+    email: str = Form(...),
+    db: Session = Depends(get_db),
+    _limit = Depends(limiter_recuperacion)
+):
     try:
         username = get_username_by_email(db, email)
         # Respuesta genérica si no existe
@@ -36,7 +42,8 @@ async def recuperar_password(
     email: str = Form(...),
     username: Optional[str] = Form(None),
     request: Request = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _limit = Depends(limiter_recuperacion)
 ):
     # Pasar el email directamente a la función
     ok, msg = reset_password(db, email=email, request=request, username=username)

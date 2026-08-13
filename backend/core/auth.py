@@ -10,6 +10,7 @@ from fastapi import Query
 
 
 from backend.core.session_store import SessionData, session_store
+from backend.core.rate_limiter import detector_anomalias
 
 # Default: 8 hours
 SESSION_TTL_SECONDS = int(os.getenv("SESSION_TTL_SECONDS", str(60 * 60 * 8)))
@@ -24,6 +25,13 @@ def is_secure_cookie() -> bool:
     # Auto: secure in common hosted envs
     return os.getenv("ENV", "").lower() in {"prod", "production"} or os.getenv("HTTPS", "").lower() in {"on", "1", "true"}
 
+LEGACY_COOKIES = [
+    "id_rol", "nombre_rol", "id_nivel", "nombre_nivel", "id_usuario", "usuario",
+    "id_unidad_academica", "sigla_unidad_academica", "nombre_usuario", "apellidoP_usuario",
+    "apellidoM_usuario", "requiere_cambio_password", "unidad_sigla", "username", "Usuario",
+    "rol", "nivel", "unidad"
+]
+
 def set_session_cookie(response: Response, session_id: str) -> None:
     response.set_cookie(
         key="session_id",
@@ -34,9 +42,20 @@ def set_session_cookie(response: Response, session_id: str) -> None:
         max_age=SESSION_TTL_SECONDS,
         path="/",
     )
+    # Limpiar cookies innecesarias del navegador para dejar solo session_id
+    for legacy in LEGACY_COOKIES:
+        try:
+            response.delete_cookie(legacy, path="/")
+        except Exception:
+            pass
 
 def clear_session_cookie(response: Response) -> None:
     response.delete_cookie("session_id", path="/")
+    for legacy in LEGACY_COOKIES:
+        try:
+            response.delete_cookie(legacy, path="/")
+        except Exception:
+            pass
 
 async def get_current_session(
     request: Request,
@@ -100,6 +119,11 @@ class VerificarAccesoUA:
 
         if ua_asignada != int(ua_id):
             print(f"[seguridad] Intento de acceso no autorizado. Usuario {sess.id_usuario} intentó acceder a UA {ua_id}")
+            detector_anomalias.registrar_intento_no_autorizado(
+                user_id_or_ip=str(sess.id_usuario or sess.usuario),
+                resource_id=f"UA_{ua_id}",
+                endpoint="/api/ua"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Acceso denegado: No tienes permisos institucionales para consultar esta Unidad Académica."
@@ -131,6 +155,11 @@ class VerificarAccesoInstitucional:
         ua_asignada = int(getattr(sess, 'id_unidad_academica', 0) or 0)
         if ua_asignada != int(ua_id):
             print(f"[seguridad] Alerta: Usuario {sess.usuario} intentó acceder a la UA {ua_id}")
+            detector_anomalias.registrar_intento_no_autorizado(
+                user_id_or_ip=str(sess.id_usuario or sess.usuario),
+                resource_id=f"UA_{ua_id}",
+                endpoint="/api/institucional"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Acceso denegado: No perteneces a esta Unidad Académica."
@@ -143,6 +172,11 @@ class VerificarAccesoInstitucional:
             nivel_asignado = int(getattr(sess, 'id_nivel', 0) or 0)
             if nivel_id is not None and nivel_asignado != int(nivel_id):
                 print(f"[seguridad] Alerta: Usuario {sess.usuario} intentó acceder al nivel {nivel_id}")
+                detector_anomalias.registrar_intento_no_autorizado(
+                    user_id_or_ip=str(sess.id_usuario or sess.usuario),
+                    resource_id=f"Nivel_{nivel_id}",
+                    endpoint="/api/institucional"
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Acceso denegado: No tienes permisos para este nivel académico."
@@ -172,6 +206,11 @@ class VerificarAccesoAcuse:
         sigla_sess = (getattr(sess, 'sigla_unidad_academica', '') or "").strip().lower()
         if search_unidad and sigla_sess and sigla_sess != search_unidad.lower():
             print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL a la unidad: {search_unidad}")
+            detector_anomalias.registrar_intento_no_autorizado(
+                user_id_or_ip=str(sess.id_usuario or sess.usuario),
+                resource_id=f"UA_{search_unidad}",
+                endpoint="/acuse-validacion"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Acceso denegado: No tienes permisos para consultar esta Unidad Académica."
@@ -184,6 +223,11 @@ class VerificarAccesoAcuse:
             nivel_sess = (getattr(sess, 'nombre_nivel', '') or "").strip().lower()
             if search_nivel and nivel_sess and nivel_sess != search_nivel.lower():
                 print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL al nivel: {search_nivel}")
+                detector_anomalias.registrar_intento_no_autorizado(
+                    user_id_or_ip=str(sess.id_usuario or sess.usuario),
+                    resource_id=f"Nivel_{search_nivel}",
+                    endpoint="/acuse-validacion"
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Acceso denegado: No tienes permisos para consultar este nivel académico."

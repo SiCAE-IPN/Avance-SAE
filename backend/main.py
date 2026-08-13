@@ -19,6 +19,16 @@ import os
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 app = FastAPI()
+
+@app.middleware("http")
+async def cookie_cleanup_middleware(request: Request, call_next):
+    response = await call_next(request)
+    # Detectar y purgar cualquier cookie que no sea estrictamente session_id
+    for cookie_name in request.cookies.keys():
+        if cookie_name != "session_id":
+            response.delete_cookie(cookie_name, path="/")
+    return response
+
 app.mount("/static", static)
 # Montar la carpeta 'Tipografía' para servir fuentes que el equipo colocó en la raíz del proyecto
 tipo_dir = os.path.join(os.path.dirname(__file__), '..', 'Tipografía')
