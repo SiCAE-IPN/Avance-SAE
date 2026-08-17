@@ -1,4 +1,4 @@
-# SiCAE - Sistema de Administración Escolar
+# SiCAE - Sistema de Captura y Análisis de la Estadística
 
 Sistema web desarrollado con FastAPI y Jinja2 para la gestión de usuarios académicos.
 

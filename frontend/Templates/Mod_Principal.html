@@ -6,7 +6,7 @@
 {% block title %}Módulo Principal - SiCAE{% endblock %}
 
 {% block styles %}
-    <link rel="stylesheet" href="/static/css/mod_principal.css?v=2.0">
+    <link rel="stylesheet" href="/static/css/mod_principal.css?v=5.0">
 {% endblock %}
 
 {% block content %}
@@ -30,7 +30,8 @@
             <p class="subtitulo">Módulo Principal • Selecciona una opción para comenzar</p>
         </div>
 
-        <div class="grid-modulos">
+        {% set total_cards = 6 + (1 if (session.id_rol in [1] or es_super_admin) else 0) %}
+        <div class="grid-modulos {% if total_cards == 6 %}layout-6-cards{% else %}layout-7-cards{% endif %}" id="gridModulos">
             <div id="Btn_Catalogos" class="card-modulo {% if not es_admin %}bloqueado{% endif %}" 
                 {% if not es_admin %} title="No tienes permisos para ver catálogos" {% endif %}>
                 <div class="card-icon">🗂️</div>
@@ -84,6 +85,15 @@
                     </div>
                 {% endif %}
             </div>
+
+            {% if session.id_rol in [1] or es_super_admin %}
+            <div id="Btn_Seguridad" class="card-modulo">
+                <div class="card-icon">🛡️</div>
+                <h3 class="card-title">Auditoría y Seguridad</h3>
+                <p class="card-desc">Monitoreo de bloqueos, anomalías y exportación de bitácora CSV.</p>
+            </div>
+            {% endif %}
+        </div>
     </main>
 {% endblock %}
 
@@ -131,8 +141,7 @@
             window.open(urlPowerBI, '_blank');
         });
 
-        // NUEVO: Navegar al tablero de Seguimiento a la Estadística
-        const container = document.querySelector('.dashboard-split-container');
+        // Navegar al tablero de Seguimiento a la Estadística
         const btnSeguimiento = document.getElementById('Btn_Seguimiento');
         if (btnSeguimiento) {
             btnSeguimiento.addEventListener('click', function() {
@@ -143,6 +152,14 @@
         }
         if (!btnSeguimiento) {
             document.getElementById('Btn_Dashboard').style.flex = "100%";
-        }       
+        }
+
+        // Navegar a Auditoría de Seguridad (solo Admin)
+        const btnSeguridad = document.getElementById('Btn_Seguridad');
+        if (btnSeguridad) {
+            btnSeguridad.addEventListener('click', function() {
+                window.location.href = '/mod_principal/seguridad';
+            });
+        }
     </script>
 {% endblock %}

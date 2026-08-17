@@ -22,5 +22,7 @@
   "python.analysis.autoImportCompletions": true,
   "cmake.configureOnOpen": false,
   "java.enabled": false,
-  "gitlens.currentLine.enabled": false
+  "gitlens.currentLine.enabled": false,
+  "workbench.colorTheme": "Default Dark Modern",
+  "workbench.iconTheme": "symbols"
 }

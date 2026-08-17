@@ -10,7 +10,7 @@ from fastapi import Query
 
 
 from backend.core.session_store import SessionData, session_store
-from backend.core.rate_limiter import detector_anomalias
+from backend.core.rate_limiter import detector_anomalias, get_client_ip
 
 # Default: 8 hours
 SESSION_TTL_SECONDS = int(os.getenv("SESSION_TTL_SECONDS", str(60 * 60 * 8)))
@@ -79,6 +79,32 @@ async def get_current_session(
             print(f"[auth] session found: session_id={session_id} id_usuario={getattr(sess,'id_usuario',None)} id_rol={getattr(sess,'id_rol',None)} is_impersonating={getattr(sess,'is_impersonating',False)}")
         except Exception:
             pass
+
+    # 1. Los administradores globales nunca son suspendidos en sus sesiones
+    id_rol = int(getattr(sess, "id_rol", 0) or 0)
+    nombre_rol = (getattr(sess, "nombre_rol", "") or "").strip().lower()
+    es_admin = id_rol in [1, 6, 7, 8, 9] or nombre_rol in ["administrador", "analista", "jefe de departamento", "jefe de división", "directora"]
+
+    # 2. Para otros roles, verificar si su cuenta o IP están temporalmente suspendidos por anomalías (E3)
+    if not es_admin:
+        client_ip = get_client_ip(request)
+        ident_user = str(getattr(sess, "id_usuario", "") or getattr(sess, "usuario", "") or "")
+        
+        bloqueado_user, retry_user = detector_anomalias.esta_bloqueado(ident_user, penalizar_insistencia=False)
+        bloqueado_ip = False
+        retry_ip = 0
+        if client_ip != "unknown" and client_ip not in ["127.0.0.1", "localhost", "::1"]:
+            bloqueado_ip, retry_ip = detector_anomalias.esta_bloqueado(client_ip, penalizar_insistencia=False)
+
+        if bloqueado_user or bloqueado_ip:
+            retry_final = max(retry_user, retry_ip, 60)
+            print(f"[seguridad] Acceso bloqueado por anomalías activas: Usuario={ident_user}, IP={client_ip}")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Acceso temporalmente suspendido por detección de patrones anómalos. Por favor espere {retry_final} segundos.",
+                headers={"Retry-After": str(retry_final)}
+            )
+
     # Sliding TTL (optional). Comment out if you prefer fixed expiry.
     session_store.touch(session_id, SESSION_TTL_SECONDS)
     request.state.session = sess
@@ -103,7 +129,6 @@ class VerificarAccesoUA:
         ua_id: int, # FastAPI tomará este valor automáticamente de la URL
         sess: SessionData = Depends(get_current_session)
     ) -> SessionData:
-        
         id_rol = int(getattr(sess, 'id_rol', 0) or 0)
         nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
 
@@ -112,21 +137,47 @@ class VerificarAccesoUA:
         if es_admin:
             return sess
 
+        # 2. Verificar si el usuario no admin se encuentra actualmente suspendido por comportamiento anómalo (E3)
+        identificador = str(sess.id_usuario or sess.usuario or "desconocido")
+        bloqueado, retry_after = detector_anomalias.esta_bloqueado(identificador)
+        if bloqueado:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Acceso temporalmente suspendido por detección de anomalías. Por favor espere {retry_after} segundos.",
+                headers={"Retry-After": str(retry_after)}
+            )
+
         # 2. Si no es admin (ej. capturista, ceget, titular), verificamos su UA asignada
         ua_asignada = getattr(sess, 'id_unidad_academica', None)
         if ua_asignada is not None:
             ua_asignada = int(ua_asignada)
 
         if ua_asignada != int(ua_id):
-            print(f"[seguridad] Intento de acceso no autorizado. Usuario {sess.id_usuario} intentó acceder a UA {ua_id}")
+            usuario_str = f"{sess.usuario} (ID:{sess.id_usuario})"
+            print(f"[seguridad-IDOR] Intento de acceso no autorizado. Usuario {usuario_str} intentó acceder a UA {ua_id} (Asignada: {ua_asignada})")
+            
+            # Registrar incidente IDOR individual en la bitácora CSV de auditoría (E2)
+            try:
+                from backend.core.security_logger import registrar_bloqueo_seguridad
+                registrar_bloqueo_seguridad(
+                    request=None,
+                    usuario_objetivo=usuario_str,
+                    tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
+                    accion_tomada="ACCESO_DENEGADO_HTTP_403",
+                    endpoint=f"/api/ua/{ua_id} (Asignada: UA {ua_asignada})"
+                )
+            except Exception as e:
+                print(f"Error registrando IDOR en CSV: {e}")
+
+            # Registrar en el detector de anomalías para barridos horizontales (E3)
             detector_anomalias.registrar_intento_no_autorizado(
-                user_id_or_ip=str(sess.id_usuario or sess.usuario),
+                user_id_or_ip=identificador,
                 resource_id=f"UA_{ua_id}",
-                endpoint="/api/ua"
+                endpoint=f"/api/ua/{ua_id}"
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Acceso denegado: No tienes permisos institucionales para consultar esta Unidad Académica."
+                detail=f"Acceso denegado: No tienes permisos institucionales para consultar la Unidad Académica {ua_id}."
             )
 
         return sess
@@ -142,21 +193,45 @@ class VerificarAccesoInstitucional:
         nivel_id: int = None, # Intercepta el {nivel_id} de la URL de forma opcional
         sess: SessionData = Depends(get_current_session)
     ) -> SessionData:
-        
         id_rol = int(getattr(sess, 'id_rol', 0) or 0)
         nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
 
         # 1. Los administradores globales tienen acceso sin restricciones
         es_admin = id_rol in [1, 6, 7, 8, 9] or nombre_rol in ["administrador", "analista", "jefe de departamento", "jefe de división", "directora"]
         if es_admin:
-            return sess 
+            return sess
 
-        # 2. Verificar la Unidad Académica
+        # 2. Verificar si el usuario no admin se encuentra actualmente suspendido por comportamiento anómalo (E3)
+        identificador = str(sess.id_usuario or sess.usuario or "desconocido")
+        bloqueado, retry_after = detector_anomalias.esta_bloqueado(identificador)
+        if bloqueado:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Acceso temporalmente suspendido por detección de anomalías. Por favor espere {retry_after} segundos.",
+                headers={"Retry-After": str(retry_after)}
+            )
+
+        usuario_str = f"{sess.usuario} (ID:{sess.id_usuario})"
+
+        # 3. Verificar la Unidad Académica
         ua_asignada = int(getattr(sess, 'id_unidad_academica', 0) or 0)
         if ua_asignada != int(ua_id):
-            print(f"[seguridad] Alerta: Usuario {sess.usuario} intentó acceder a la UA {ua_id}")
+            print(f"[seguridad-IDOR] Alerta: Usuario {usuario_str} intentó acceder a la UA {ua_id} (Asignada: {ua_asignada})")
+            
+            try:
+                from backend.core.security_logger import registrar_bloqueo_seguridad
+                registrar_bloqueo_seguridad(
+                    request=None,
+                    usuario_objetivo=usuario_str,
+                    tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
+                    accion_tomada="ACCESO_DENEGADO_HTTP_403",
+                    endpoint=f"/matricula/{ua_id} (Asignada: UA {ua_asignada})"
+                )
+            except Exception as e:
+                print(f"Error registrando IDOR en CSV: {e}")
+
             detector_anomalias.registrar_intento_no_autorizado(
-                user_id_or_ip=str(sess.id_usuario or sess.usuario),
+                user_id_or_ip=identificador,
                 resource_id=f"UA_{ua_id}",
                 endpoint="/api/institucional"
             )
@@ -165,15 +240,28 @@ class VerificarAccesoInstitucional:
                 detail="Acceso denegado: No perteneces a esta Unidad Académica."
             )
             
-        # 3. Verificar el Nivel (si la URL contiene un {nivel_id})
+        # 4. Verificar el Nivel (si la URL contiene un {nivel_id})
         # Roles como CEGET (4) y Titular (5) gestionan todos los niveles de su Unidad Académica
         es_ceget_o_titular = id_rol in [4, 5] or "ceget" in nombre_rol or "titular" in nombre_rol
         if not es_ceget_o_titular:
             nivel_asignado = int(getattr(sess, 'id_nivel', 0) or 0)
             if nivel_id is not None and nivel_asignado != int(nivel_id):
-                print(f"[seguridad] Alerta: Usuario {sess.usuario} intentó acceder al nivel {nivel_id}")
+                print(f"[seguridad-IDOR] Alerta: Usuario {usuario_str} intentó acceder al nivel {nivel_id} (Asignado: {nivel_asignado})")
+                
+                try:
+                    from backend.core.security_logger import registrar_bloqueo_seguridad
+                    registrar_bloqueo_seguridad(
+                        request=None,
+                        usuario_objetivo=usuario_str,
+                        tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
+                        accion_tomada="ACCESO_DENEGADO_HTTP_403",
+                        endpoint=f"/matricula/{ua_id}/{nivel_id} (Asignado: Nivel {nivel_asignado})"
+                    )
+                except Exception as e:
+                    print(f"Error registrando IDOR en CSV: {e}")
+
                 detector_anomalias.registrar_intento_no_autorizado(
-                    user_id_or_ip=str(sess.id_usuario or sess.usuario),
+                    user_id_or_ip=identificador,
                     resource_id=f"Nivel_{nivel_id}",
                     endpoint="/api/institucional"
                 )
@@ -190,6 +278,23 @@ class VerificarAccesoAcuse:
     frente a los datos guardados en la sesión del usuario.
     """
     async def __call__(self, unidad: str = Query(None), nivel: str = Query(None), sess: SessionData = Depends(get_current_session)):
+        id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+        nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
+
+        # 1. Administradores globales (pueden ver cualquier UA y Nivel)
+        es_admin = id_rol in [1, 6, 7, 8, 9] or nombre_rol in ["administrador", "analista", "jefe de departamento", "jefe de división", "directora"]
+        if es_admin:
+            return sess
+
+        # 2. Verificar si el usuario no admin se encuentra actualmente suspendido por comportamiento anómalo (E3)
+        identificador = str(sess.id_usuario or sess.usuario or "desconocido")
+        bloqueado, retry_after = detector_anomalias.esta_bloqueado(identificador)
+        if bloqueado:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Acceso temporalmente suspendido por detección de anomalías. Por favor espere {retry_after} segundos.",
+                headers={"Retry-After": str(retry_after)}
+            )
 
         id_rol = int(getattr(sess, 'id_rol', 0) or 0)
         nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
@@ -199,15 +304,29 @@ class VerificarAccesoAcuse:
         if es_admin:
             return sess 
 
+        usuario_str = f"{sess.usuario} (ID:{sess.id_usuario})"
         search_unidad = (unidad or "").strip() or (getattr(sess, 'sigla_unidad_academica', '') or "").strip()
         search_nivel = (nivel or "").strip() or (getattr(sess, 'nombre_nivel', '') or "").strip()
 
         # 2. Validar la Unidad Académica contra sus siglas en la sesión
         sigla_sess = (getattr(sess, 'sigla_unidad_academica', '') or "").strip().lower()
         if search_unidad and sigla_sess and sigla_sess != search_unidad.lower():
-            print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL a la unidad: {search_unidad}")
+            print(f"[seguridad-IDOR] Bloqueado: {usuario_str} intentó cambiar URL a la unidad: {search_unidad} (Asignada: {sigla_sess})")
+            
+            try:
+                from backend.core.security_logger import registrar_bloqueo_seguridad
+                registrar_bloqueo_seguridad(
+                    request=None,
+                    usuario_objetivo=usuario_str,
+                    tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
+                    accion_tomada="ACCESO_DENEGADO_HTTP_403",
+                    endpoint=f"/acuse-validacion?unidad={search_unidad} (Asignada: {sigla_sess})"
+                )
+            except Exception as e:
+                print(f"Error registrando IDOR en CSV: {e}")
+
             detector_anomalias.registrar_intento_no_autorizado(
-                user_id_or_ip=str(sess.id_usuario or sess.usuario),
+                user_id_or_ip=identificador,
                 resource_id=f"UA_{search_unidad}",
                 endpoint="/acuse-validacion"
             )
@@ -222,9 +341,22 @@ class VerificarAccesoAcuse:
         if not es_ceget_o_titular:
             nivel_sess = (getattr(sess, 'nombre_nivel', '') or "").strip().lower()
             if search_nivel and nivel_sess and nivel_sess != search_nivel.lower():
-                print(f"[seguridad] Bloqueado: {sess.usuario} intentó cambiar URL al nivel: {search_nivel}")
+                print(f"[seguridad-IDOR] Bloqueado: {usuario_str} intentó cambiar URL al nivel: {search_nivel} (Asignado: {nivel_sess})")
+                
+                try:
+                    from backend.core.security_logger import registrar_bloqueo_seguridad
+                    registrar_bloqueo_seguridad(
+                        request=None,
+                        usuario_objetivo=usuario_str,
+                        tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
+                        accion_tomada="ACCESO_DENEGADO_HTTP_403",
+                        endpoint=f"/acuse-validacion?nivel={search_nivel} (Asignado: {nivel_sess})"
+                    )
+                except Exception as e:
+                    print(f"Error registrando IDOR en CSV: {e}")
+
                 detector_anomalias.registrar_intento_no_autorizado(
-                    user_id_or_ip=str(sess.id_usuario or sess.usuario),
+                    user_id_or_ip=identificador,
                     resource_id=f"Nivel_{search_nivel}",
                     endpoint="/acuse-validacion"
                 )

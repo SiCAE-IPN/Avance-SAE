@@ -10,7 +10,7 @@ from backend.api import egresados_sp
 from backend.api import titulados_sp
 from backend.api import recuperacion
 from backend.api.catalogos import domicilios, periodos, egresados
-from backend.core.templates import static
+from backend.core.templates import static, templates
 from fastapi.staticfiles import StaticFiles as _StaticFiles
 
 from fastapi import FastAPI, Request
@@ -20,13 +20,54 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 app = FastAPI()
 
+import uuid
+from backend.core.rate_limiter import firmar_device_id, verificar_y_extraer_device_id
+
+PERMITTED_COOKIES = {"session_id", "device_id"}
+
 @app.middleware("http")
-async def cookie_cleanup_middleware(request: Request, call_next):
+async def device_and_cookie_middleware(request: Request, call_next):
+    """
+    Middleware de gestión criptográfica de dispositivos y depuración de cookies:
+    1. Valida la firma HMAC de la cookie 'device_id'. Si es inválida o fue manipulada en el cliente, la regenera y alerta.
+    2. Si no existe, genera un nuevo identificador firmado digitalmente con clave secreta del servidor.
+    3. Purga cookies obsoletas o ajenas dejando únicamente session_id y device_id.
+    """
+    device_cookie = request.cookies.get("device_id")
+    needs_device_cookie = False
+    raw_device_id = None
+
+    if device_cookie:
+        raw_device_id, fue_manipulado = verificar_y_extraer_device_id(device_cookie, request)
+        if fue_manipulado or not raw_device_id:
+            raw_device_id = f"dev_{uuid.uuid4().hex[:12]}"
+            needs_device_cookie = True
+    else:
+        raw_device_id = f"dev_{uuid.uuid4().hex[:12]}"
+        needs_device_cookie = True
+
+    # Inyectar en request.state para acceso en la petición actual
+    request.state.device_id = raw_device_id
+
     response = await call_next(request)
-    # Detectar y purgar cualquier cookie que no sea estrictamente session_id
+
+    # Adjuntar cookie persistente firmada criptográficamente
+    if needs_device_cookie:
+        signed_cookie_val = firmar_device_id(raw_device_id, request)
+        response.set_cookie(
+            key="device_id",
+            value=signed_cookie_val,
+            httponly=True,
+            samesite="lax",
+            max_age=31536000,  # 1 año de persistencia
+            path="/",
+        )
+
+    # Purgar cualquier cookie ajena que no sea session_id o device_id
     for cookie_name in request.cookies.keys():
-        if cookie_name != "session_id":
+        if cookie_name not in PERMITTED_COOKIES:
             response.delete_cookie(cookie_name, path="/")
+
     return response
 
 app.mount("/static", static)
@@ -54,11 +95,63 @@ app.include_router(recuperacion.router)
 
 @app.exception_handler(StarletteHTTPException)
 async def _http_exception_handler(request: Request, exc: StarletteHTTPException):
-    # For browser requests, redirect to login on 401.
+    """
+    Manejador global de excepciones HTTP:
+    - 401: Redirige a /login para peticiones web de navegador.
+    - 429: Renderiza plantilla visual con contador en tiempo real contra ataques y reintentos, o JSON con Retry-After para APIs.
+    - 403: Renderiza plantilla visual de acceso denegado / violación de integridad para navegador.
+    - Otros códigos: Retorna JSON o redirección según corresponda.
+    """
     accept = (request.headers.get("accept") or "").lower()
-    if exc.status_code == 401 and "text/html" in accept:
+    is_html_request = "text/html" in accept
+
+    # 1. Sesión expirada o no autenticado (401) en navegador
+    if exc.status_code == 401 and is_html_request:
         return RedirectResponse(url="/login", status_code=303)
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    # 2. Exceso de límite de peticiones / Bloqueo activo (429) en navegador
+    if exc.status_code == 429 and is_html_request:
+        retry_val = 60
+        if exc.headers and "Retry-After" in exc.headers:
+            try:
+                retry_val = int(exc.headers["Retry-After"])
+            except (ValueError, TypeError):
+                retry_val = 60
+
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "status_code": 429,
+                "retry_after": retry_val,
+                "error_message": exc.detail or f"Demasiadas solicitudes. Por favor espere {retry_val} segundos antes de intentar nuevamente.",
+                "redirect_url": "/login" if "/login" in request.url.path else "/mod_principal/",
+            },
+            status_code=429,
+            headers=dict(exc.headers or {}),
+        )
+
+    # 3. Acceso denegado o prohibido (403) en navegador
+    if exc.status_code == 403 and is_html_request:
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "status_code": 403,
+                "retry_after": 0,
+                "error_message": exc.detail or "Acceso denegado: No cuenta con los privilegios institucionales necesarios.",
+                "redirect_url": "/login" if "/login" in request.url.path else "/mod_principal/",
+            },
+            status_code=403,
+            headers=dict(exc.headers or {}),
+        )
+
+    # 4. Respuesta JSON estándar para APIs o solicitudes asíncronas
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=dict(exc.headers or {}),
+    )
 
 @app.get("/favicon.ico")
 async def favicon():

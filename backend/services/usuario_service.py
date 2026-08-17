@@ -430,7 +430,7 @@ def register_usuario(db: Session, user_dict: UsuarioCreate, generar_password_aut
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
                     <h2 style="color: #750946; text-align: center;">Bienvenid@ al SiCAE</h2>
-                    <h2 style="color: #750946; text-align: center;">"Sistema de Administración y Estadística"</h2>
+                    <h2 style="color: #750946; text-align: center;">"Sistema de Captura y Análisis de la Estadística"</h2>
                     <p>Hola <strong>{nombre_completo}</strong>,</p>
                     <p>Tu cuenta ha sido creada exitosamente. A continuación encontrarás tus credenciales de acceso:</p>
                     <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;">

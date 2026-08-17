@@ -1,0 +1,903 @@
+{% extends 'base.html' %}
+
+{% set mostrar_sidebar = false %}
+{% set mostrar_header = false %}
+
+{% block title %}Auditoría de Seguridad y Control de Acceso (IDOR / E1-E4) - SiCAE{% endblock %}
+
+{% block styles %}
+<style>
+    :root {
+        --color-ipn-guinda: #750946;
+        --color-ipn-guinda-dark: #590735;
+        --color-ipn-guinda-light: #94115b;
+        --color-card-bg: #ffffff;
+        --color-text-main: #1e293b;
+        --color-text-muted: #64748b;
+        --color-border: #e2e8f0;
+    }
+
+    body {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        min-height: 100vh;
+        font-family: var(--SiCAE-font-primary, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+        color: var(--color-text-main);
+    }
+
+    .topbar-seguridad {
+        background: #ffffff;
+        border-bottom: 3px solid var(--color-ipn-guinda);
+        padding: 18px 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 20px rgba(117, 9, 70, 0.08);
+    }
+
+    .topbar-title {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .topbar-title h1 {
+        font-size: 1.45rem;
+        margin: 0;
+        color: var(--color-ipn-guinda);
+        font-weight: 800;
+        letter-spacing: -0.3px;
+    }
+
+    .topbar-title span {
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        font-weight: 700;
+    }
+
+    .btn-volver {
+        background: #ffffff;
+        color: var(--color-ipn-guinda);
+        border: 1.5px solid var(--color-ipn-guinda);
+        border-radius: 8px;
+        padding: 9px 20px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.25s ease;
+    }
+
+    .btn-volver:hover {
+        background: var(--color-ipn-guinda);
+        color: #ffffff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(117, 9, 70, 0.2);
+    }
+
+    .contenedor-auditoria {
+        max-width: 1400px;
+        margin: 30px auto 60px;
+        padding: 0 25px;
+    }
+
+    /* TARJETAS DE MÉTRICAS */
+    .grid-metricas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+
+    .card-metrica {
+        background: var(--color-card-bg);
+        border-radius: 16px;
+        padding: 22px 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+        border: 1px solid var(--color-border);
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+        cursor: pointer;
+    }
+
+    .card-metrica:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .icono-metrica {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.7rem;
+        flex-shrink: 0;
+    }
+
+    .icono-rojo { background: #fee2e2; color: #dc2626; }
+    .icono-naranja { background: #ffedd5; color: #ea580c; }
+    .icono-guinda { background: #fdf2f8; color: var(--color-ipn-guinda); }
+    .icono-ambar { background: #fef3c7; color: #d97706; }
+    .icono-verde { background: #dcfce7; color: #16a34a; }
+
+    .datos-metrica .valor-metrica {
+        font-size: 1.9rem;
+        font-weight: 900;
+        line-height: 1.1;
+        color: #0f172a;
+    }
+
+    .datos-metrica .titulo-metrica {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        margin-top: 4px;
+        font-weight: 600;
+    }
+
+    /* SECCIÓN DE BLOQUEOS ACTIVOS EN TIEMPO REAL */
+    .panel-bloqueos-activos {
+        background: var(--color-card-bg);
+        border-radius: 16px;
+        padding: 20px 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+        border: 1.5px solid #fecdd3;
+        margin-bottom: 25px;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .bloqueos-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+
+    .bloqueos-header h3 {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #9f1239;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+    }
+
+    .lista-bloqueos {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 12px;
+    }
+
+    .item-bloqueo {
+        background: #fff1f2;
+        border: 1px solid #fecdd3;
+        border-radius: 12px;
+        padding: 14px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .item-bloqueo-info strong {
+        color: #881337;
+        font-size: 0.95rem;
+        display: block;
+    }
+
+    .item-bloqueo-info span {
+        font-size: 0.8rem;
+        color: #9f1239;
+    }
+
+    .badge-tiempo {
+        background: #e11d48;
+        color: #ffffff;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-weight: 800;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+
+    .btn-desbloquear {
+        background: #16a34a;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+    }
+
+    .btn-desbloquear:hover {
+        background: #15803d;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+    }
+
+    .btn-desbloquear-tabla {
+        background: #ffffff;
+        color: #16a34a;
+        border: 1.5px solid #16a34a;
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.2s ease;
+    }
+
+    .btn-desbloquear-tabla:hover {
+        background: #16a34a;
+        color: #ffffff;
+    }
+
+    /* PESTAÑAS DE NAVEGACIÓN */
+    .nav-tabs-seguridad {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 12px;
+    }
+
+    .tab-btn {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #475569;
+        padding: 10px 18px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+        background: #f8fafc;
+        border-color: #94a3b8;
+        color: #1e293b;
+    }
+
+    .tab-btn.active {
+        background: var(--color-ipn-guinda);
+        color: #ffffff;
+        border-color: var(--color-ipn-guinda);
+        box-shadow: 0 4px 12px rgba(117, 9, 70, 0.25);
+    }
+
+    .tab-count {
+        background: rgba(0, 0, 0, 0.1);
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+    }
+
+    .tab-btn.active .tab-count {
+        background: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
+    }
+
+    /* BARRA DE HERRAMIENTAS Y FILTROS */
+    .panel-herramientas {
+        background: var(--color-card-bg);
+        border-radius: 14px;
+        padding: 18px 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+        border: 1px solid var(--color-border);
+        margin-bottom: 25px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .filtros-grupo {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .input-busqueda {
+        padding: 10px 16px;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.92rem;
+        width: 340px;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-busqueda:focus {
+        border-color: var(--color-ipn-guinda);
+        box-shadow: 0 0 0 3px rgba(117, 9, 70, 0.15);
+    }
+
+    .select-filtro {
+        padding: 10px 14px;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.92rem;
+        background-color: #fff;
+        color: #334155;
+        outline: none;
+        cursor: pointer;
+    }
+
+    .select-filtro:focus {
+        border-color: var(--color-ipn-guinda);
+    }
+
+    .btn-descargar-csv {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 11px 22px;
+        font-size: 0.92rem;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+        transition: all 0.25s ease;
+    }
+
+    .btn-descargar-csv:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+    }
+
+    /* TABLA DE AUDITORÍA */
+    .tabla-card {
+        background: var(--color-card-bg);
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+        border: 1px solid var(--color-border);
+        overflow: hidden;
+    }
+
+    .tabla-header-info {
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--color-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8fafc;
+    }
+
+    .tabla-header-info h2 {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: #1e293b;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .contador-badge {
+        background: #e2e8f0;
+        color: #475569;
+        font-size: 0.82rem;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-weight: 700;
+    }
+
+    .tabla-responsive {
+        overflow-x: auto;
+        max-height: 650px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.88rem;
+    }
+
+    th {
+        background: #f1f5f9;
+        color: #475569;
+        font-weight: 700;
+        padding: 14px 16px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.76rem;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        border-bottom: 1.5px solid #cbd5e1;
+    }
+
+    td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #334155;
+        vertical-align: middle;
+    }
+
+    tr:hover td {
+        background-color: #f8fafc;
+    }
+
+    /* BADGES */
+    .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+    }
+
+    .badge-rojo { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .badge-naranja { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
+    .badge-guinda { background: #fdf2f8; color: var(--color-ipn-guinda); border: 1px solid #fbcfe8; }
+    .badge-ambar { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .badge-azul { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+    .badge-verde { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .badge-gris { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+    .ip-badge {
+        font-family: 'Consolas', monospace;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #1e293b;
+        background: #f1f5f9;
+        padding: 3px 8px;
+        border-radius: 4px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .user-target {
+        font-weight: 700;
+        color: var(--color-ipn-guinda);
+    }
+
+    .endpoint-code {
+        font-family: 'Consolas', monospace;
+        font-size: 0.82rem;
+        color: #0f766e;
+        background: #f0fdf4;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid #bbf7d0;
+    }
+
+    .user-agent-cell {
+        max-width: 180px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #94a3b8;
+        font-size: 0.8rem;
+    }
+
+    /* ESTADO VACÍO */
+    .estado-vacio {
+        text-align: center;
+        padding: 60px 20px;
+        color: #94a3b8;
+    }
+
+    .estado-vacio .icono {
+        font-size: 3.2rem;
+        margin-bottom: 12px;
+    }
+
+    .estado-vacio p {
+        font-size: 1rem;
+        margin: 0;
+    }
+
+    /* TOAST DE NOTIFICACIÓN */
+    .toast-notif {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        background: #0f172a;
+        color: #ffffff;
+        padding: 14px 22px;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        display: none;
+        align-items: center;
+        gap: 12px;
+        z-index: 9999;
+        animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="topbar-seguridad">
+    <div class="topbar-title">
+        <div style="font-size: 2rem;">🛡️</div>
+        <div>
+            <span>Panel de Auditoría & Control de Acceso • SiCAE</span>
+            <h1>Monitoreo de Seguridad e Intentos No Autorizados (IDOR)</h1>
+        </div>
+    </div>
+    <a href="/mod_principal/" class="btn-volver">
+        <span>← Volver al Menú Principal</span>
+    </a>
+</header>
+
+<main class="contenedor-auditoria">
+    <!-- TARJETAS DE MÉTRICAS CLAVE -->
+    <div class="grid-metricas">
+        <div class="card-metrica" onclick="seleccionarTab('IDOR')">
+            <div class="icono-metrica icono-rojo">🛑</div>
+            <div class="datos-metrica">
+                <div class="valor-metrica" id="valIdor">{{ metricas.accesos_no_autorizados_idor }}</div>
+                <div class="titulo-metrica">Accesos No Autorizados (IDOR - E2)</div>
+            </div>
+        </div>
+
+        <div class="card-metrica" onclick="seleccionarTab('ENUMERACION')">
+            <div class="icono-metrica icono-naranja">🚨</div>
+            <div class="datos-metrica">
+                <div class="valor-metrica" id="valEnumeracion">{{ metricas.alertas_enumeracion_e3 }}</div>
+                <div class="titulo-metrica">Alertas de Enumeración (E3)</div>
+            </div>
+        </div>
+
+        <div class="card-metrica" onclick="seleccionarTab('RATE_LIMIT')">
+            <div class="icono-metrica icono-guinda">⏳</div>
+            <div class="datos-metrica">
+                <div class="valor-metrica" id="valRateLimit">{{ metricas.bloqueos_rate_limit }}</div>
+                <div class="titulo-metrica">Bloqueos Rate Limit (E1)</div>
+            </div>
+        </div>
+
+        <div class="card-metrica" onclick="seleccionarTab('REINCIDENCIA')">
+            <div class="icono-metrica icono-ambar">⚠️</div>
+            <div class="datos-metrica">
+                <div class="valor-metrica" id="valReincidencias">{{ metricas.reincidencias_penalizaciones }}</div>
+                <div class="titulo-metrica">Penalizaciones / Reincidencia</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL DE BLOQUEOS ACTIVOS EN MEMORIA (CON DESBLOQUEO MANUAL) -->
+    <div class="panel-bloqueos-activos" id="panelBloqueosActivos" {% if not bloqueos_activos %}style="display: none;"{% endif %}>
+        <div class="bloqueos-header">
+            <h3><span>🔒</span> Dispositivos / Cuentas Actualmente Bloqueados (<span id="countBloqueos">{{ bloqueos_activos|length }}</span>)</h3>
+            <button onclick="recargarBloqueosActivos()" style="background: none; border: none; color: #9f1239; cursor: pointer; font-weight: 700; font-size: 0.85rem;">🔄 Actualizar Estado</button>
+        </div>
+        <div class="lista-bloqueos" id="contenedorListaBloqueos">
+            {% if bloqueos_activos %}
+                {% for b in bloqueos_activos %}
+                    <div class="item-bloqueo" id="cardBloqueo-{{ loop.index }}">
+                        <div class="item-bloqueo-info">
+                            <strong>{{ b.identificador }}</strong>
+                            <span>Origen: {{ b.tipo }} • Reincidencias: {{ b.intentos_insistencia }}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="badge-tiempo">{{ b.segundos_restantes }}s</span>
+                            <button class="btn-desbloquear" onclick="desbloquearCuenta('{{ b.identificador }}')">
+                                <span>🔓 Desbloquear</span>
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PESTAÑAS DE NAVEGACIÓN ESPECIALIZADAS -->
+    <div class="nav-tabs-seguridad">
+        <button class="tab-btn active" id="tab-TODOS" onclick="seleccionarTab('TODOS')">
+            <span>📋 Todos los Incidentes</span>
+            <span class="tab-count">{{ metricas.total_incidentes }}</span>
+        </button>
+        <button class="tab-btn" id="tab-IDOR" onclick="seleccionarTab('IDOR')">
+            <span>🛑 Accesos No Autorizados (IDOR - E2)</span>
+            <span class="tab-count">{{ metricas.accesos_no_autorizados_idor }}</span>
+        </button>
+        <button class="tab-btn" id="tab-ENUMERACION" onclick="seleccionarTab('ENUMERACION')">
+            <span>🚨 Alertas de Enumeración (E3)</span>
+            <span class="tab-count">{{ metricas.alertas_enumeracion_e3 }}</span>
+        </button>
+        <button class="tab-btn" id="tab-RATE_LIMIT" onclick="seleccionarTab('RATE_LIMIT')">
+            <span>⏳ Bloqueos Rate Limit (E1)</span>
+            <span class="tab-count">{{ metricas.bloqueos_rate_limit }}</span>
+        </button>
+        <button class="tab-btn" id="tab-REINCIDENCIA" onclick="seleccionarTab('REINCIDENCIA')">
+            <span>⚠️ Reincidencias Duplicadas</span>
+            <span class="tab-count">{{ metricas.reincidencias_penalizaciones }}</span>
+        </button>
+    </div>
+
+    <!-- PANEL DE HERRAMIENTAS Y FILTROS -->
+    <div class="panel-herramientas">
+        <div class="filtros-grupo">
+            <!-- Buscador en tiempo real -->
+            <input type="text" id="inputBuscar" class="input-busqueda" placeholder="🔍 Buscar por usuario, IP, dispositivo, endpoint..." onkeyup="filtrarTabla()">
+
+            <!-- Selector de mes -->
+            <select id="selectMes" class="select-filtro" onchange="cambiarMes(this.value)">
+                {% for m in metricas.meses_disponibles %}
+                    <option value="{{ m }}" {% if m == mes_seleccionado %}selected{% endif %}>
+                        Periodo: {{ m }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Botón de Descarga CSV -->
+        <a id="btnDescargar" href="/mod_principal/seguridad/descargar-csv?mes={{ mes_seleccionado }}" class="btn-descargar-csv">
+            <span>📥 Descargar Reporte CSV (Excel UTF-8)</span>
+        </a>
+    </div>
+
+    <!-- TABLA DE DATOS -->
+    <div class="tabla-card">
+        <div class="tabla-header-info">
+            <h2 id="tituloTabla"><span>🛡️</span> Registro de Eventos e Incidentes de Seguridad</h2>
+            <span class="contador-badge" id="lblContador">Mostrando {{ registros|length }} registros</span>
+        </div>
+
+        <div class="tabla-responsive">
+            <table id="tablaAuditoria">
+                <thead>
+                    <tr>
+                        <th>Fecha y Hora</th>
+                        <th>IP del Host</th>
+                        <th>Hostname</th>
+                        <th>Dispositivo ID</th>
+                        <th>Usuario / Identidad</th>
+                        <th>Recurso / Endpoint Intentado</th>
+                        <th>Método</th>
+                        <th>Tipo de Incidente</th>
+                        <th>Acción Tomada</th>
+                        <th>Acción / Desbloqueo</th>
+                        <th>User-Agent</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyRegistros">
+                    {% if registros %}
+                        {% for r in registros %}
+                            <tr class="fila-registro" 
+                                data-tipo="{{ r.Tipo_Incidente }}" 
+                                data-texto="{{ r.Fecha_Hora }} {{ r.IP_Cliente }} {{ r.Dispositivo_ID }} {{ r.Hostname }} {{ r.Usuario_Objetivo }} {{ r.Endpoint }} {{ r.Tipo_Incidente }} {{ r.Accion_Tomada }}">
+                                <td style="white-space: nowrap; font-weight: 600;">{{ r.Fecha_Hora }}</td>
+                                <td><span class="ip-badge">{{ r.IP_Cliente }}</span></td>
+                                <td>{{ r.Hostname }}</td>
+                                <td><span class="badge badge-azul" style="font-family: monospace;">{{ r.Dispositivo_ID or 'dev_unknown' }}</span></td>
+                                <td><span class="user-target">{{ r.Usuario_Objetivo }}</span></td>
+                                <td><span class="endpoint-code">{{ r.Endpoint }}</span></td>
+                                <td><span class="badge badge-gris">{{ r.Metodo }}</span></td>
+                                <td>
+                                    {% if 'DESBLOQUEO' in r.Tipo_Incidente %}
+                                        <span class="badge badge-verde">🔓 {{ r.Tipo_Incidente }}</span>
+                                    {% elif 'IDOR' in r.Tipo_Incidente or 'NO_AUTORIZADO' in r.Tipo_Incidente %}
+                                        <span class="badge badge-rojo">🛑 {{ r.Tipo_Incidente }}</span>
+                                    {% elif 'ENUMERACION' in r.Tipo_Incidente or 'BARRIDO' in r.Tipo_Incidente or 'ANOMALIA' in r.Tipo_Incidente %}
+                                        <span class="badge badge-naranja">🚨 {{ r.Tipo_Incidente }}</span>
+                                    {% elif 'REINCIDENCIA' in r.Tipo_Incidente or 'PENALIZACION' in r.Tipo_Incidente %}
+                                        <span class="badge badge-ambar">⚠️ {{ r.Tipo_Incidente }}</span>
+                                    {% elif 'RATE_LIMIT' in r.Tipo_Incidente %}
+                                        <span class="badge badge-guinda">⏳ {{ r.Tipo_Incidente }}</span>
+                                    {% else %}
+                                        <span class="badge badge-azul">{{ r.Tipo_Incidente }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if 'DESBLOQUEADO' in r.Accion_Tomada %}
+                                        <span class="badge badge-verde" style="font-weight: 800;">✅ {{ r.Accion_Tomada }}</span>
+                                    {% elif 'PENALIZACION_DUPLICADA' in r.Accion_Tomada %}
+                                        <span class="badge badge-ambar" style="font-weight: 800;">⚡ {{ r.Accion_Tomada }}</span>
+                                    {% elif 'SUSPENSION_TEMPORAL' in r.Accion_Tomada %}
+                                        <span class="badge badge-naranja" style="font-weight: 800;">⛔ {{ r.Accion_Tomada }}</span>
+                                    {% elif '403' in r.Accion_Tomada %}
+                                        <span class="badge badge-rojo">{{ r.Accion_Tomada }}</span>
+                                    {% else %}
+                                        <span class="badge badge-gris">{{ r.Accion_Tomada }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if 'BLOQUEO' in r.Accion_Tomada or 'SUSPENSION' in r.Accion_Tomada or 'PENALIZACION' in r.Accion_Tomada %}
+                                        <button class="btn-desbloquear-tabla" onclick="desbloquearCuenta('{{ r.Usuario_Objetivo }}')">
+                                            <span>🔓 Liberar</span>
+                                        </button>
+                                    {% else %}
+                                        <span style="color: #94a3b8; font-size: 0.78rem;">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="user-agent-cell" title="{{ r.User_Agent }}">{{ r.User_Agent }}</td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr id="filaVacia">
+                            <td colspan="11">
+                                <div class="estado-vacio">
+                                    <div class="icono">🛡️✨</div>
+                                    <p>No se registran bloqueos o incidentes en este periodo.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<div class="toast-notif" id="toastNotif">
+    <span style="font-size: 1.3rem;">🔓</span>
+    <span id="toastMsg">Usuario desbloqueado exitosamente.</span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let categoriaActiva = 'TODOS';
+
+    function cambiarMes(mes) {
+        window.location.href = `/mod_principal/seguridad?mes=${mes}`;
+    }
+
+    function seleccionarTab(categoria) {
+        categoriaActiva = categoria;
+
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        const tabEl = document.getElementById('tab-' + categoria);
+        if (tabEl) {
+            tabEl.classList.add('active');
+        }
+
+        filtrarTabla();
+    }
+
+    function filtrarTabla() {
+        const query = document.getElementById('inputBuscar').value.toLowerCase().trim();
+        const filas = document.querySelectorAll('.fila-registro');
+        let visibles = 0;
+
+        filas.forEach(fila => {
+            const texto = fila.getAttribute('data-texto').toLowerCase();
+            const tipo = (fila.getAttribute('data-tipo') || '').toUpperCase();
+
+            const coincideTexto = !query || texto.includes(query);
+            let coincideCategoria = false;
+
+            if (categoriaActiva === 'TODOS') {
+                coincideCategoria = true;
+            } else if (categoriaActiva === 'IDOR') {
+                coincideCategoria = tipo.includes('IDOR') || tipo.includes('NO_AUTORIZADO');
+            } else if (categoriaActiva === 'ENUMERACION') {
+                coincideCategoria = tipo.includes('ENUMERACION') || tipo.includes('BARRIDO') || tipo.includes('ANOMALIA');
+            } else if (categoriaActiva === 'RATE_LIMIT') {
+                coincideCategoria = tipo.includes('RATE_LIMIT');
+            } else if (categoriaActiva === 'REINCIDENCIA') {
+                coincideCategoria = tipo.includes('REINCIDENCIA') || tipo.includes('PENALIZACION') || tipo.includes('TAMPERING');
+            }
+
+            if (coincideTexto && coincideCategoria) {
+                fila.style.display = '';
+                visibles++;
+            } else {
+                fila.style.display = 'none';
+            }
+        });
+
+        const lblContador = document.getElementById('lblContador');
+        if (lblContador) {
+            lblContador.textContent = `Mostrando ${visibles} registros`;
+        }
+    }
+
+    function mostrarToast(mensaje) {
+        const toast = document.getElementById('toastNotif');
+        const msgEl = document.getElementById('toastMsg');
+        if (toast && msgEl) {
+            msgEl.textContent = mensaje;
+            toast.style.display = 'flex';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 4000);
+        }
+    }
+
+    async function desbloquearCuenta(identificador) {
+        if (!identificador || identificador === 'No especificado' || identificador === 'unknown') {
+            alert('Por favor especifique un identificador válido a desbloquear.');
+            return;
+        }
+
+        if (!confirm(`¿Confirmas el desbloqueo manual del usuario/dispositivo "${identificador}"?`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/mod_principal/seguridad/desbloquear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identificador: identificador })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                mostrarToast(data.message || `Identidad "${identificador}" desbloqueada con éxito.`);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1200);
+            } else {
+                alert(data.detail || 'No se pudo realizar el desbloqueo.');
+            }
+        } catch (err) {
+            console.error('Error al desbloquear:', err);
+            alert('Error de conexión al intentar desbloquear.');
+        }
+    }
+
+    async function recargarBloqueosActivos() {
+        try {
+            const res = await fetch('/mod_principal/seguridad/bloqueos-activos');
+            const data = await res.json();
+            const panel = document.getElementById('panelBloqueosActivos');
+            const countEl = document.getElementById('countBloqueos');
+            const contenedor = document.getElementById('contenedorListaBloqueos');
+
+            if (data.bloqueos && data.bloqueos.length > 0) {
+                panel.style.display = 'block';
+                countEl.textContent = data.bloqueos.length;
+                contenedor.innerHTML = data.bloqueos.map(b => `
+                    <div class="item-bloqueo">
+                        <div class="item-bloqueo-info">
+                            <strong>${b.identificador}</strong>
+                            <span>Origen: ${b.tipo} • Reincidencias: ${b.intentos_insistencia}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="badge-tiempo">${b.segundos_restantes}s</span>
+                            <button class="btn-desbloquear" onclick="desbloquearCuenta('${b.identificador}')">
+                                <span>🔓 Desbloquear</span>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                panel.style.display = 'none';
+                mostrarToast('No hay bloqueos activos en memoria en este momento.');
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+</script>
+{% endblock %}

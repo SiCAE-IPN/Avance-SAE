@@ -11,6 +11,7 @@ from backend.services.nivel_service import get_all_niveles, get_niveles_by_unida
 from backend.schemas.Usuario import UsuarioCreate, UsuarioResponse
 from backend.core.templates import templates
 from backend.core.auth import get_current_session
+from backend.core.rate_limiter import limiter_estricto
 from backend.database.models.Usuario import Usuario
 
 
@@ -80,6 +81,7 @@ async def register_user_endpoint(
     user: UsuarioCreate,
     sess=Depends(get_current_session),
     db: Session = Depends(get_db),
+    _limit=Depends(limiter_estricto),
 ):
     try:
         id_rol_registrador = int(sess.id_rol)

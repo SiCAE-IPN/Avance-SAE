@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagrama de Flujo - Auditoría de Seguridad SiCAE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            background: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 30px;
+        }
+        .diagram-container {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            padding: 40px;
+            max-width: 1000px;
+            width: 100%;
+            border: 1px solid #eaeaea;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+        .header h1 {
+            color: #750946;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        .flow-section {
+            margin-bottom: 35px;
+            background: #fafafa;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px dashed #dcdcdc;
+        }
+        .flow-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            color: #888;
+            margin-bottom: 20px;
+        }
+        .nodes-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .node {
+            background: #ffffff;
+            border: 2px solid #750946;
+            border-radius: 10px;
+            padding: 16px 20px;
+            text-align: center;
+            flex: 1;
+            min-width: 160px;
+            box-shadow: 0 4px 10px rgba(117, 9, 70, 0.06);
+            transition: transform 0.2s;
+        }
+        .node:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 18px rgba(117, 9, 70, 0.12);
+        }
+        .node .icon {
+            font-size: 28px;
+            margin-bottom: 6px;
+        }
+        .node .title {
+            font-weight: 700;
+            font-size: 14px;
+            color: #222;
+            margin-bottom: 4px;
+        }
+        .node .desc {
+            font-size: 11px;
+            color: #666;
+        }
+        .arrow {
+            font-size: 22px;
+            color: #750946;
+            font-weight: bold;
+        }
+        .branch-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+            min-width: 160px;
+        }
+        .branch-group .node {
+            border-color: #2b7a78;
+        }
+        .btn-download {
+            display: block;
+            margin: 25px auto 0;
+            background: #750946;
+            color: #ffffff;
+            border: none;
+            padding: 12px 28px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            width: fit-content;
+        }
+        .btn-download:hover {
+            background: #590735;
+        }
+    </style>
+</head>
+<body>
+
+<div class="diagram-container">
+    <div class="header">
+        <h1>Flujo de Auditoría y Seguridad SiCAE</h1>
+        <p>Registro Automático de Incidentes y Módulo de Monitoreo para el Administrador</p>
+    </div>
+
+    <!-- FLUJO 1: DETECCIÓN Y REGISTRO -->
+    <div class="flow-section">
+        <div class="flow-title">1. Flujo de Detección, Bloqueo y Registro Automático</div>
+        <div class="nodes-row">
+            <div class="node">
+                <div class="icon">🌐</div>
+                <div class="title">Petición Web</div>
+                <div class="desc">Intento de ataque / exceso</div>
+            </div>
+            <div class="arrow">➔</div>
+            <div class="node">
+                <div class="icon">🛡️</div>
+                <div class="title">Rate Limiter / Anomaly</div>
+                <div class="desc">Sliding window / IDOR</div>
+            </div>
+            <div class="arrow">➔</div>
+            <div class="node">
+                <div class="icon">⚙️</div>
+                <div class="title">security_logger.py</div>
+                <div class="desc">Captura IP, User, Timestamp</div>
+            </div>
+            <div class="arrow">➔</div>
+            <div class="node" style="border-color: #0b8457;">
+                <div class="icon">📊</div>
+                <div class="title">Archivo CSV</div>
+                <div class="desc">logs/seguridad_bloqueos.csv</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FLUJO 2: ADMINISTRACIÓN Y CONSULTA -->
+    <div class="flow-section">
+        <div class="flow-title">2. Flujo de Consulta y Exportación para Administrador (id_rol=1)</div>
+        <div class="nodes-row">
+            <div class="node">
+                <div class="icon">👤</div>
+                <div class="title">Administrador</div>
+                <div class="desc">id_rol = 1 / SuperAdmin</div>
+            </div>
+            <div class="arrow">➔</div>
+            <div class="node">
+                <div class="icon">🏛️</div>
+                <div class="title">Módulo Principal</div>
+                <div class="desc">Tarjeta 'Auditoría de Seguridad'</div>
+            </div>
+            <div class="arrow">➔</div>
+            <div class="node">
+                <div class="icon">🖥️</div>
+                <div class="title">Vista de Auditoría</div>
+                <div class="desc">auditoria_seguridad.html</div>
+            </div>
+            <div class="arrow">➔</div>
+            <div class="branch-group">
+                <div class="node">
+                    <div class="icon">🔍</div>
+                    <div class="title">Tabla con Filtros</div>
+                    <div class="desc">Búsqueda interactiva en vivo</div>
+                </div>
+                <div class="node">
+                    <div class="icon">📥</div>
+                    <div class="title">Descarga CSV</div>
+                    <div class="desc">Exportación directa a Excel</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

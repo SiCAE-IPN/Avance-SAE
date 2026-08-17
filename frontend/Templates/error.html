@@ -3,80 +3,327 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Error de Acceso - SiCAE</title>
+    <title>{{ "Acceso Bloqueado Temporalmente" if status_code == 429 else "Acceso Restringido" }} - SiCAE</title>
     <link rel="stylesheet" href="/static/css/fonts.css">
     <style>
+        :root {
+            --color-ipn-guinda: #750946;
+            --color-ipn-guinda-dark: #590735;
+            --color-ipn-guinda-light: #94115b;
+            --color-danger: #dc2626;
+            --color-warning-bg: #fffbeb;
+            --color-warning-border: #fef08a;
+            --color-warning-text: #854d0e;
+            --color-success: #16a34a;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: var(--SiCAE-font-primary);
-            background-color: #f5f5f5;
-            color: #333;
+            font-family: var(--SiCAE-font-primary, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311024 100%);
+            color: #f8fafc;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            padding: 20px;
         }
 
-        .error-container {
-            background-color: #fff;
-            border: 2px solid #dc3545;
-            border-radius: 10px;
-            padding: 30px;
+        .error-card {
+            background: rgba(255, 255, 255, 0.98);
+            color: #1e293b;
+            border-radius: 20px;
+            padding: 40px 35px;
             text-align: center;
-            max-width: 500px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 540px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+            animation: fadeIn 0.4s ease-out;
         }
 
-        .error-icon {
-            font-size: 48px;
-            color: #dc3545;
-            margin-bottom: 20px;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .error-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--color-ipn-guinda), #dc2626, #ea580c, var(--color-ipn-guinda));
+            background-size: 300% 100%;
+            animation: moveGradient 4s linear infinite;
+        }
+
+        @keyframes moveGradient {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 100% 0%; }
+        }
+
+        .icon-wrapper {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            background: #fee2e2;
+            color: var(--color-danger);
+            box-shadow: 0 0 0 8px rgba(220, 38, 38, 0.12);
+            transition: all 0.4s ease;
+        }
+
+        .icon-wrapper.success {
+            background: #dcfce7;
+            color: var(--color-success);
+            box-shadow: 0 0 0 8px rgba(22, 163, 74, 0.15);
         }
 
         .error-title {
-            color: #dc3545;
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 15px;
+            color: #0f172a;
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
         }
 
         .error-message {
-            color: #636569;
-            font-size: 16px;
-            margin-bottom: 25px;
-            line-height: 1.5;
+            color: #475569;
+            font-size: 1rem;
+            line-height: 1.55;
+            margin-bottom: 24px;
         }
 
-        .btn-back {
-            background-color: #8B2635;
-            color: white;
-            padding: 12px 25px;
+        /* CONTADOR EN TIEMPO REAL */
+        .timer-box {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .timer-display {
+            font-size: 3.2rem;
+            font-weight: 900;
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: var(--color-ipn-guinda);
+            line-height: 1;
+            letter-spacing: -1px;
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+
+        .timer-unit {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #64748b;
+        }
+
+        .timer-label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-ipn-guinda), #ea580c);
+            width: 100%;
+            border-radius: 999px;
+            transition: width 1s linear;
+        }
+
+        /* AVISO DE PENALIZACIÓN POR INSISTENCIA */
+        .warning-callout {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 0.86rem;
+            color: #78350f;
+            text-align: left;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            line-height: 1.45;
+        }
+
+        .btn-action {
+            background: var(--color-ipn-guinda);
+            color: #ffffff;
+            padding: 13px 28px;
             border: none;
-            border-radius: 5px;
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 1rem;
+            font-weight: 700;
             text-decoration: none;
-            display: inline-block;
-            transition: background-color 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 14px rgba(117, 9, 70, 0.25);
         }
 
-        .btn-back:hover {
-            background-color: #6d1e2a;
+        .btn-action:hover {
+            background: var(--color-ipn-guinda-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(117, 9, 70, 0.35);
+        }
+
+        .btn-action.ready {
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+            box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
+            animation: pulseBtn 1.5s infinite;
+        }
+
+        @keyframes pulseBtn {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .footer-note {
+            margin-top: 18px;
+            font-size: 0.78rem;
+            color: #94a3b8;
         }
     </style>
 </head>
 <body>
-    <div class="error-container">
-        <div class="error-icon">⚠️</div>
-        <h1 class="error-title">Acceso Restringido</h1>
-        <p class="error-message">{{ error_message }}</p>
-        <a href="{{ redirect_url }}" class="btn-back">Volver al Menú Principal</a>
+    <div class="error-card">
+        <div class="icon-wrapper" id="errorIcon">
+            {% if status_code == 429 %}⏳{% elif status_code == 403 %}🛑{% else %}⚠️{% endif %}
+        </div>
+
+        <h1 class="error-title" id="errorTitle">
+            {% if status_code == 429 %}
+                Límite de Solicitudes Excedido
+            {% elif status_code == 403 %}
+                Acceso Denegado
+            {% else %}
+                Acceso Restringido
+            {% endif %}
+        </h1>
+
+        <p class="error-message" id="errorMessage">{{ error_message }}</p>
+
+        {% if status_code == 429 and retry_after and retry_after > 0 %}
+            <!-- TEMPORIZADOR EN TIEMPO REAL -->
+            <div class="timer-box" id="timerBox">
+                <span class="timer-label">Tiempo de espera restante</span>
+                <div class="timer-display">
+                    <span id="contadorSegundos">{{ retry_after }}</span>
+                    <span class="timer-unit">s</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="progressBar"></div>
+                </div>
+            </div>
+
+            <!-- ADVERTENCIA DE DUPLICACIÓN POR INSISTENCIA -->
+            <div class="warning-callout">
+                <span style="font-size: 1.2rem;">⚠️</span>
+                <span>
+                    <strong>Aviso de Seguridad:</strong> No recargues la página ni envíes solicitudes adicionales.
+                    Si intentas ingresar mientras el contador esté activo, el sistema <strong>duplicará automáticamente tu tiempo de bloqueo</strong> por insistencia.
+                </span>
+            </div>
+        {% endif %}
+
+        <a href="{{ redirect_url }}" class="btn-action" id="btnAction">
+            <span>Volver al Inicio / Menú</span>
+        </a>
+
+        <div class="footer-note">
+            Instituto Politécnico Nacional • Sistema de Captura y Análisis de la Estadística (SiCAE)
+        </div>
     </div>
+
+    {% if status_code == 429 and retry_after and retry_after > 0 %}
+    <script>
+        (function() {
+            let tiempoTotal = {{ retry_after }};
+            let tiempoRestante = tiempoTotal;
+            const elContador = document.getElementById('contadorSegundos');
+            const elBarra = document.getElementById('progressBar');
+            const elBtn = document.getElementById('btnAction');
+            const elIcon = document.getElementById('errorIcon');
+            const elTitle = document.getElementById('errorTitle');
+            const elMsg = document.getElementById('errorMessage');
+
+            const intervalo = setInterval(function() {
+                tiempoRestante--;
+
+                if (elContador) {
+                    elContador.textContent = tiempoRestante;
+                }
+
+                if (elBarra) {
+                    const porcentaje = Math.max(0, (tiempoRestante / tiempoTotal) * 100);
+                    elBarra.style.width = porcentaje + '%';
+                }
+
+                if (tiempoRestante <= 0) {
+                    clearInterval(intervalo);
+
+                    if (elContador) {
+                        elContador.textContent = "0";
+                    }
+
+                    if (elIcon) {
+                        elIcon.textContent = "✅";
+                        elIcon.classList.add("success");
+                    }
+
+                    if (elTitle) {
+                        elTitle.textContent = "¡Tiempo de Espera Finalizado!";
+                    }
+
+                    if (elMsg) {
+                        elMsg.textContent = "El bloqueo temporal ha expirado. Ya puedes reintentar tu operación de manera segura.";
+                    }
+
+                    if (elBtn) {
+                        elBtn.classList.add("ready");
+                        elBtn.innerHTML = "<span>🔄 Reintentar / Continuar</span>";
+                    }
+                }
+            }, 1000);
+        })();
+    </script>
+    {% endif %}
 </body>
 </html>

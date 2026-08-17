@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from backend.core.templates import templates
 from backend.core.auth import get_current_session
+from backend.core.rate_limiter import limiter_sensible
 from backend.database.connection import get_db
 from backend.database.models.Usuario import Usuario
 from backend.services.usuario_service import (
@@ -178,11 +179,13 @@ async def usuarios_view(
     )
 
 
-# Endpoint para registrar usuario desde la misma página
+# Endpoint para registrar usuario desde la misma página (protegido con rate limit sensible)
 @router.post("/registrar", response_class=JSONResponse)
 async def registrar_usuario_view(
-    request: Request, sess=Depends(get_current_session),
+    request: Request,
+    sess=Depends(get_current_session),
     db: Session = Depends(get_db),
+    _limit=Depends(limiter_sensible),
 ):
     data = await request.json()
     try:
@@ -268,12 +271,14 @@ async def registrar_usuario_view(
             return JSONResponse(status_code=400, content={"detail": "Email ya está registrado"})
         return JSONResponse(status_code=400, content={"detail": msg})
 
-# Endpoint para editar usuario desde la misma página
+# Endpoint para editar usuario desde la misma página (protegido con rate limit sensible)
 @router.post("/editar/{id_usuario}", response_class=JSONResponse)
 async def editar_usuario_ajax(
     id_usuario: int,
-    request: Request, sess=Depends(get_current_session),
+    request: Request,
+    sess=Depends(get_current_session),
     db: Session = Depends(get_db),
+    _limit=Depends(limiter_sensible),
 ):
     try:
         data = await request.json()
@@ -367,12 +372,14 @@ async def editar_usuario_ajax(
     except Exception as e:
         return JSONResponse(content={"mensaje": str(e)}, status_code=500)
 
-# Baja lógica de usuario (Id_Estatus = 3)
+# Baja lógica de usuario (Id_Estatus = 3, protegido con rate limit sensible)
 @router.post("/eliminar/{id_usuario}", response_class=JSONResponse)
 async def eliminar_usuario(
     id_usuario: int,
-    request: Request, sess=Depends(get_current_session),
+    request: Request,
+    sess=Depends(get_current_session),
     db: Session = Depends(get_db),
+    _limit=Depends(limiter_sensible),
 ):
     try:
         baja_usuario_sp(
