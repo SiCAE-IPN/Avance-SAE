@@ -273,7 +273,7 @@
     {% endif %}
 
 
-    {% if rechazo_info %}
+    {% if rechazo_info and es_capturista %}
     <div class="notificaciones-container">
         <button class="btn-notificaciones" onclick="togglePanelNotificaciones()" title="Ver notificaciones">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -694,25 +694,41 @@
     
     const periodoDefault = JSON.parse('{{ periodo_default_literal | tojson | safe }}');
     const unidadesPorNivel = JSON.parse('{{ unidades | tojson }}');
+    const catalogoTurnosGlobal = {{ turnos | tojson }};
+    const programaModalidadTurnos = {{ programa_modalidad_turnos_json | safe }};
 
+    function obtenerTurnosParaProgramaModalidad(progNombre, modNombre) {
+        if (!progNombre || !modNombre) return (catalogoTurnosGlobal && catalogoTurnosGlobal.length > 0) ? catalogoTurnosGlobal.slice() : ['Matutino', 'Vespertino'];
+        const key = `${progNombre.trim()}_${modNombre.trim()}`;
+        const turnosEncontrados = programaModalidadTurnos[key];
+        if (turnosEncontrados && turnosEncontrados.length > 0) {
+            return turnosEncontrados.slice();
+        }
+        // Fallback buscando en datosFilas
+        const turnosFilas = [...new Set(
+            (datosFilas || [])
+                .filter(f => f && (f.Nombre_Programa || '').trim() === progNombre.trim() && (f.Modalidad || '').trim() === modNombre.trim())
+                .map(f => f.Turno)
+                .filter(t => t)
+        )];
+        if (turnosFilas.length > 0) return turnosFilas;
+        return (catalogoTurnosGlobal && catalogoTurnosGlobal.length > 0) ? catalogoTurnosGlobal.slice() : ['Matutino', 'Vespertino'];
+    }
 
     function obtenerValorOrdenEdad(edad) {
-    const str = String(edad).trim();
-
-
-    
-    if (str.startsWith('<=')) {
-        return parseInt(str.replace('<=', '')) - 0.5; 
-    }
-    if (str.startsWith('>=')) {
-        return parseInt(str.replace('>=', '')) + 0.5; 
-    }
-    return parseInt(str) || 0; 
+        const str = String(edad).trim();
+        if (str.startsWith('<=')) {
+            return parseInt(str.replace('<=', '')) - 0.5; 
+        }
+        if (str.startsWith('>=')) {
+            return parseInt(str.replace('>=', '')) + 0.5; 
+        }
+        return parseInt(str) || 0; 
     }
 
     let filasTitulados = [];
     let datosFilasFiltrados = [];
-    let turnosDisponibles = [];
+    let turnosDisponibles = (catalogoTurnosGlobal && catalogoTurnosGlobal.length > 0) ? catalogoTurnosGlobal.slice() : ['Matutino', 'Vespertino'];
 
     let activeFilters = {};
     let currentFilterDropdown = null;
@@ -722,7 +738,7 @@
 
 </script>
 
-<script src="/static/js/titulados_consulta.js?v=1.0.1"></script>
+<script src="/static/js/titulados_consulta.js?v=2.0.0"></script>
 <script src="/static/js/notificacion.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {

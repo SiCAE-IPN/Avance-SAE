@@ -469,7 +469,7 @@
     {% endif %}
 
     <!-- Icono de Notificaciones en Header (solo para capturista con rechazo) -->
-    {% if rechazo_info %}
+    {% if rechazo_info and es_capturista %}
     <div class="notificaciones-container">
         <button class="btn-notificaciones" onclick="togglePanelNotificaciones()" title="Ver notificaciones">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -982,8 +982,10 @@
     let datosFilas = JSON.parse('{{ filas | tojson | safe }}') || [];
     let datosFilasFiltrados = [];
     
-    // Turnos disponibles según el nivel de la UA
+    // Catálogo global de turnos y turnos dinámicos según selección
+    const catalogoTurnosGlobal = {{ turnos | tojson }};
     let turnosDisponibles = {{ turnos | tojson }};
+    let programaModalidadTurnos = {{ programa_modalidad_turnos_json | safe if programa_modalidad_turnos_json is defined else '{}' }};
     
     // Mapeo de Programa ID -> Modalidades IDs para filtrado dinámico
     let programaAModalidades = {};
@@ -999,6 +1001,81 @@
     
     const catalogoBoletas = {{ boletas | tojson }};
     const catalogoGeneraciones = {{ generaciones | tojson }};
+
+    /**
+     * Obtiene dinámicamente los turnos para un programa y modalidad dados
+     * a partir de los datos retornados por el Stored Procedure (datosFilas).
+     */
+    function obtenerTurnosParaProgramaModalidad(progNombre, modNombre) {
+        const turnosEncontrados = [];
+        const turnosVistos = new Set();
+        
+        const progBuscado = (progNombre || '').trim().toLowerCase();
+        const modBuscada = (modNombre || '').trim().toLowerCase();
+
+        // 1. Buscar en los datos del SP (datosFilas)
+        (datosFilas || []).forEach(row => {
+            if (!row) return;
+            const rProg = (row.Nombre_Programa || '').trim().toLowerCase();
+            const rMod = (row.Modalidad || '').trim().toLowerCase();
+            
+            if (rProg === progBuscado && rMod === modBuscada && row.Turno) {
+                const tNom = String(row.Turno).trim();
+                if (tNom && !turnosVistos.has(tNom.toLowerCase())) {
+                    turnosVistos.add(tNom.toLowerCase());
+                    const matchCatalogo = (catalogoTurnosGlobal || []).find(ct => 
+                        (ct.nombre || ct.Turno || '').trim().toLowerCase() === tNom.toLowerCase()
+                    );
+                    turnosEncontrados.push({
+                        id: matchCatalogo ? (matchCatalogo.id || matchCatalogo.Id_Turno) : (row.Id_Turno || tNom),
+                        nombre: tNom
+                    });
+                }
+            }
+        });
+
+        // 2. Si no se halló en datosFilas directo, consultar el mapeo backend si existe
+        if (turnosEncontrados.length === 0 && programaModalidadTurnos) {
+            const keyPM = `${progNombre}_${modNombre}`;
+            const turnosMap = programaModalidadTurnos[keyPM] || [];
+            turnosMap.forEach(tNomRaw => {
+                const tNom = String(tNomRaw).trim();
+                if (tNom && !turnosVistos.has(tNom.toLowerCase())) {
+                    turnosVistos.add(tNom.toLowerCase());
+                    const matchCatalogo = (catalogoTurnosGlobal || []).find(ct => 
+                        (ct.nombre || ct.Turno || '').trim().toLowerCase() === tNom.toLowerCase()
+                    );
+                    turnosEncontrados.push({
+                        id: matchCatalogo ? (matchCatalogo.id || matchCatalogo.Id_Turno) : tNom,
+                        nombre: tNom
+                    });
+                }
+            });
+        }
+
+        // Ordenar con preferencia estándar (Matutino, Vespertino, Mixto, Nocturno, Discontinuo...)
+        const ordenPreferencia = { 'matutino': 1, 'vespertino': 2, 'mixto': 3, 'nocturno': 4, 'discontinuo': 5 };
+        
+        if (turnosEncontrados.length > 0) {
+            turnosEncontrados.sort((a, b) => {
+                const oA = ordenPreferencia[a.nombre.toLowerCase()] || 99;
+                const oB = ordenPreferencia[b.nombre.toLowerCase()] || 99;
+                return oA - oB;
+            });
+            return turnosEncontrados;
+        }
+
+        // 3. Fallback: usar el catálogo global de turnos o default
+        if (catalogoTurnosGlobal && catalogoTurnosGlobal.length > 0) {
+            return [...catalogoTurnosGlobal].sort((a, b) => {
+                const oA = ordenPreferencia[(a.nombre || a.Turno || '').toLowerCase()] || 99;
+                const oB = ordenPreferencia[(b.nombre || b.Turno || '').toLowerCase()] || 99;
+                return oA - oB;
+            });
+        }
+
+        return [{ id: 1, nombre: 'Matutino' }, { id: 2, nombre: 'Vespertino' }];
+    }
 
     function resetSelect(select, defaultText = '-- Seleccione una opción --') {
         if (!select) return;
@@ -1039,7 +1116,7 @@
         programaAModalidades = {{ programa_a_modalidades_json | safe }};
         todasLasModalidades = {{ modalidades | tojson }};
         console.log('✅ Mapeo cargado:', Object.keys(programaAModalidades).length, 'programas');
-        console.log('🔄 Turnos disponibles:', turnosDisponibles);
+        console.log('🔄 Turnos disponibles iniciales:', turnosDisponibles);
     } catch (e) {
         console.error('❌ Error al cargar mapeo:', e);
     }
@@ -1199,7 +1276,14 @@
 
         aplicarBloqueoCapturaPorSemaforo(estadoSemaforoCapturaActual === 3);
         
-        // Generar/actualizar cabecera de tabla con turnos dinámicos
+        // Generar/actualizar cabecera de tabla con turnos dinámicos del programa y modalidad seleccionados
+        const selectProg = document.getElementById('programa');
+        const selectMod = document.getElementById('modalidad');
+        if (selectProg && selectProg.value && selectMod && selectMod.value) {
+            const progNom = selectProg.options[selectProg.selectedIndex].text.trim();
+            const modNom = selectMod.options[selectMod.selectedIndex].text.trim();
+            turnosDisponibles = obtenerTurnosParaProgramaModalidad(progNom, modNom);
+        }
         generarCabeceraTabla();
         requestAnimationFrame(() => ajustarTamanoBannerSeleccion());
         actualizarSemaforoEgresados();
@@ -1427,8 +1511,9 @@
         fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Generación</th>';
         fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Edad</th>';
 
-        turnosDisponibles.forEach(turno => {
-            fila1 += `<th colspan="2" style="padding:10px 15px; text-align:center; font-weight:700; font-size:13px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.15);">${turno.nombre}</th>`;
+        (turnosDisponibles || []).forEach(turno => {
+            const nom = turno.nombre || turno;
+            fila1 += `<th colspan="2" style="padding:10px 15px; text-align:center; font-weight:700; font-size:13px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.15);">${nom}</th>`;
         });
 
         fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Acciones</th>';
@@ -1436,7 +1521,7 @@
 
         // Fila 2: H y M por cada turno
         let fila2 = '<tr style="background: rgba(110,3,67,0.85); color: white;">';
-        turnosDisponibles.forEach(() => {
+        (turnosDisponibles || []).forEach(() => {
             fila2 += '<th style="padding:8px 10px; text-align:center; font-size:12px; border:1px solid rgba(255,255,255,0.2); color:#b3e5fc;">H</th>';
             fila2 += '<th style="padding:8px 10px; text-align:center; font-size:12px; border:1px solid rgba(255,255,255,0.2); color:#f8bbd0;">M</th>';
         });
@@ -1489,9 +1574,9 @@
 
             // Inicializar turnos precargando datos guardados si existen
             const turnosInit = {};
-            turnosDisponibles.forEach(t => { 
+            (turnosDisponibles || []).forEach(t => { 
                 const turnoNom = (t.nombre || t).trim();
-                const turnoId = t.id || turnoNom;
+                const turnoId = t.id !== undefined ? t.id : turnoNom;
 
                 const registroHombre = (datosFilas || []).find(d =>
                     d &&
@@ -1500,7 +1585,7 @@
                     String(d.Boleta || '').trim() === bolNom &&
                     (d.Generacion || '').trim() === genNom &&
                     String(d.Grupo_Edad || d.Edad || '').trim() === edNom &&
-                    (d.Turno || '').trim() === turnoNom &&
+                    (d.Turno || '').trim().toLowerCase() === turnoNom.toLowerCase() &&
                     (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
                 );
 
@@ -1511,7 +1596,7 @@
                     String(d.Boleta || '').trim() === bolNom &&
                     (d.Generacion || '').trim() === genNom &&
                     String(d.Grupo_Edad || d.Edad || '').trim() === edNom &&
-                    (d.Turno || '').trim() === turnoNom &&
+                    (d.Turno || '').trim().toLowerCase() === turnoNom.toLowerCase() &&
                     (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
                 );
 
@@ -1589,7 +1674,8 @@
         const tbody = document.getElementById('egresados-tbody');
         if (!tbody) return;
 
-        const colspan = 3 + turnosDisponibles.length * 2 + 1;
+        const numTurnos = (turnosDisponibles && turnosDisponibles.length > 0) ? turnosDisponibles.length : 1;
+        const colspan = 3 + (numTurnos * 2) + 1;
 
         if (filasEgresados.length === 0) {
             tbody.innerHTML = `
@@ -1614,17 +1700,18 @@
                 <td style="padding:12px; text-align:center;">${fila.generacionNombre}</td>
                 <td style="padding:12px; text-align:center; font-weight:600;">${fila.edadNombre}</td>`;
 
-            turnosDisponibles.forEach(turno => {
-                const vals = fila.turnos[turno.id] || { hombres: '', mujeres: '' };
+            (turnosDisponibles || []).forEach(turno => {
+                const tId = turno.id !== undefined ? turno.id : (turno.nombre || turno);
+                const vals = (fila.turnos && (fila.turnos[tId] || fila.turnos[String(tId)] || fila.turnos[turno.nombre])) || { hombres: '', mujeres: '' };
                 celdas += `
                 <td style="padding:8px; text-align:center;">
                     <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 4px;background:#e3f2fd;border-radius:4px;border:1px solid #90caf9;line-height:1;">
                         <div style="font-weight:700;color:#1976d2;font-size:11px;min-width:14px;text-align:center;">H</div>
                         <input type="number" min="0" max="9999" maxlength="4"
-                               value="${vals.hombres}"
+                               value="${vals.hombres !== undefined ? vals.hombres : ''}"
                                onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
-                               oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); actualizarValorFila(${fila.id}, ${turno.id}, 'hombres', this.value);"
-                               onchange="actualizarValorFila(${fila.id}, ${turno.id}, 'hombres', this.value)"
+                               oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); actualizarValorFila(${fila.id}, '${tId}', 'hombres', this.value);"
+                               onchange="actualizarValorFila(${fila.id}, '${tId}', 'hombres', this.value)"
                                style="width:42px;padding:2px 3px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:11px;">
                     </div>
                 </td>
@@ -1632,10 +1719,10 @@
                     <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 4px;background:#fce4ec;border-radius:4px;border:1px solid #f48fb1;line-height:1;">
                         <div style="font-weight:700;color:#c2185b;font-size:11px;min-width:14px;text-align:center;">M</div>
                         <input type="number" min="0" max="9999" maxlength="4"
-                               value="${vals.mujeres}"
+                               value="${vals.mujeres !== undefined ? vals.mujeres : ''}"
                                onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
-                               oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); actualizarValorFila(${fila.id}, ${turno.id}, 'mujeres', this.value);"
-                               onchange="actualizarValorFila(${fila.id}, ${turno.id}, 'mujeres', this.value)"
+                               oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); actualizarValorFila(${fila.id}, '${tId}', 'mujeres', this.value);"
+                               onchange="actualizarValorFila(${fila.id}, '${tId}', 'mujeres', this.value)"
                                style="width:42px;padding:2px 3px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#c2185b;font-weight:600;text-align:center;font-size:11px;">
                     </div>
                 </td>`;
@@ -1679,8 +1766,12 @@
     function actualizarValorFila(filaId, turnoId, campo, valor) {
         const fila = filasEgresados.find(f => f.id === filaId);
         if (fila) {
-            if (!fila.turnos[turnoId]) fila.turnos[turnoId] = { hombres: '', mujeres: '' };
-            fila.turnos[turnoId][campo] = parseInt(valor) || 0;
+            const tKey = String(turnoId);
+            if (!fila.turnos[tKey]) fila.turnos[tKey] = { hombres: '', mujeres: '' };
+            fila.turnos[tKey][campo] = parseInt(valor) || 0;
+            if (fila.turnos[turnoId] && turnoId !== tKey) {
+                fila.turnos[turnoId][campo] = parseInt(valor) || 0;
+            }
         }
     }
 
@@ -2019,10 +2110,11 @@
             }
 
             const tieneDatos = filasEgresados.some(fila =>
-                turnosDisponibles.some(turno => {
-                    const tId = turno.id || turno.nombre || turno;
-                    const h = parseInt(fila.turnos[tId]?.hombres) || 0;
-                    const m = parseInt(fila.turnos[tId]?.mujeres) || 0;
+                (turnosDisponibles || []).some(turno => {
+                    const tId = turno.id !== undefined ? turno.id : (turno.nombre || turno);
+                    const vals = (fila.turnos && (fila.turnos[tId] || fila.turnos[String(tId)] || fila.turnos[turno.nombre])) || {};
+                    const h = parseInt(vals.hombres) || 0;
+                    const m = parseInt(vals.mujeres) || 0;
                     return h > 0 || m > 0;
                 })
             );
@@ -2035,8 +2127,8 @@
         
         // Rellenar valores vacíos con 0 para todos los turnos
         filasEgresados.forEach(fila => {
-            turnosDisponibles.forEach(turno => {
-                const tId = turno.id || turno.nombre || turno;
+            (turnosDisponibles || []).forEach(turno => {
+                const tId = turno.id !== undefined ? turno.id : (turno.nombre || turno);
                 if (!fila.turnos[tId]) {
                     fila.turnos[tId] = { hombres: 0, mujeres: 0 };
                 } else {
@@ -2130,19 +2222,19 @@
                 // Actualizar datosFilas en memoria directamente (estilo Titulados)
                 if (!datosFilas) datosFilas = [];
                 filasEgresados.forEach(f => {
-                    turnosDisponibles.forEach(t => {
-                        const tNom = t.nombre;
-                        const tId = t.id || t.nombre;
-                        const vals = f.turnos[tId] || { hombres: 0, mujeres: 0 };
+                    (turnosDisponibles || []).forEach(t => {
+                        const tNom = t.nombre || t;
+                        const tId = t.id !== undefined ? t.id : tNom;
+                        const vals = (f.turnos && (f.turnos[tId] || f.turnos[String(tId)] || f.turnos[tNom])) || { hombres: 0, mujeres: 0 };
                         
                         let regH = datosFilas.find(d => 
                             d &&
-                            d.Nombre_Programa === f.programaNombre &&
-                            d.Modalidad === f.modalidadNombre &&
-                            String(d.Boleta) === String(f.boletaNombre) &&
-                            d.Generacion === f.generacionNombre &&
-                            (d.Grupo_Edad === f.edadNombre || d.Edad === f.edadNombre) &&
-                            d.Turno === tNom &&
+                            (d.Nombre_Programa || '').trim() === f.programaNombre.trim() &&
+                            (d.Modalidad || '').trim() === f.modalidadNombre.trim() &&
+                            String(d.Boleta || '').trim() === String(f.boletaNombre).trim() &&
+                            (d.Generacion || '').trim() === f.generacionNombre.trim() &&
+                            String(d.Grupo_Edad || d.Edad || '').trim() === f.edadNombre.trim() &&
+                            (d.Turno || '').trim().toLowerCase() === tNom.trim().toLowerCase() &&
                             (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
                         );
                         if (regH) {
@@ -2164,12 +2256,12 @@
 
                         let regM = datosFilas.find(d => 
                             d &&
-                            d.Nombre_Programa === f.programaNombre &&
-                            d.Modalidad === f.modalidadNombre &&
-                            String(d.Boleta) === String(f.boletaNombre) &&
-                            d.Generacion === f.generacionNombre &&
-                            (d.Grupo_Edad === f.edadNombre || d.Edad === f.edadNombre) &&
-                            d.Turno === tNom &&
+                            (d.Nombre_Programa || '').trim() === f.programaNombre.trim() &&
+                            (d.Modalidad || '').trim() === f.modalidadNombre.trim() &&
+                            String(d.Boleta || '').trim() === String(f.boletaNombre).trim() &&
+                            (d.Generacion || '').trim() === f.generacionNombre.trim() &&
+                            String(d.Grupo_Edad || d.Edad || '').trim() === f.edadNombre.trim() &&
+                            (d.Turno || '').trim().toLowerCase() === tNom.trim().toLowerCase() &&
                             (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
                         );
                         if (regM) {
@@ -2195,10 +2287,11 @@
                     filasEgresados = [];
                 } else {
                     filasEgresados = filasEgresados.filter(fila =>
-                        turnosDisponibles.every(t => {
-                            const tId = t.id || t.nombre;
-                            const h = parseInt(fila.turnos[tId]?.hombres) || 0;
-                            const m = parseInt(fila.turnos[tId]?.mujeres) || 0;
+                        (turnosDisponibles || []).every(t => {
+                            const tId = t.id !== undefined ? t.id : (t.nombre || t);
+                            const vals = (fila.turnos && (fila.turnos[tId] || fila.turnos[String(tId)] || fila.turnos[t.nombre])) || {};
+                            const h = parseInt(vals.hombres) || 0;
+                            const m = parseInt(vals.mujeres) || 0;
                             return h === 0 && m === 0;
                         })
                     );
@@ -2286,15 +2379,16 @@
         
         if (tieneFilas) {
             filasEgresados.forEach(fila => {
-                turnosDisponibles.forEach(turno => {
-                    if (!fila.turnos[turno.id]) {
-                        fila.turnos[turno.id] = { hombres: 0, mujeres: 0 };
+                (turnosDisponibles || []).forEach(turno => {
+                    const tId = turno.id !== undefined ? turno.id : (turno.nombre || turno);
+                    if (!fila.turnos[tId]) {
+                        fila.turnos[tId] = { hombres: 0, mujeres: 0 };
                     } else {
-                        if (fila.turnos[turno.id].hombres === '' || fila.turnos[turno.id].hombres === null || fila.turnos[turno.id].hombres === undefined) {
-                            fila.turnos[turno.id].hombres = 0;
+                        if (fila.turnos[tId].hombres === '' || fila.turnos[tId].hombres === null || fila.turnos[tId].hombres === undefined) {
+                            fila.turnos[tId].hombres = 0;
                         }
-                        if (fila.turnos[turno.id].mujeres === '' || fila.turnos[turno.id].mujeres === null || fila.turnos[turno.id].mujeres === undefined) {
-                            fila.turnos[turno.id].mujeres = 0;
+                        if (fila.turnos[tId].mujeres === '' || fila.turnos[tId].mujeres === null || fila.turnos[tId].mujeres === undefined) {
+                            fila.turnos[tId].mujeres = 0;
                         }
                     }
                 });
@@ -2773,14 +2867,13 @@
                     }
                     keysProcesadas.add(claveFila);
 
-                    const turnosUsar = turnosDisponibles && turnosDisponibles.length > 0
-                        ? turnosDisponibles
-                        : [{ id: 1, nombre: 'Matutino' }, { id: 2, nombre: 'Vespertino' }];
+                    const turnosUsar = obtenerTurnosParaProgramaModalidad(progName, modName);
+                    turnosDisponibles = turnosUsar;
 
                     const turnosObj = {};
                     turnosUsar.forEach(turno => {
                         const turnoNom = turno.nombre || turno;
-                        const turnoId = turno.id || turnoNom;
+                        const turnoId = turno.id !== undefined ? turno.id : turnoNom;
 
                         const registroHombre = (datosFilas || []).find(d =>
                             d &&
@@ -2789,7 +2882,7 @@
                             String(d.Boleta) === String(bolName) &&
                             d.Generacion === genName &&
                             (d.Grupo_Edad === edadVal || d.Edad === edadVal) &&
-                            d.Turno === turnoNom &&
+                            (d.Turno || '').trim().toLowerCase() === turnoNom.trim().toLowerCase() &&
                             (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
                         );
 
@@ -2800,7 +2893,7 @@
                             String(d.Boleta) === String(bolName) &&
                             d.Generacion === genName &&
                             (d.Grupo_Edad === edadVal || d.Edad === edadVal) &&
-                            d.Turno === turnoNom &&
+                            (d.Turno || '').trim().toLowerCase() === turnoNom.trim().toLowerCase() &&
                             (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
                         );
 
@@ -2917,13 +3010,12 @@
                     if (keysAgregadas.has(claveFila)) return;
                     keysAgregadas.add(claveFila);
 
-                    const turnosUsar = turnosDisponibles && turnosDisponibles.length > 0
-                        ? turnosDisponibles
-                        : [{ id: 1, nombre: 'Matutino' }, { id: 2, nombre: 'Vespertino' }];
+                    const turnosUsar = obtenerTurnosParaProgramaModalidad(progName, modName);
+                    turnosDisponibles = turnosUsar;
 
                     const turnosObj = {};
                     turnosUsar.forEach(turno => {
-                        const turnoId = turno.id || turno.nombre || turno;
+                        const turnoId = turno.id !== undefined ? turno.id : (turno.nombre || turno);
                         turnosObj[turnoId] = { hombres: 0, mujeres: 0 };
                     });
 
@@ -2948,7 +3040,7 @@
         });
     }
 
-    // EVENT DELEGATION FOR MULTI-SELECT CHECKBOXES (SINCRONIZA TURNOS OPUESTOS)
+    // EVENT DELEGATION FOR MULTI-SELECT CHECKBOXES (SINCRONIZA TODOS LOS TURNOS DE LA MISMA FILA)
     document.addEventListener('change', function(e) {
         if (e.target && e.target.id === 'seleccionar-todas-informe') {
             const checkboxes = document.querySelectorAll('.seleccionar-fila-informe');
@@ -2957,31 +3049,10 @@
                     const row = cb.closest('tr');
                     if (row && row.style.display !== 'none') {
                         cb.checked = e.target.checked;
-                        
-                        const prog = cb.dataset.programa;
-                        const mod = cb.dataset.modalidad;
-                        const bol = cb.dataset.boleta;
-                        const gen = cb.dataset.generacion;
-                        const edad = cb.dataset.edad;
-                        const turno = cb.dataset.turno;
-
-                        const opposite = Array.from(document.querySelectorAll('.seleccionar-fila-informe'))
-                            .find(other => 
-                                other !== cb &&
-                                other.dataset.programa === prog &&
-                                other.dataset.modalidad === mod &&
-                                other.dataset.boleta === bol &&
-                                other.dataset.generacion === gen &&
-                                other.dataset.edad === edad &&
-                                other.dataset.turno !== turno
-                            );
-                        if (opposite && opposite.checked !== cb.checked) {
-                            opposite.checked = cb.checked;
-                        }
                     }
                 }
             });
-        } else if (e.target && e.target.classList.contains('seleccionar-fila-informe')) {
+        } else if (e.target && e.target.classList.contains('.seleccionar-fila-informe') || (e.target && e.target.classList && e.target.classList.contains('seleccionar-fila-informe'))) {
             const cb = e.target;
             const isChecked = cb.checked;
 
@@ -2990,23 +3061,20 @@
             const bol = cb.dataset.boleta;
             const gen = cb.dataset.generacion;
             const edad = cb.dataset.edad;
-            const turno = cb.dataset.turno;
 
-            // Buscar fila con el turno opuesto
-            const opposite = Array.from(document.querySelectorAll('.seleccionar-fila-informe'))
-                .find(other => 
-                    other !== cb &&
+            // Sincronizar todas las filas del mismo grupo (programa, modalidad, boleta, generacion, edad) independientemente del turno
+            document.querySelectorAll('.seleccionar-fila-informe').forEach(other => {
+                if (other !== cb &&
                     other.dataset.programa === prog &&
                     other.dataset.modalidad === mod &&
                     other.dataset.boleta === bol &&
                     other.dataset.generacion === gen &&
-                    other.dataset.edad === edad &&
-                    other.dataset.turno !== turno
-                );
-
-            if (opposite && opposite.checked !== isChecked) {
-                opposite.checked = isChecked;
-            }
+                    other.dataset.edad === edad) {
+                    if (other.checked !== isChecked) {
+                        other.checked = isChecked;
+                    }
+                }
+            });
 
             const selectAll = document.getElementById('seleccionar-todas-informe');
             if (selectAll) {
@@ -3263,12 +3331,17 @@
             
             selectModalidad.addEventListener('change', function() {
                 filasEgresados = [];
-                renderizarTablaEgresados();
 
                 resetSelect(selectBoleta, '-- Seleccione Boleta --');
                 resetSelect(selectGeneracion, '-- Seleccione Generación --');
 
                 if (selectPrograma.value && this.value) {
+                    const progNom = selectPrograma.options[selectPrograma.selectedIndex].text.trim();
+                    const modNom = this.options[this.selectedIndex].text.trim();
+                    turnosDisponibles = obtenerTurnosParaProgramaModalidad(progNom, modNom);
+                    generarCabeceraTabla();
+                    renderizarTablaEgresados();
+
                     mostrarSeccionCaptura();
                     actualizarBannerSeleccion();
 
@@ -3279,6 +3352,7 @@
                     filtrarPorSelects();
                     actualizarSemaforoEgresados();
                 } else {
+                    renderizarTablaEgresados();
                     ocultarSeccionCaptura();
                     actualizarBannerSeleccion();
                     filtrarPorSelects();

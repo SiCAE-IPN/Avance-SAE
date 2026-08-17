@@ -285,13 +285,13 @@ async def verificar_acceso_acuse_dep(
     sess: SessionData = Depends(get_current_session)
 ) -> SessionData:
     """
-    Dependencia para validar los Query Params de la URL del acuse (?unidad=...&nivel=...)
-    frente a los datos guardados en la sesión del usuario.
+    Dependencia para validar los Query Params de la URL (?periodo=...&unidad=...&nivel=...)
+    frente a los datos guardados en la sesión del usuario y las restricciones de periodo activo.
     """
     id_rol = int(getattr(sess, 'id_rol', 0) or 0)
     nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
 
-    # 1. Administradores globales (pueden ver cualquier UA y Nivel)
+    # 1. Administradores globales (pueden ver cualquier UA, Nivel y Periodo histórico)
     es_admin = id_rol in [1, 6, 7, 8, 9] or nombre_rol in ["administrador", "analista", "jefe de departamento", "jefe de división", "directora"]
     if es_admin:
         return sess
@@ -306,16 +306,75 @@ async def verificar_acceso_acuse_dep(
             headers={"Retry-After": str(retry_after)}
         )
 
-    # Extraer unidad y nivel de los Query Params de la petición
-    unidad = request.query_params.get("unidad")
-    nivel = request.query_params.get("nivel")
+    # Extraer periodo, unidad y nivel de los Query Params de la petición
+    raw_periodo = request.query_params.get("periodo") or request.query_params.get("periodo_id") or request.query_params.get("Id_Periodo")
+    raw_unidad = request.query_params.get("unidad") or request.query_params.get("sigla")
+    raw_unidad_id = request.query_params.get("id_unidad") or request.query_params.get("unidad_id") or request.query_params.get("Id_Unidad_Academica")
+    raw_nivel = request.query_params.get("nivel") or request.query_params.get("id_nivel") or request.query_params.get("Id_Nivel")
 
     usuario_str = f"{sess.usuario} (ID:{sess.id_usuario})"
-    search_unidad = (unidad or "").strip() or (getattr(sess, 'sigla_unidad_academica', '') or "").strip()
-    search_nivel = (nivel or "").strip() or (getattr(sess, 'nombre_nivel', '') or "").strip()
+    search_periodo = (raw_periodo or "").strip()
+    search_unidad = (raw_unidad or "").strip()
+    search_nivel = (raw_nivel or "").strip()
 
-    # 2. Validar la Unidad Académica contra sus siglas en la sesión
+    # 3. Validar Periodo Escolar (Roles 3, 4 y 5 solo pueden consultar periodos activos/autorizados)
+    if search_periodo:
+        try:
+            from backend.database.connection import SessionLocal
+            from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo
+            db_auth = SessionLocal()
+            try:
+                p_act_tuple = get_periodo_activo(db_auth)
+                p_ant_tuple = get_periodo_anterior_al_ultimo(db_auth)
+                
+                periodos_permitidos = []
+                if p_act_tuple:
+                    if p_act_tuple[0] is not None:
+                        periodos_permitidos.append(str(p_act_tuple[0]).strip().lower())
+                    if p_act_tuple[1]:
+                        periodos_permitidos.append(str(p_act_tuple[1]).strip().lower())
+                if p_ant_tuple:
+                    if p_ant_tuple[0] is not None:
+                        periodos_permitidos.append(str(p_ant_tuple[0]).strip().lower())
+                    if p_ant_tuple[1]:
+                        periodos_permitidos.append(str(p_ant_tuple[1]).strip().lower())
+            finally:
+                db_auth.close()
+        except Exception as e:
+            print(f"[auth-periodo] Error obteniendo periodos activos: {e}")
+            periodos_permitidos = []
+
+        if periodos_permitidos and search_periodo.lower() not in periodos_permitidos:
+            print(f"[seguridad-IDOR] Bloqueado: {usuario_str} intentó cambiar URL al periodo: {search_periodo} (Permitidos: {periodos_permitidos})")
+            
+            try:
+                from backend.core.security_logger import registrar_bloqueo_seguridad
+                registrar_bloqueo_seguridad(
+                    request=request,
+                    usuario_objetivo=usuario_str,
+                    tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
+                    accion_tomada="ACCESO_DENEGADO_HTTP_403",
+                    endpoint=f"{request.url.path}?periodo={search_periodo}"
+                )
+            except Exception as e:
+                print(f"Error registrando IDOR en CSV: {e}")
+
+            dev_id = getattr(request.state, "device_id", None) if hasattr(request, "state") else None
+            detector_anomalias.registrar_intento_no_autorizado(
+                user_id_or_ip=identificador,
+                resource_id=f"Periodo_{search_periodo}",
+                endpoint=request.url.path,
+                device_id=dev_id
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acceso denegado: No tienes permisos para consultar otros periodos escolares."
+            )
+
+    # 4. Validar la Unidad Académica contra sus siglas/ID en la sesión
     sigla_sess = (getattr(sess, 'sigla_unidad_academica', '') or "").strip().lower()
+    id_ua_sess = int(getattr(sess, 'id_unidad_academica', 0) or 0)
+
     if search_unidad and sigla_sess and sigla_sess != search_unidad.lower():
         print(f"[seguridad-IDOR] Bloqueado: {usuario_str} intentó cambiar URL a la unidad: {search_unidad} (Asignada: {sigla_sess})")
         
@@ -326,7 +385,7 @@ async def verificar_acceso_acuse_dep(
                 usuario_objetivo=usuario_str,
                 tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
                 accion_tomada="ACCESO_DENEGADO_HTTP_403",
-                endpoint=f"/acuse-validacion?unidad={search_unidad} (Asignada: {sigla_sess})"
+                endpoint=f"{request.url.path}?unidad={search_unidad} (Asignada: {sigla_sess})"
             )
         except Exception as e:
             print(f"Error registrando IDOR en CSV: {e}")
@@ -335,7 +394,7 @@ async def verificar_acceso_acuse_dep(
         detector_anomalias.registrar_intento_no_autorizado(
             user_id_or_ip=identificador,
             resource_id=f"UA_{search_unidad}",
-            endpoint="/acuse-validacion",
+            endpoint=request.url.path,
             device_id=dev_id
         )
         raise HTTPException(
@@ -343,7 +402,29 @@ async def verificar_acceso_acuse_dep(
             detail="Acceso denegado: No tienes permisos para consultar esta Unidad Académica."
         )
 
-    # 3. Validar el Nivel Académico solo si el rol está restringido por nivel (ej. Capturista = 3).
+    if raw_unidad_id and id_ua_sess > 0:
+        try:
+            if int(raw_unidad_id) != id_ua_sess:
+                raise ValueError("UA ID mismatch")
+        except (ValueError, TypeError):
+            print(f"[seguridad-IDOR] Bloqueado: {usuario_str} intentó cambiar URL al ID de unidad: {raw_unidad_id} (Asignada ID: {id_ua_sess})")
+            try:
+                from backend.core.security_logger import registrar_bloqueo_seguridad
+                registrar_bloqueo_seguridad(
+                    request=request,
+                    usuario_objetivo=usuario_str,
+                    tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
+                    accion_tomada="ACCESO_DENEGADO_HTTP_403",
+                    endpoint=f"{request.url.path}?id_unidad={raw_unidad_id} (Asignada ID: {id_ua_sess})"
+                )
+            except Exception as e:
+                print(f"Error registrando IDOR en CSV: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acceso denegado: No tienes permisos para consultar esta Unidad Académica."
+            )
+
+    # 5. Validar el Nivel Académico solo si el rol está restringido por nivel (ej. Capturista = 3).
     # Roles como CEGET (4) y Titular (5) gestionan todos los niveles de su Unidad Académica.
     es_ceget_o_titular = id_rol in [4, 5] or "ceget" in nombre_rol or "titular" in nombre_rol
     if not es_ceget_o_titular:
@@ -358,7 +439,7 @@ async def verificar_acceso_acuse_dep(
                     usuario_objetivo=usuario_str,
                     tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
                     accion_tomada="ACCESO_DENEGADO_HTTP_403",
-                    endpoint=f"/acuse-validacion?nivel={search_nivel} (Asignado: {nivel_sess})"
+                    endpoint=f"{request.url.path}?nivel={search_nivel} (Asignado: {nivel_sess})"
                 )
             except Exception as e:
                 print(f"Error registrando IDOR en CSV: {e}")
@@ -367,7 +448,7 @@ async def verificar_acceso_acuse_dep(
             detector_anomalias.registrar_intento_no_autorizado(
                 user_id_or_ip=identificador,
                 resource_id=f"Nivel_{search_nivel}",
-                endpoint="/acuse-validacion",
+                endpoint=request.url.path,
                 device_id=dev_id
             )
             raise HTTPException(

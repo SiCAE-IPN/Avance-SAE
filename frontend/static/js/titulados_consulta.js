@@ -93,9 +93,13 @@ function agregarFilasTitulados() {
         const tipoNom = tipoTitulacion.options[tipoTitulacion.selectedIndex].text.trim();
         const edNom = edadNombre.trim();
 
+        if (typeof obtenerTurnosParaProgramaModalidad === 'function') {
+            turnosDisponibles = obtenerTurnosParaProgramaModalidad(progNom, modNom);
+        }
+
         const turnosObj = {};
 
-        turnosDisponibles.forEach(t => {
+        (turnosDisponibles || []).forEach(t => {
             const turno = (t.nombre || t).trim();
             // Buscamos si existe registro guardado para este turno en versión HOMBRE
             const registroHombre = (datosFilas || []).find(d =>
@@ -195,16 +199,17 @@ function generarCabeceraTabla() {
     const thead = document.getElementById('titulados-thead');
     if (!thead) return;
 
-    // Fila 1: Boleta, Generación, Edad, por cada turno su nombre (colspan 2), Acciones
+    const turnos = (turnosDisponibles && turnosDisponibles.length > 0) ? turnosDisponibles : ['Matutino', 'Vespertino'];
+
+    // Fila 1: Boleta, Tipo de Titulación, Edad, por cada turno su nombre (colspan 2)
     let fila1 = '<tr style="background: linear-gradient(135deg, #750946 0%, #8b2635 100%); color: white;">';
     fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Boleta</th>';
     fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Tipo de Titulación</th>';
     fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;">Edad</th>';
 
-    const turnos = [...new Set(datosFilas.map(f => f.Turno))];
-
     turnos.forEach(turno => {
-        fila1 += `<th colspan="2" style="padding:10px 15px; text-align:center; font-weight:700; font-size:13px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.15);">${turno}</th>`;
+        const nombreTurno = (turno.nombre || turno).trim();
+        fila1 += `<th colspan="2" style="padding:10px 15px; text-align:center; font-weight:700; font-size:13px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.15);">${nombreTurno}</th>`;
     });
 
     fila1 += '</tr>';
@@ -224,7 +229,8 @@ function renderizarTablaTituladosCaptura() {
     const tbody = document.getElementById('titulados-tbody');
     if (!tbody) return;
 
-    const colspan = 3 + turnosDisponibles.length * 2;
+    const turnos = (turnosDisponibles && turnosDisponibles.length > 0) ? turnosDisponibles : ['Matutino', 'Vespertino'];
+    const colspan = 3 + turnos.length * 2;
 
     if (filasTitulados.length === 0) {
         tbody.innerHTML = `
@@ -250,14 +256,15 @@ function renderizarTablaTituladosCaptura() {
             <td style="padding:12px; text-align:center;">${fila.tipoTitulacionNombre}</td>
             <td style="padding:12px; text-align:center; font-weight:600;">${fila.edadNombre}</td>`;
 
-        turnosDisponibles.forEach(turno => {
-            const vals = fila.turnos[turno] || { hombres: '', mujeres: '' };
+        turnos.forEach(t => {
+            const turno = (t.nombre || t).trim();
+            const vals = (fila.turnos && fila.turnos[turno]) ? fila.turnos[turno] : { hombres: '', mujeres: '' };
             celdas += `
             <td style="padding:8px; text-align:center;">
                 <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 4px;background:#e3f2fd;border-radius:4px;border:1px solid #90caf9;line-height:1;">
                     <div style="font-weight:700;color:#1976d2;font-size:11px;min-width:14px;text-align:center;">H</div>
                     <input type="number" min="0" max="9999" maxlength="4"
-                        value="${vals.hombres}"
+                        value="${vals.hombres !== undefined ? vals.hombres : ''}"
                         onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
                         oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); actualizarValorTitulado(${fila.id}, '${turno}', 'hombres', this.value)"
                         style="width:42px;padding:2px 3px;border:2px solid #2196f3;border-radius:3px;background:#fff;color:#1976d2;font-weight:600;text-align:center;font-size:11px;">
@@ -267,7 +274,7 @@ function renderizarTablaTituladosCaptura() {
                 <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 4px;background:#fce4ec;border-radius:4px;border:1px solid #f48fb1;line-height:1;">
                     <div style="font-weight:700;color:#c2185b;font-size:11px;min-width:14px;text-align:center;">M</div>
                     <input type="number" min="0" max="9999" maxlength="4"
-                        value="${vals.mujeres}"
+                        value="${vals.mujeres !== undefined ? vals.mujeres : ''}"
                         onkeydown="if(['-','.','+','e','E',','].includes(event.key)) event.preventDefault();"
                         oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); actualizarValorTitulado(${fila.id}, '${turno}', 'mujeres', this.value)"
                         style="width:42px;padding:2px 3px;border:2px solid #e91e63;border-radius:3px;background:#fff;color:#c2185b;font-weight:600;text-align:center;font-size:11px;">
@@ -1657,6 +1664,16 @@ function calculateDynamicDropdownWidth(values, headerElement) {
         selectModalidad.addEventListener('change', function () {
             console.log('Modalidad cambiada:', this.value);
 
+            const progNom = selectPrograma.options[selectPrograma.selectedIndex]?.text.trim() || selectPrograma.value;
+            const modNom = this.options[this.selectedIndex]?.text.trim() || this.value;
+
+            if (typeof obtenerTurnosParaProgramaModalidad === 'function') {
+                turnosDisponibles = obtenerTurnosParaProgramaModalidad(progNom, modNom);
+            }
+            console.log('Turnos disponibles para', progNom, modNom, ':', turnosDisponibles);
+
+            generarCabeceraTabla();
+
             if (typeof limpiarTabla === 'function') {
                 limpiarTabla();
             } else {
@@ -1866,7 +1883,7 @@ function cargarFilaParaEditar(programaNombre, modalidadNombre, boletaNombre, tip
     }, 150);
 }
 
-// EVENT DELEGATION FOR MULTI-SELECT CHECKBOXES
+// EVENT DELEGATION FOR MULTI-SELECT CHECKBOXES (SINCRONIZA TODOS LOS TURNOS DE LA MISMA FILA)
 document.addEventListener('change', function(e) {
     if (e.target && e.target.id === 'seleccionar-todas-informe') {
         const checkboxes = document.querySelectorAll('.seleccionar-fila-informe');
@@ -1876,28 +1893,6 @@ document.addEventListener('change', function(e) {
                 const row = cb.closest('tr');
                 if (row && row.style.display !== 'none') {
                     cb.checked = e.target.checked;
-                    
-                    // Al seleccionar de forma masiva, también sincronizamos los turnos opuestos
-                    const prog = cb.dataset.programa;
-                    const mod = cb.dataset.modalidad;
-                    const bol = cb.dataset.boleta;
-                    const tipo = cb.dataset.tipoTitulacion;
-                    const edad = cb.dataset.edad;
-                    const turno = cb.dataset.turno;
-
-                    const opposite = Array.from(document.querySelectorAll('.seleccionar-fila-informe'))
-                        .find(other => 
-                            other !== cb &&
-                            other.dataset.programa === prog &&
-                            other.dataset.modalidad === mod &&
-                            other.dataset.boleta === bol &&
-                            other.dataset.tipoTitulacion === tipo &&
-                            other.dataset.edad === edad &&
-                            other.dataset.turno !== turno
-                        );
-                    if (opposite && opposite.checked !== cb.checked) {
-                        opposite.checked = cb.checked;
-                    }
                 }
             }
         });
@@ -1910,23 +1905,20 @@ document.addEventListener('change', function(e) {
         const bol = cb.dataset.boleta;
         const tipo = cb.dataset.tipoTitulacion;
         const edad = cb.dataset.edad;
-        const turno = cb.dataset.turno;
 
-        // Buscar fila con el turno opuesto
-        const opposite = Array.from(document.querySelectorAll('.seleccionar-fila-informe'))
-            .find(other => 
-                other !== cb &&
+        // Sincronizar todas las filas del mismo grupo independientemente de la cantidad de turnos
+        document.querySelectorAll('.seleccionar-fila-informe').forEach(other => {
+            if (other !== cb &&
                 other.dataset.programa === prog &&
                 other.dataset.modalidad === mod &&
                 other.dataset.boleta === bol &&
                 other.dataset.tipoTitulacion === tipo &&
-                other.dataset.edad === edad &&
-                other.dataset.turno !== turno
-            );
-
-        if (opposite && opposite.checked !== isChecked) {
-            opposite.checked = isChecked;
-        }
+                other.dataset.edad === edad) {
+                if (other.checked !== isChecked) {
+                    other.checked = isChecked;
+                }
+            }
+        });
 
         // Actualizar estado del checkbox "Seleccionar todas" (solo considerando visibles)
         const selectAll = document.getElementById('seleccionar-todas-informe');
@@ -1979,28 +1971,37 @@ function editarFilasSeleccionadas() {
 
                 const claveFila = `${progName}|${modName}|${bolName}|${tipoName}|${edadVal}`;
                 if (keysProcesadas.has(claveFila)) {
-                    return; // Ya procesamos este registro (del turno opuesto)
+                    return; // Ya procesamos este registro (de los otros turnos)
                 }
                 keysProcesadas.add(claveFila);
 
-                // Buscar los turnos guardados para esta fila en datosFilas
-                const turnosDeFila = [...new Set(
-                    datosFilas
-                        .filter(d => 
-                            d &&
-                            d.Nombre_Programa === progName &&
-                            d.Modalidad === modName &&
-                            String(d.Boleta) === String(bolName) &&
-                            d.Tipo_Titulacion === tipoName &&
-                            d.Grupo_Edad === edadVal
-                        )
-                        .map(d => d.Turno)
-                )];
+                // Obtener turnos dinámicos para este programa y modalidad
+                let turnosUsar = [];
+                if (typeof obtenerTurnosParaProgramaModalidad === 'function') {
+                    turnosUsar = obtenerTurnosParaProgramaModalidad(progName, modName);
+                }
+                if (!turnosUsar || turnosUsar.length === 0) {
+                    const turnosDeFila = [...new Set(
+                        datosFilas
+                            .filter(d => 
+                                d &&
+                                d.Nombre_Programa === progName &&
+                                d.Modalidad === modName &&
+                                String(d.Boleta) === String(bolName) &&
+                                d.Tipo_Titulacion === tipoName &&
+                                d.Grupo_Edad === edadVal
+                            )
+                            .map(d => d.Turno)
+                            .filter(t => t)
+                    )];
+                    turnosUsar = turnosDeFila.length > 0 ? turnosDeFila : ['Matutino', 'Vespertino'];
+                }
 
-                const turnosUsar = turnosDeFila.length > 0 ? turnosDeFila : ['Matutino', 'Vespertino'];
+                turnosDisponibles = turnosUsar;
 
                 const turnosObj = {};
-                turnosUsar.forEach(turno => {
+                turnosUsar.forEach(t => {
+                    const turno = (t.nombre || t).trim();
                     // Buscar si existe registro guardado para este turno en versión HOMBRE
                     const registroHombre = datosFilas.find(d =>
                         d &&
@@ -2009,7 +2010,7 @@ function editarFilasSeleccionadas() {
                         String(d.Boleta) === String(bolName) &&
                         d.Tipo_Titulacion === tipoName &&
                         d.Grupo_Edad === edadVal &&
-                        d.Turno === turno &&
+                        (d.Turno || '').trim() === turno &&
                         (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
                     );
 
@@ -2021,7 +2022,7 @@ function editarFilasSeleccionadas() {
                         String(d.Boleta) === String(bolName) &&
                         d.Tipo_Titulacion === tipoName &&
                         d.Grupo_Edad === edadVal &&
-                        d.Turno === turno &&
+                        (d.Turno || '').trim() === turno &&
                         (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
                     );
 
@@ -2141,23 +2142,30 @@ function borrarFilasSeleccionadas() {
                 }
                 keysAgregadas.add(claveFila);
 
-                const turnosDeFila = [...new Set(
-                    datosFilas
-                        .filter(d => 
-                            d &&
-                            d.Nombre_Programa === progName &&
-                            d.Modalidad === modName &&
-                            String(d.Boleta) === String(bolName) &&
-                            d.Tipo_Titulacion === tipoName &&
-                            d.Grupo_Edad === edadVal
-                        )
-                        .map(d => d.Turno)
-                )];
-
-                const turnosUsar = turnosDeFila.length > 0 ? turnosDeFila : ['Matutino', 'Vespertino'];
+                let turnosUsar = [];
+                if (typeof obtenerTurnosParaProgramaModalidad === 'function') {
+                    turnosUsar = obtenerTurnosParaProgramaModalidad(progName, modName);
+                }
+                if (!turnosUsar || turnosUsar.length === 0) {
+                    const turnosDeFila = [...new Set(
+                        datosFilas
+                            .filter(d => 
+                                d &&
+                                d.Nombre_Programa === progName &&
+                                d.Modalidad === modName &&
+                                String(d.Boleta) === String(bolName) &&
+                                d.Tipo_Titulacion === tipoName &&
+                                d.Grupo_Edad === edadVal
+                            )
+                            .map(d => d.Turno)
+                            .filter(t => t)
+                    )];
+                    turnosUsar = turnosDeFila.length > 0 ? turnosDeFila : ['Matutino', 'Vespertino'];
+                }
 
                 const turnosObj = {};
-                turnosUsar.forEach(turno => {
+                turnosUsar.forEach(t => {
+                    const turno = (t.nombre || t).trim();
                     turnosObj[turno] = { hombres: 0, mujeres: 0 };
                 });
 

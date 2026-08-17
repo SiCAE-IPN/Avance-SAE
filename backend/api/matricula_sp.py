@@ -11,7 +11,9 @@ from pathlib import Path
 import re
 
 from backend.core.templates import templates
-from backend.core.auth import get_current_session
+from backend.core.auth import get_current_session, VerificarAccesoAcuse
+
+validar_acuse = VerificarAccesoAcuse()
 from backend.database.connection import get_db
 from backend.database.models.Matricula import Matricula
 from backend.database.models.CatPeriodo import CatPeriodo as Periodo
@@ -96,7 +98,7 @@ async def descargar_acuse(file_name: str, sess=Depends(get_current_session)):
 
 
 @router.get('/consulta')
-async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
+async def captura_matricula_sp_view(request: Request, sess=Depends(validar_acuse), db: Session = Depends(get_db)):
     """
     Endpoint principal para la visualización/captura de matrícula usando EXCLUSIVAMENTE Stored Procedures.
     Accesible para:
@@ -430,7 +432,7 @@ async def captura_matricula_sp_view(request: Request, sess=Depends(get_current_s
             'color': color
         })
     
-    print(f"📊 Estados del semáforo cargados: {len(semaforo_data)}")
+    print(f"[matricula] Estados del semaforo cargados: {len(semaforo_data)}")
     for estado in semaforo_data:
         print(f"  - ID {estado['id']}: {estado['descripcion']} ({estado['color']})")
 
@@ -3545,7 +3547,7 @@ async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_sessi
 
 
 @router.get('/resumen-seleccion')
-async def resumen_matricula_seleccion_view(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
+async def resumen_matricula_seleccion_view(request: Request, sess=Depends(validar_acuse), db: Session = Depends(get_db)):
     """
     Vista de selección de filtros para el resumen dinámico de matrícula.
     Permite seleccionar: Periodo, Nivel y Unidad Académica.
@@ -3668,7 +3670,7 @@ async def resumen_matricula_dinamico_view(
     request: Request, 
     periodo: str,
     nivel: str,
-    unidad: str, sess=Depends(get_current_session),
+    unidad: str, sess=Depends(validar_acuse),
     db: Session = Depends(get_db)
 ):
     """

@@ -32,7 +32,9 @@ from backend.utils.request import get_request_host
 from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 from backend.services.envio_correo_service import notificar_rechazo_global, obtener_correos_involucrados
 from backend.core.auth import VerificarAccesoAcuse
+from backend.core.security_logger import registrar_bloqueo_seguridad
 import traceback
+import json
 from pathlib import Path
 from datetime import datetime
 
@@ -67,11 +69,12 @@ def valor_orden_edad(edad: str):
     return int(edad)
 
 router = APIRouter()
+validar_acuse = VerificarAccesoAcuse()
 
 @router.get("/consulta", response_class=HTMLResponse)
 async def consulta_titulados(
     request: Request,
-    sess = Depends(get_current_session),
+    sess = Depends(validar_acuse),
     db: Session = Depends(get_db)
 ):
     
@@ -229,13 +232,13 @@ async def consulta_titulados(
     rechazo_info = {}
 
 
-    if not es_validador:
+    if es_capturista:
         try:
             print(
                 f"Obteniendo titulados para UA: {sigla_unidad_academica}, "
                 f"Periodo: {periodo_default_literal}, "
                 f"Nivel: {nombre_nivel}, "
-                f"Periodo anterior (id): {periodo_id}" 
+                f"Periodo anterior (id): {periodo_id}, " 
                 f"Usuario: {nombre_usuario}"
             )
 
@@ -262,9 +265,30 @@ async def consulta_titulados(
 
         except Exception as e:
             print(f"Error obteniendo titulados: {e}")
-
             contexto = {}
             filas = []
+    else:
+        rechazo_info = None
+
+    # Catálogo de turnos únicos traídos desde el SP
+    turnos_sp = sorted(list(set(r.get("Turno") for r in filas if r.get("Turno"))))
+    if not turnos_sp:
+        turnos_sp = ["Matutino", "Vespertino"]
+
+    # Mapeo por programa_modalidad -> turnos
+    programa_modalidad_turnos = {}
+    for r in filas:
+        prog = r.get("Nombre_Programa")
+        mod = r.get("Modalidad")
+        turno = r.get("Turno")
+        if prog and mod and turno:
+            key = f"{str(prog).strip()}_{str(mod).strip()}"
+            if key not in programa_modalidad_turnos:
+                programa_modalidad_turnos[key] = set()
+            programa_modalidad_turnos[key].add(str(turno).strip())
+
+    programa_modalidad_turnos = {k: sorted(list(v)) for k, v in programa_modalidad_turnos.items()}
+    programa_modalidad_turnos_json = json.dumps(programa_modalidad_turnos)
 
     try:
         boleta = contexto.get("Boleta")
@@ -317,6 +341,8 @@ async def consulta_titulados(
              "boletas": boletas,
              "filas": filas,
              "edades" : edades_ordenadas,
+             "turnos": turnos_sp,
+             "programa_modalidad_turnos_json": programa_modalidad_turnos_json,
              "es_capturista": es_capturista,
              "es_validador": es_validador,
              "es_rol_superior": es_rol_superior,
@@ -330,6 +356,18 @@ def guardar_titulados(
     datos: List[dict],
     sess = Depends(get_current_session),
     db: Session = Depends(get_db)):
+
+    id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+    if id_rol != 3:
+        return JSONResponse(
+            content={"status": "error", "message": "Acceso denegado: Solo el rol capturista tiene permisos para guardar datos."},
+            status_code=403
+        )
+
+    try:
+        verificar_permiso_formato(db, int(sess.id_usuario), 4)
+    except HTTPException as e:
+        return JSONResponse(content={"status": "error", "message": e.detail}, status_code=403)
 
     sigla_unidad_academica = sess.sigla_unidad_academica
     nivel = sess.nombre_nivel
@@ -379,6 +417,18 @@ def finalizar_captura_titulados(
     sess=Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
+    id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+    if id_rol != 3:
+        return JSONResponse(
+            content={"status": "error", "message": "Acceso denegado: Solo el rol capturista tiene permisos para finalizar captura."},
+            status_code=403
+        )
+
+    try:
+        verificar_permiso_formato(db, int(sess.id_usuario), 4)
+    except HTTPException as e:
+        return JSONResponse(content={"status": "error", "message": e.detail}, status_code=403)
+
     datos     = payload.datos
     programa  = payload.programa
     modalidad = payload.modalidad
@@ -478,7 +528,7 @@ async def acuse_titulados_view(
     periodo: str,
     nivel: str,
     unidad: str,
-    sess = Depends(get_current_session),
+    sess = Depends(validar_acuse),
     db: Session = Depends(get_db),
     exportando_pdf: bool = False
 ):
@@ -649,6 +699,8 @@ async def acuse_titulados_view(
         "nombre_titular": nombre_titular,
         "no_validado"   : no_validado,
         "id_rol"        : id_rol,
+        "id_unidad_academica": Id_Unidad_Academica,
+        "id_nivel"      : id_nivel,
         "puede_validar" : puede_validar,
         "usuario_ya_valido" : usuario_ya_valido,
         "usuario_ya_rechazo": usuario_ya_rechazo,
@@ -745,10 +797,32 @@ async def validar_titulados(request: Request, sess=Depends(get_current_session),
 
         # Roles permitidos
         if id_rol not in [4, 5, 6, 7, 8, 9]:
-            return {"success": False, "message": "Solo roles de validación pueden ejecutar esta acción."}
+            return JSONResponse(content={"success": False, "message": "Solo roles de validación pueden ejecutar esta acción."}, status_code=403)
 
         if periodo_in is None:
-            return {"success": False, "message": "No se recibió el periodo."}
+            return JSONResponse(content={"success": False, "message": "No se recibió el periodo."}, status_code=400)
+
+        # Verificación de seguridad IDOR para roles de escuela (4 = CEGET, 5 = Director)
+        if id_rol in [4, 5]:
+            sigla_sess = (sess.sigla_unidad_academica or '').strip().lower()
+            target_ua = (unidad_in or '').strip().lower()
+            if target_ua and sigla_sess and target_ua != sigla_sess:
+                usuario_str = f"{sess.usuario} (ID:{sess.id_usuario})"
+                print(f"[seguridad-IDOR] Intento no autorizado al validar Titulados. Usuario {usuario_str} intentó validar UA {unidad_in} (Asignada: {sigla_sess})")
+                try:
+                    registrar_bloqueo_seguridad(
+                        request=request,
+                        usuario_objetivo=usuario_str,
+                        tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
+                        accion_tomada="ACCESO_DENEGADO_HTTP_403",
+                        endpoint=f"/titulados/validar (UA: {unidad_in} vs Asignada: {sigla_sess})"
+                    )
+                except Exception:
+                    pass
+                return JSONResponse(
+                    content={"success": False, "message": "Acceso denegado: No tienes permisos para validar otra Unidad Académica."},
+                    status_code=403
+                )
 
 
 
@@ -869,10 +943,32 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
         host_sp = get_request_host(request)
 
         if id_rol not in [4, 5, 6, 7, 8, 9]:
-            return {"success": False, "message": "Solo roles de validación pueden ejecutar esta acción."}
+            return JSONResponse(content={"success": False, "message": "Solo roles de validación pueden ejecutar esta acción."}, status_code=403)
 
         if periodo_in is None:
-            return {"success": False, "message": "No se recibió el periodo."}
+            return JSONResponse(content={"success": False, "message": "No se recibió el periodo."}, status_code=400)
+
+        # Verificación de seguridad IDOR para roles de escuela (4 = CEGET, 5 = Director)
+        if id_rol in [4, 5]:
+            sigla_sess = (sess.sigla_unidad_academica or '').strip().lower()
+            target_ua = (unidad_in or '').strip().lower()
+            if target_ua and sigla_sess and target_ua != sigla_sess:
+                usuario_str = f"{sess.usuario} (ID:{sess.id_usuario})"
+                print(f"[seguridad-IDOR] Intento no autorizado al rechazar Titulados. Usuario {usuario_str} intentó rechazar UA {unidad_in} (Asignada: {sigla_sess})")
+                try:
+                    registrar_bloqueo_seguridad(
+                        request=request,
+                        usuario_objetivo=usuario_str,
+                        tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
+                        accion_tomada="ACCESO_DENEGADO_HTTP_403",
+                        endpoint=f"/titulados/rechazar (UA: {unidad_in} vs Asignada: {sigla_sess})"
+                    )
+                except Exception:
+                    pass
+                return JSONResponse(
+                    content={"success": False, "message": "Acceso denegado: No tienes permisos para rechazar otra Unidad Académica."},
+                    status_code=403
+                )
 
         if not nivel_literal:
             nivel_literal = str(sess.id_nivel)

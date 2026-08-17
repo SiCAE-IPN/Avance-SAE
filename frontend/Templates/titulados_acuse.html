@@ -689,7 +689,6 @@
     function cerrarPanelRechazo(){ window.__validacionRechazo?.cerrarPanelRechazo(); }
     function actualizarContador(){ window.__validacionRechazo?.actualizarContador(); }
     function confirmarRechazo()  { window.__validacionRechazo?.ejecutarRechazo(); }
-
     function exportarPdf() {
         const url = `/titulados/acuse-validacion/pdf`
             + `?periodo=${encodeURIComponent(periodo)}`
@@ -697,6 +696,15 @@
             + `&unidad=${encodeURIComponent(unidad)}`;
         window.location.href = url;
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.history && window.history.replaceState && window.location.search) {
+            try {
+                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            } catch(e) {}
+        }
+    });
 </script>
 {% endif %}
 

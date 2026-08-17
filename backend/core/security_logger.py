@@ -127,11 +127,11 @@ def registrar_bloqueo_seguridad(
                 writer.writerow(fila)
 
         print(
-            f"📝 [auditoria-seguridad] Incidente registrado en CSV: "
+            f"[auditoria-seguridad] Incidente registrado en CSV: "
             f"Tipo={tipo_incidente} | IP={ip_cliente} | Dispositivo={dispositivo} | Usuario={usuario_objetivo} | Endpoint={ruta_endpoint}"
         )
     except Exception as e:
-        print(f"❌ [auditoria-seguridad] Error al escribir en bitácora CSV: {e}")
+        print(f"[auditoria-seguridad] Error al escribir en bitacora CSV: {e}")
 
 
 def obtener_registros_seguridad(mes_anio: Optional[str] = None, limite: int = 500) -> List[Dict[str, Any]]:

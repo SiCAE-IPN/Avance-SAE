@@ -661,6 +661,15 @@
         });
         ejecutarAccion('/aprovechamiento/rechazar', { periodo, nivel, unidad_academica: unidad, id_unidad_academica: idUnidadAcademica, motivo });
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.history && window.history.replaceState && window.location.search) {
+            try {
+                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            } catch(e) {}
+        }
+    });
 </script>
 {% endif %}
 {% endblock %}

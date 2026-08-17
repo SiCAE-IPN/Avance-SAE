@@ -35,6 +35,7 @@ from backend.core.auth import VerificarAccesoAcuse
 
 
 router = APIRouter()
+validar_acuse = VerificarAccesoAcuse()
 
 # Variable global
 HHost: str = "Test"
@@ -480,7 +481,7 @@ async def obtener_contexto_aprovechamiento(
 # ============================================================================
 
 @router.get("/consulta", response_class=HTMLResponse)
-def aprovechamiento_view(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
+def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Session = Depends(get_db)):
     Rol = str(getattr(sess, 'nombre_rol', '') or '')
     UUsuario = getattr(sess, 'usuario', '') or ''
     UUnidad_Academica = str(getattr(sess, 'sigla_unidad_academica', '') or '')
@@ -1292,7 +1293,7 @@ async def exportar_aprovechamiento_excel(
     periodo: str,
     nivel: str,
     unidad: str,
-    sess=Depends(get_current_session),
+    sess=Depends(validar_acuse),
     db: Session = Depends(get_db)
 ):
     """

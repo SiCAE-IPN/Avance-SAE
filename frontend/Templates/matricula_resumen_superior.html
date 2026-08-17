@@ -853,7 +853,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.tabla-resumen td, .tabla-resumen th, .total-general .numero, .total-general').forEach(function(cell) {
+            document.querySelectorAll('.tabla-resumen tbody td:not(:first-child), .subtotal-row td:not(:first-child), .total-general .numero').forEach(function(cell) {
                 if (cell.classList.contains('subseccion-title') || cell.classList.contains('programa-title')) return;
                 const txt = cell.textContent.trim();
                 if (/^\d+$/.test(txt)) {

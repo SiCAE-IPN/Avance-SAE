@@ -592,7 +592,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.tabla-seccion table td, .tabla-seccion table th').forEach(function(cell) {
+        if (window.history && window.history.replaceState && window.location.search) {
+            try {
+                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            } catch(e) {}
+        }
+
+        document.querySelectorAll('.tabla-seccion table tbody td:not(:first-child), .tabla-seccion table tfoot td:not(:first-child)').forEach(function(cell) {
             const txt = cell.textContent.trim();
             if (/^\d+$/.test(txt)) {
                 cell.textContent = Number(txt).toLocaleString('en-US');

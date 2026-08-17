@@ -42,6 +42,7 @@ from backend.database.models.Usuario import Usuario
 
 
 router = APIRouter()
+validar_acuse = VerificarAccesoAcuse()
 
 
 def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -65,6 +66,8 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
     
     # Mapeo de Programa -> Modalidades
     programa_modalidades = {}
+    # Mapeo de (Programa, Modalidad) -> Turnos
+    programa_modalidad_turnos = {}
     
     for row in rows_list:
         programa_nombre = None
@@ -83,6 +86,12 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
             if programa_nombre not in programa_modalidades:
                 programa_modalidades[programa_nombre] = set()
             programa_modalidades[programa_nombre].add(modalidad_nombre)
+            
+            if 'Turno' in row and row['Turno']:
+                key_pm = f"{programa_nombre}_{modalidad_nombre}"
+                if key_pm not in programa_modalidad_turnos:
+                    programa_modalidad_turnos[key_pm] = set()
+                programa_modalidad_turnos[key_pm].add(str(row['Turno']))
         
         if 'Boleta' in row and row['Boleta']:
             boletas_set.add(str(row['Boleta']))
@@ -116,6 +125,7 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
 
     # Convertir sets de modalidades a listas ordenadas
     programa_modalidades_list = {prog: sorted(list(mods)) for prog, mods in programa_modalidades.items()}
+    programa_modalidad_turnos_list = {k: sorted(list(v)) for k, v in programa_modalidad_turnos.items()}
     
     # Ordenar edades por valor numérico, ignorando símbolos de comparación
     def ordenar_edades(edad_str):
@@ -139,6 +149,7 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
         'programas': sorted(list(programas_set)),
         'modalidades': sorted(list(modalidades_set)),
         'programa_modalidades': programa_modalidades_list,  # Nuevo mapeo
+        'programa_modalidad_turnos': programa_modalidad_turnos_list,  # Turnos por programa y modalidad
         'boletas': sorted(list(boletas_set), reverse=True),  # Descendente
         'generaciones': sorted(list(generaciones_set), reverse=True),  # Descendente
         'turnos': sorted(list(turnos_set)),
@@ -165,7 +176,7 @@ def execute_egresados_sp(
     """
     try:
         # Log de parámetros que se enviarán al SP
-        print(f"🔍 Ejecutando SP con parámetros:")
+        print(f"[egresados-sp] Ejecutando SP con parametros:")
         print(f"   @UUnidad_Academica = '{unidad_sigla}'")
         print(f"   @Pperiodo = '{periodo_literal}'")
         print(f"   @NNivel = '{nivel_nombre}'")
@@ -208,7 +219,7 @@ def execute_egresados_sp(
                     if nota_rows and len(nota_rows) > 0:
                         nota_rechazo = nota_rows[0][0] if nota_rows[0] else None
         except Exception as e_nextset:
-            print(f"⚠️ No se pudo obtener segundo resultset (nota rechazo): {str(e_nextset)}")
+            print(f"[egresados-sp] No se pudo obtener segundo resultset (nota rechazo): {str(e_nextset)}")
         
         return egresados_data, nota_rechazo
         
@@ -220,7 +231,7 @@ def execute_egresados_sp(
 
 
 @router.get('/consulta')
-async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
+async def captura_egresados_sp_view(request: Request, sess=Depends(validar_acuse), db: Session = Depends(get_db)):
     """
     Endpoint principal para la visualización/captura de egresados usando EXCLUSIVAMENTE Stored Procedures.
     Accesible para:
@@ -301,11 +312,12 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
 
     # =========================================================================
     # NUEVA LÓGICA: Buscar el ÚLTIMO estatus de validación (Formato 3 = Egresados)
+    # Solo aplica para el Capturista (id_rol = 3)
     # =========================================================================
     rechazo_info = None
     matricula_rechazada = False 
         
-    if periodo_anterior_id and id_unidad_academica and id_nivel:
+    if es_capturista and periodo_anterior_id and id_unidad_academica and id_nivel:
         print(f"DEBUG: Consultando último movimiento de validación Egresados para PeriodoID: {periodo_anterior_id}")
 
         # Traemos solo el registro más reciente ordenando por fecha de mayor a menor
@@ -434,6 +446,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
     edades_formatted = []
     sexos_formatted = []
     programa_a_modalidades_json = "{}"  # Mapeo programa->modalidades para filtrado dinámico
+    programa_modalidad_turnos_json = "{}"  # Mapeo (programa, modalidad) -> turnos
     datos_precargados_json = "{}"  # Para precargar datos en el frontend (opcional, puede venir vacío y llenarse al consultar)
     
     # Para roles 4-9 (directores y superiores): cargar TODAS las modalidades y programas sin ejecutar SP
@@ -587,8 +600,18 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                         Turno.Turno.in_(turnos_sp),
                         Turno.Id_Estatus == 1
                     ).all()
-                    turnos_formatted = [{"id": t.Id_Turno, "nombre": t.Turno} for t in turnos_db]
+                    turnos_db_map = {str(t.Turno).strip().lower(): t for t in turnos_db}
+                    turnos_formatted = []
+                    for t_nom in turnos_sp:
+                        t_nom_str = str(t_nom).strip()
+                        t_obj = turnos_db_map.get(t_nom_str.lower())
+                        if t_obj:
+                            turnos_formatted.append({"id": t_obj.Id_Turno, "nombre": t_obj.Turno})
+                        else:
+                            turnos_formatted.append({"id": t_nom_str, "nombre": t_nom_str})
                     print(f"Turnos mapeados ({len(turnos_formatted)}): {[t['nombre'] for t in turnos_formatted]}")
+                else:
+                    turnos_formatted = []
                 
                 # Mapear Sexos (Opcional, si el SP los retorna)
                 sexos_db = db.query(Sexo).filter(Sexo.Id_Estatus == 1).all()
@@ -617,6 +640,9 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                 
                 programa_a_modalidades_json = json.dumps(programa_a_modalidades)
                 print(f"Mapeo ID_Programa -> IDs_Modalidad: {programa_a_modalidades_json}")
+
+                programa_modalidad_turnos_json = json.dumps(valores_unicos.get('programa_modalidad_turnos', {}))
+                print(f"Mapeo (Programa, Modalidad) -> Turnos: {programa_modalidad_turnos_json}")
 
                 datos_precargados = {}
                 for reg in resultados_sp:
@@ -663,6 +689,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
                 sexos_formatted = []
                 edades_formatted = []
                 programa_a_modalidades_json = "{}"
+                programa_modalidad_turnos_json = "{}"
                     
         except Exception as e:
             print(f"❌ Error al obtener metadatos del SP: {str(e)}")
@@ -771,6 +798,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(get_current_s
         "niveles_disponibles": niveles_disponibles,
         "nivel_a_uas_json": nivel_a_uas_json,
         "programa_a_modalidades_json": programa_a_modalidades_json,
+        "programa_modalidad_turnos_json": programa_modalidad_turnos_json,
         "semaforo_estados": semaforo_data,
         "periodos": periodos,
         "rechazo_info": rechazo_info,
@@ -1015,9 +1043,13 @@ async def guardar_egresados(request: Request, sess=Depends(get_current_session),
                     
                     # Para cada turno disponible
                     for turno_id, sexos_dict in turnos_data.items():
-                        # Resolver turno ID → nombre
-                        turno_obj = db.query(Turno).filter(Turno.Id_Turno == int(turno_id)).first()
-                        turno_nombre = turno_obj.Turno if turno_obj else f"Turno_{turno_id}"
+                        # Resolver turno ID → nombre (soporta ID entero o string como 'Matutino', 'Vespertino', etc.)
+                        turno_obj = None
+                        if str(turno_id).isdigit():
+                            turno_obj = turnos_dict.get(int(turno_id)) or db.query(Turno).filter(Turno.Id_Turno == int(turno_id)).first()
+                        if not turno_obj:
+                            turno_obj = db.query(Turno).filter(Turno.Turno == str(turno_id)).first()
+                        turno_nombre = turno_obj.Turno if turno_obj else str(turno_id)
                         
                         # Para cada sexo en ese turno
                         for sexo_label, cantidad_raw in sexos_dict.items():
@@ -1851,7 +1883,7 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
         return {"error": f"Error al finalizar la captura: {str(e)}"}
 
 @router.get('/informe')
-async def obtener_informe_egresados(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
+async def obtener_informe_egresados(request: Request, sess=Depends(validar_acuse), db: Session = Depends(get_db)):
     """
     Obtiene el informe de egresados desde el SP para mostrar en la tabla de informe.
     Devuelve los datos reales guardados en la base de datos.
@@ -2200,7 +2232,7 @@ async def resumen_egresados_dinamico_view(
         id_nivel_evaluar = nivel_obj.Id_Nivel if nivel_obj else int(getattr(sess, 'id_nivel', 0) or 0)
 
         # === OBTENER EL PERIODO ANTERIOR (EN EGRESADOS EL SEMÁFORO PERTENECE AL PERIODO ANTERIOR) ===
-        periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
+        periodo_anterior_id, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
 
         puede_validar = False
         usuario_ya_valido = False
@@ -2872,7 +2904,7 @@ async def resumen_egresados_dinamico_view(
         })
         
     except Exception as e:
-        print(f"❌ Error en resumen dinámico: {str(e)}")
+        print(f"[egresados] Error en resumen dinamico: {str(e)}")
         import traceback
         traceback.print_exc()
         return templates.TemplateResponse(nombre_template, {

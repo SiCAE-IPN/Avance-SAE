@@ -1295,9 +1295,16 @@
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.tabla-resumen td, .tabla-resumen th, .mini-tabla td, .mini-tabla th').forEach(function(cell) {
                 if (cell.classList.contains('celda-programa') || 
+                    cell.classList.contains('celda-modalidad') || 
+                    cell.classList.contains('celda-semestre') || 
+                    cell.classList.contains('celda-ingreso') || 
                     cell.classList.contains('td-total-label') || 
                     cell.classList.contains('mini-label') ||
-                    cell.classList.contains('th-programa')) {
+                    cell.classList.contains('mini-total') ||
+                    cell.classList.contains('th-programa') ||
+                    cell.classList.contains('th-modalidad') ||
+                    cell.classList.contains('th-semestre') ||
+                    cell.classList.contains('th-ingreso')) {
                     return;
                 }
                 const txt = cell.textContent.trim();

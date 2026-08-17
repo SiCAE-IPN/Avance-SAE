@@ -463,7 +463,7 @@ class AnomalyDetector:
             self.attempts_during_lock[identificador] = 0
 
             print(
-                f"🚨 [seguridad-alerta-E3] ANOMALÍA: Patrón de enumeración/barrido horizontal detectado "
+                f"[seguridad-alerta-E3] ANOMALIA: Patron de enumeracion/barrido horizontal detectado "
                 f"para [{identificador}] intentando acceder a {len(recursos_distintos)} recursos distintos "
                 f"({list(recursos_distintos)}) en {endpoint} en menos de {self.window_seconds}s. "
                 f"Bloqueo temporal activado por {self.block_duration_seconds}s."

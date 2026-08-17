@@ -1401,9 +1401,13 @@ tooltipNoTurno: '⏳ Esperando validación de nivel/rol anterior.',
 
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.tabla-resumen td, .tabla-resumen th, .mini-tabla td, .mini-tabla th').forEach(function(cell) {
-                if (cell.classList.contains('celda-programa') || 
-                    cell.classList.contains('col-boleta') || 
-                    cell.classList.contains('col-generacion') || 
+                if (cell.classList.contains('td-programa') || 
+                    cell.classList.contains('td-boleta') || 
+                    cell.classList.contains('td-generacion') || 
+                    cell.classList.contains('td-edad') ||
+                    cell.classList.contains('col-boleta') ||
+                    cell.classList.contains('col-generacion') ||
+                    cell.classList.contains('celda-programa') ||
                     cell.classList.contains('td-total-label') || 
                     cell.classList.contains('mini-label') ||
                     cell.classList.contains('th-programa') ||
