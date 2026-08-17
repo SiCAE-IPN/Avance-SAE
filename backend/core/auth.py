@@ -126,6 +126,7 @@ class VerificarAccesoUA:
     """
     async def __call__(
         self,
+        request: Request,
         ua_id: int, # FastAPI tomará este valor automáticamente de la URL
         sess: SessionData = Depends(get_current_session)
     ) -> SessionData:
@@ -147,7 +148,7 @@ class VerificarAccesoUA:
                 headers={"Retry-After": str(retry_after)}
             )
 
-        # 2. Si no es admin (ej. capturista, ceget, titular), verificamos su UA asignada
+        # 3. Si no es admin (ej. capturista, ceget, titular), verificamos su UA asignada
         ua_asignada = getattr(sess, 'id_unidad_academica', None)
         if ua_asignada is not None:
             ua_asignada = int(ua_asignada)
@@ -160,7 +161,7 @@ class VerificarAccesoUA:
             try:
                 from backend.core.security_logger import registrar_bloqueo_seguridad
                 registrar_bloqueo_seguridad(
-                    request=None,
+                    request=request,
                     usuario_objetivo=usuario_str,
                     tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
                     accion_tomada="ACCESO_DENEGADO_HTTP_403",
@@ -170,10 +171,12 @@ class VerificarAccesoUA:
                 print(f"Error registrando IDOR en CSV: {e}")
 
             # Registrar en el detector de anomalías para barridos horizontales (E3)
+            dev_id = getattr(request.state, "device_id", None) if hasattr(request, "state") else None
             detector_anomalias.registrar_intento_no_autorizado(
                 user_id_or_ip=identificador,
                 resource_id=f"UA_{ua_id}",
-                endpoint=f"/api/ua/{ua_id}"
+                endpoint=f"/api/ua/{ua_id}",
+                device_id=dev_id
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -189,6 +192,7 @@ class VerificarAccesoInstitucional:
     """
     async def __call__(
         self,
+        request: Request,
         ua_id: int, # Intercepta el {ua_id} de la URL
         nivel_id: int = None, # Intercepta el {nivel_id} de la URL de forma opcional
         sess: SessionData = Depends(get_current_session)
@@ -221,7 +225,7 @@ class VerificarAccesoInstitucional:
             try:
                 from backend.core.security_logger import registrar_bloqueo_seguridad
                 registrar_bloqueo_seguridad(
-                    request=None,
+                    request=request,
                     usuario_objetivo=usuario_str,
                     tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
                     accion_tomada="ACCESO_DENEGADO_HTTP_403",
@@ -230,10 +234,12 @@ class VerificarAccesoInstitucional:
             except Exception as e:
                 print(f"Error registrando IDOR en CSV: {e}")
 
+            dev_id = getattr(request.state, "device_id", None) if hasattr(request, "state") else None
             detector_anomalias.registrar_intento_no_autorizado(
                 user_id_or_ip=identificador,
                 resource_id=f"UA_{ua_id}",
-                endpoint="/api/institucional"
+                endpoint="/api/institucional",
+                device_id=dev_id
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -251,7 +257,7 @@ class VerificarAccesoInstitucional:
                 try:
                     from backend.core.security_logger import registrar_bloqueo_seguridad
                     registrar_bloqueo_seguridad(
-                        request=None,
+                        request=request,
                         usuario_objetivo=usuario_str,
                         tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
                         accion_tomada="ACCESO_DENEGADO_HTTP_403",
@@ -260,10 +266,12 @@ class VerificarAccesoInstitucional:
                 except Exception as e:
                     print(f"Error registrando IDOR en CSV: {e}")
 
+                dev_id = getattr(request.state, "device_id", None) if hasattr(request, "state") else None
                 detector_anomalias.registrar_intento_no_autorizado(
                     user_id_or_ip=identificador,
                     resource_id=f"Nivel_{nivel_id}",
-                    endpoint="/api/institucional"
+                    endpoint="/api/institucional",
+                    device_id=dev_id
                 )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -272,97 +280,104 @@ class VerificarAccesoInstitucional:
 
         return sess
     
-class VerificarAccesoAcuse:
+async def verificar_acceso_acuse_dep(
+    request: Request,
+    sess: SessionData = Depends(get_current_session)
+) -> SessionData:
     """
     Dependencia para validar los Query Params de la URL del acuse (?unidad=...&nivel=...)
     frente a los datos guardados en la sesión del usuario.
     """
-    async def __call__(self, unidad: str = Query(None), nivel: str = Query(None), sess: SessionData = Depends(get_current_session)):
-        id_rol = int(getattr(sess, 'id_rol', 0) or 0)
-        nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
+    id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+    nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
 
-        # 1. Administradores globales (pueden ver cualquier UA y Nivel)
-        es_admin = id_rol in [1, 6, 7, 8, 9] or nombre_rol in ["administrador", "analista", "jefe de departamento", "jefe de división", "directora"]
-        if es_admin:
-            return sess
+    # 1. Administradores globales (pueden ver cualquier UA y Nivel)
+    es_admin = id_rol in [1, 6, 7, 8, 9] or nombre_rol in ["administrador", "analista", "jefe de departamento", "jefe de división", "directora"]
+    if es_admin:
+        return sess
 
-        # 2. Verificar si el usuario no admin se encuentra actualmente suspendido por comportamiento anómalo (E3)
-        identificador = str(sess.id_usuario or sess.usuario or "desconocido")
-        bloqueado, retry_after = detector_anomalias.esta_bloqueado(identificador)
-        if bloqueado:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Acceso temporalmente suspendido por detección de anomalías. Por favor espere {retry_after} segundos.",
-                headers={"Retry-After": str(retry_after)}
+    # 2. Verificar si el usuario no admin se encuentra actualmente suspendido por comportamiento anómalo (E3)
+    identificador = str(sess.id_usuario or sess.usuario or "desconocido")
+    bloqueado, retry_after = detector_anomalias.esta_bloqueado(identificador)
+    if bloqueado:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Acceso temporalmente suspendido por detección de anomalías. Por favor espere {retry_after} segundos.",
+            headers={"Retry-After": str(retry_after)}
+        )
+
+    # Extraer unidad y nivel de los Query Params de la petición
+    unidad = request.query_params.get("unidad")
+    nivel = request.query_params.get("nivel")
+
+    usuario_str = f"{sess.usuario} (ID:{sess.id_usuario})"
+    search_unidad = (unidad or "").strip() or (getattr(sess, 'sigla_unidad_academica', '') or "").strip()
+    search_nivel = (nivel or "").strip() or (getattr(sess, 'nombre_nivel', '') or "").strip()
+
+    # 2. Validar la Unidad Académica contra sus siglas en la sesión
+    sigla_sess = (getattr(sess, 'sigla_unidad_academica', '') or "").strip().lower()
+    if search_unidad and sigla_sess and sigla_sess != search_unidad.lower():
+        print(f"[seguridad-IDOR] Bloqueado: {usuario_str} intentó cambiar URL a la unidad: {search_unidad} (Asignada: {sigla_sess})")
+        
+        try:
+            from backend.core.security_logger import registrar_bloqueo_seguridad
+            registrar_bloqueo_seguridad(
+                request=request,
+                usuario_objetivo=usuario_str,
+                tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
+                accion_tomada="ACCESO_DENEGADO_HTTP_403",
+                endpoint=f"/acuse-validacion?unidad={search_unidad} (Asignada: {sigla_sess})"
             )
+        except Exception as e:
+            print(f"Error registrando IDOR en CSV: {e}")
 
-        id_rol = int(getattr(sess, 'id_rol', 0) or 0)
-        nombre_rol = (getattr(sess, 'nombre_rol', '') or '').strip().lower()
+        dev_id = getattr(request.state, "device_id", None) if hasattr(request, "state") else None
+        detector_anomalias.registrar_intento_no_autorizado(
+            user_id_or_ip=identificador,
+            resource_id=f"UA_{search_unidad}",
+            endpoint="/acuse-validacion",
+            device_id=dev_id
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: No tienes permisos para consultar esta Unidad Académica."
+        )
 
-        # 1. Administradores globales (pueden ver cualquier UA y Nivel)
-        es_admin = id_rol in [1, 6, 7, 8, 9] or nombre_rol in ["administrador", "analista", "jefe de departamento", "jefe de división", "directora"]
-        if es_admin:
-            return sess 
-
-        usuario_str = f"{sess.usuario} (ID:{sess.id_usuario})"
-        search_unidad = (unidad or "").strip() or (getattr(sess, 'sigla_unidad_academica', '') or "").strip()
-        search_nivel = (nivel or "").strip() or (getattr(sess, 'nombre_nivel', '') or "").strip()
-
-        # 2. Validar la Unidad Académica contra sus siglas en la sesión
-        sigla_sess = (getattr(sess, 'sigla_unidad_academica', '') or "").strip().lower()
-        if search_unidad and sigla_sess and sigla_sess != search_unidad.lower():
-            print(f"[seguridad-IDOR] Bloqueado: {usuario_str} intentó cambiar URL a la unidad: {search_unidad} (Asignada: {sigla_sess})")
+    # 3. Validar el Nivel Académico solo si el rol está restringido por nivel (ej. Capturista = 3).
+    # Roles como CEGET (4) y Titular (5) gestionan todos los niveles de su Unidad Académica.
+    es_ceget_o_titular = id_rol in [4, 5] or "ceget" in nombre_rol or "titular" in nombre_rol
+    if not es_ceget_o_titular:
+        nivel_sess = (getattr(sess, 'nombre_nivel', '') or "").strip().lower()
+        if search_nivel and nivel_sess and nivel_sess != search_nivel.lower():
+            print(f"[seguridad-IDOR] Bloqueado: {usuario_str} intentó cambiar URL al nivel: {search_nivel} (Asignado: {nivel_sess})")
             
             try:
                 from backend.core.security_logger import registrar_bloqueo_seguridad
                 registrar_bloqueo_seguridad(
-                    request=None,
+                    request=request,
                     usuario_objetivo=usuario_str,
                     tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
                     accion_tomada="ACCESO_DENEGADO_HTTP_403",
-                    endpoint=f"/acuse-validacion?unidad={search_unidad} (Asignada: {sigla_sess})"
+                    endpoint=f"/acuse-validacion?nivel={search_nivel} (Asignado: {nivel_sess})"
                 )
             except Exception as e:
                 print(f"Error registrando IDOR en CSV: {e}")
 
+            dev_id = getattr(request.state, "device_id", None) if hasattr(request, "state") else None
             detector_anomalias.registrar_intento_no_autorizado(
                 user_id_or_ip=identificador,
-                resource_id=f"UA_{search_unidad}",
-                endpoint="/acuse-validacion"
+                resource_id=f"Nivel_{search_nivel}",
+                endpoint="/acuse-validacion",
+                device_id=dev_id
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Acceso denegado: No tienes permisos para consultar esta Unidad Académica."
+                detail="Acceso denegado: No tienes permisos para consultar este nivel académico."
             )
+    
+    return sess
 
-        # 3. Validar el Nivel Académico solo si el rol está restringido por nivel (ej. Capturista = 3).
-        # Roles como CEGET (4) y Titular (5) gestionan todos los niveles de su Unidad Académica.
-        es_ceget_o_titular = id_rol in [4, 5] or "ceget" in nombre_rol or "titular" in nombre_rol
-        if not es_ceget_o_titular:
-            nivel_sess = (getattr(sess, 'nombre_nivel', '') or "").strip().lower()
-            if search_nivel and nivel_sess and nivel_sess != search_nivel.lower():
-                print(f"[seguridad-IDOR] Bloqueado: {usuario_str} intentó cambiar URL al nivel: {search_nivel} (Asignado: {nivel_sess})")
-                
-                try:
-                    from backend.core.security_logger import registrar_bloqueo_seguridad
-                    registrar_bloqueo_seguridad(
-                        request=None,
-                        usuario_objetivo=usuario_str,
-                        tipo_incidente="IDOR_ACCESO_NO_AUTORIZADO",
-                        accion_tomada="ACCESO_DENEGADO_HTTP_403",
-                        endpoint=f"/acuse-validacion?nivel={search_nivel} (Asignado: {nivel_sess})"
-                    )
-                except Exception as e:
-                    print(f"Error registrando IDOR en CSV: {e}")
 
-                detector_anomalias.registrar_intento_no_autorizado(
-                    user_id_or_ip=identificador,
-                    resource_id=f"Nivel_{search_nivel}",
-                    endpoint="/acuse-validacion"
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Acceso denegado: No tienes permisos para consultar este nivel académico."
-                )
-        
-        return sess
+def VerificarAccesoAcuse():
+    """Función constructora para compatibilidad con `validar_acuse = VerificarAccesoAcuse()`."""
+    return verificar_acceso_acuse_dep

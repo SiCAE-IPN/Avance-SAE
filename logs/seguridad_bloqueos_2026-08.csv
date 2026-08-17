@@ -21,3 +21,9 @@ Fecha_Hora,IP_Cliente,Hostname,Usuario_Objetivo,Dispositivo_ID,Endpoint,Metodo,T
 2026-08-17 11:08:31,unknown,unknown,emontie55,dev_unknown,/mod_principal/seguridad/desbloquear,POST,DESBLOQUEO_MANUAL_ADMIN,DESBLOQUEADO_POR_ADMIN_(ID:1),Desconocido
 2026-08-17 11:08:41,10.102.161.145,EMMANUEL-LAPTOP.ipn.mx,emontie55,dev_8c50abefd774,/login/,POST,RATE_LIMIT_LOGIN,BLOQUEO_HTTP_429 (56s),Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0
 2026-08-17 11:08:52,unknown,unknown,emontie55,dev_unknown,/mod_principal/seguridad/desbloquear,POST,DESBLOQUEO_MANUAL_ADMIN,DESBLOQUEADO_POR_ADMIN_(ID:1),Desconocido
+2026-08-17 12:58:33,148.204.107.53,pc-053.evaluacion-sectec.ipn.mx,emontiel55,dev_fb_da9212603f,/login/,POST,RATE_LIMIT_LOGINTEST,BLOQUEO_HTTP_429 (60s),Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+2026-08-17 12:58:38,148.204.107.53,pc-053.evaluacion-sectec.ipn.mx,emontiel55,dev_fb_da9212603f,/login/,POST,REINCIDENCIA_BLOQUEO_LOGINTEST,PENALIZACION_DUPLICADA_429 (120s),Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+2026-08-17 12:58:38,148.204.107.53,pc-053.evaluacion-sectec.ipn.mx,emontiel55,dev_fb_da9212603f,/login/,POST,REINCIDENCIA_BLOQUEO_LOGINTEST,PENALIZACION_DUPLICADA_429 (240s),Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+2026-08-17 12:58:38,unknown,unknown,user_test,dev_unknown,/api/ua/4,POST,ALERTA_E3_ENUMERACION_IDOR,SUSPENSION_TEMPORAL (300s),Desconocido
+2026-08-17 12:58:38,unknown,unknown,user_test,dev_unknown,/anomalia-bloqueo,POST,REINCIDENCIA_ANOMALIA_IDOR,PENALIZACION_DUPLICADA_429 (600s),Desconocido
+2026-08-17 13:08:21,10.102.161.145,10.102.161.145,edelossantosm1500 (ID:3),dev_416a64be701c,/acuse-validacion?unidad=CECyT 10 (Asignada: cecyt 8),GET,IDOR_ACCESO_NO_AUTORIZADO,ACCESO_DENEGADO_HTTP_403,Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0
