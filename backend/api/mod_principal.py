@@ -44,13 +44,28 @@ def mod_principal_view(request: Request, sess=Depends(get_current_session), db: 
     es_super = _es_administrador_autorizado(sess)
     
     formatos_permitidos = []
+    rechazos_por_modulo = {
+        "matricula": None,
+        "aprovechamiento": None,
+        "egresados": None,
+        "titulados": None
+    }
     
     if not es_admin:
         # 3. Si es capturista, consultar sus formatos permitidos
         from backend.database.models.FormatoUsuario import Usuario as FormatoUsuario
         from backend.database.models.CatFormatos import CatFormatos
+        # from backend.services.notificacion import notificacion_rechazo
+        # from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
         
-        formatos = db.query(CatFormatos.Formato).join(
+        # periodo_id, _ = get_periodo_activo(db)
+        # if not periodo_id:
+        #     periodo_id, _ = get_ultimo_periodo(db)
+            
+        # id_ua = int(getattr(sess, "id_unidad_academica", 0) or 0)
+        # id_nivel = int(getattr(sess, "id_nivel", 0) or 0)
+        
+        formatos = db.query(CatFormatos.Id_Formato, CatFormatos.Formato).join(
             FormatoUsuario, FormatoUsuario.Id_Formato == CatFormatos.Id_Formato
         ).filter(
             FormatoUsuario.Id_Usuario == id_usuario,
@@ -58,11 +73,30 @@ def mod_principal_view(request: Request, sess=Depends(get_current_session), db: 
             CatFormatos.Id_Estatus == 1
         ).all()
         
-        # 4. Normalizar los nombres (minúsculas y sin acentos) para evitar errores de validación en HTML
-        for f in formatos:
-            nombre_fmt = f[0].lower().strip()
+        # 4. Normalizar los nombres (minúsculas y sin acentos)
+        for id_fmt, f_nombre in formatos:
+            nombre_fmt = f_nombre.lower().strip()
             nombre_fmt = ''.join(c for c in unicodedata.normalize('NFD', nombre_fmt) if unicodedata.category(c) != 'Mn')
             formatos_permitidos.append(nombre_fmt)
+            
+            # =========================================================================
+            # NOTIFICACIÓN DE RECHAZO PARA CAPTURISTAS (id_rol == 3)
+            # (Descomentar este bloque cuando se desee activar la detección de rechazo)
+            # =========================================================================
+            # if id_rol == 3 and periodo_id and id_ua:
+            #     try:
+            #         info_rechazo = notificacion_rechazo(db, periodo_id, id_ua, int(id_fmt), id_nivel if id_nivel > 0 else None)
+            #         if info_rechazo:
+            #             if id_fmt == 1:
+            #                 rechazos_por_modulo["matricula"] = info_rechazo
+            #             elif id_fmt == 2:
+            #                 rechazos_por_modulo["aprovechamiento"] = info_rechazo
+            #             elif id_fmt == 3:
+            #                 rechazos_por_modulo["egresados"] = info_rechazo
+            #             elif id_fmt == 4:
+            #                 rechazos_por_modulo["titulados"] = info_rechazo
+            #     except Exception as e:
+            #         print(f"[ModPrincipal] Error al verificar rechazo formato {id_fmt}: {e}")
 
     return templates.TemplateResponse("Mod_Principal.html", {
         "request": request, 
@@ -70,7 +104,8 @@ def mod_principal_view(request: Request, sess=Depends(get_current_session), db: 
         "session": sess,
         "es_admin": es_admin,
         "es_super_admin": es_super,
-        "formatos_permitidos": formatos_permitidos
+        "formatos_permitidos": formatos_permitidos,
+        "rechazos_por_modulo": rechazos_por_modulo
     })
 
 

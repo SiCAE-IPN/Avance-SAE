@@ -287,6 +287,109 @@ body {
     flex: 100%;
 }
 
+/* ==========================================================================
+   BADGE / IDENTIFICADOR DE NOTIFICACIÓN DE RECHAZO PARA CAPTURISTAS
+   ========================================================================== */
+.card-modulo.card-con-rechazo {
+    border: 2px solid #ef4444 !important;
+    background: radial-gradient(circle at top right, rgba(239, 68, 68, 0.12), transparent 60%), #ffffff !important;
+    box-shadow: 0 14px 35px rgba(239, 68, 68, 0.2), 0 3px 10px rgba(0, 0, 0, 0.05) !important;
+}
+
+.card-modulo.card-con-rechazo:hover:not(.bloqueado) {
+    border-color: #dc2626 !important;
+    box-shadow: 0 22px 45px rgba(239, 68, 68, 0.32), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Barra superior de acento rojo en la tarjeta con rechazo */
+.card-rechazo-top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5);
+    z-index: 4;
+}
+
+/* Badge estilizado en la esquina superior derecha */
+.badge-rechazo-modulo {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 60%, #991b1b 100%);
+    color: #ffffff;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.5), 
+                inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    border: 1.5px solid rgba(255, 255, 255, 0.95);
+    z-index: 10;
+    animation: pulseBadgeRechazo 2.2s infinite ease-in-out;
+    pointer-events: auto;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Faro / Radar luminoso pulsante */
+.badge-rechazo-beacon {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #ffffff;
+}
+
+.badge-rechazo-beacon::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.6);
+    animation: beaconRadar 1.5s infinite ease-out;
+}
+
+.badge-rechazo-text {
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes beaconRadar {
+    0% {
+        transform: scale(0.6);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2.2);
+        opacity: 0;
+    }
+}
+
+@keyframes pulseBadgeRechazo {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 4px 15px rgba(220, 38, 38, 0.5);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 8px 22px rgba(220, 38, 38, 0.75), 0 0 0 5px rgba(239, 68, 68, 0.22);
+    }
+}
+
 /* RESPONSIVE TABLET Y MÓVIL */
 @media (max-width: 900px) {
     .grid-modulos.layout-6-cards .card-modulo,

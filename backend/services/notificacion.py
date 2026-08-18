@@ -21,7 +21,10 @@ def notificacion_rechazo(
     
     semaforo_ua = query_semaforo.first()
     if semaforo_ua and semaforo_ua.Id_Semaforo >= 9:
-        print(f"ℹ️ UA {Id_Unidad_Academica} (Formato {id_formato}) totalmente validada (Semáforo {semaforo_ua.Id_Semaforo}). No se muestra alerta de rechazo.")
+        try:
+            print(f"[Notificacion] UA {Id_Unidad_Academica} (Formato {id_formato}) totalmente validada (Semáforo {semaforo_ua.Id_Semaforo}).")
+        except Exception:
+            pass
         return {}
 
     # 2. Obtener el ÚLTIMO movimiento de Validación/Rechazo para la UA, Periodo y Formato
@@ -48,7 +51,10 @@ def notificacion_rechazo(
     mensaje_rechazo = ultimo_movimiento_ua.Nota or "Sin especificar motivo"
     fecha = ultimo_movimiento_ua.Fecha
 
-    print(f"⚠️ Rechazo vigente detectado en UA {Id_Unidad_Academica}: {mensaje_rechazo} por {rechazado_por} ({fecha})")
+    try:
+        print(f"[Notificacion] Rechazo vigente detectado en UA {Id_Unidad_Academica}: {mensaje_rechazo} por {rechazado_por} ({fecha})")
+    except Exception:
+        pass
 
     return {
         "fecha": fecha.strftime("%d/%m/%Y %H:%M") if fecha else "",

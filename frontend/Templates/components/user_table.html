@@ -1,32 +1,38 @@
 <!-- Tabla de usuarios -->
-<table id="tabla-usuarios" >
+<table id="tabla-usuarios">
     <thead>
         <tr>
             <th>Nombre</th>
             <th>Usuario</th>
             <th>Email</th>
             <th>Rol</th>
+            <th>Nivel</th>
             <th>Unidad Académica</th>
             <th>Formato(s)</th>
-    <!--    {% if es_super_admin %} 
-            <th>Unidad Académica</th>
-            {% endif %}
-    -->
         </tr>
     </thead>
     <tbody>
         {% for u in usuarios %}
-    <tr class="fila-usuario" data-id="{{ u.id_usuario }}" data-nombre="{{ u.nombre }}" data-paterno="{{ u.paterno }}" data-materno="{{ u.materno }}" data-usuario="{{ u.usuario }}" data-email="{{ u.email }}" data-id_unidad="{{ u.id_unidad_academica }}" data-id_rol="{{ u.id_rol }}" data-rol_nombre="{{ u.rol }}" data-id_nivel="{{ u.id_nivel }}" data-formatos="{{ u.formatos_ids | join(',') }}">
+        <tr class="fila-usuario" 
+            data-id="{{ u.id_usuario }}" 
+            data-nombre="{{ u.nombre }}" 
+            data-paterno="{{ u.paterno }}" 
+            data-materno="{{ u.materno }}" 
+            data-usuario="{{ u.usuario }}" 
+            data-email="{{ u.email }}" 
+            data-id_unidad="{{ u.id_unidad_academica }}" 
+            data-id_rol="{{ u.id_rol }}" 
+            data-rol_nombre="{{ u.rol }}" 
+            data-id_nivel="{{ u.id_nivel }}" 
+            data-nivel_nombre="{{ u.nivel }}" 
+            data-formatos="{{ u.formatos_ids | join(',') }}">
             <td>{{ u.nombre }} {{ u.paterno }} {{ u.materno }}</td>
             <td>{{ u.usuario }}</td>
             <td>{{ u.email }}</td>
             <td>{{ u.rol }}</td>
+            <td>{{ u.nivel or 'N/A' }}</td>
             <td>{{ u.sigla_ua }}</td>
             <td>{{ u.formatos_texto }}</td>
-<!--            {% if es_super_admin %}
-            <td>{{ nombre_ua_usuario }}</td>
-            {% endif %}
--->
         </tr>
         {% endfor %}
     </tbody>
