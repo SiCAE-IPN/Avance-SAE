@@ -20,6 +20,15 @@ async def programas_view(request: Request, sess=Depends(get_current_session), db
     # Obtener datos del usuario logueado desde las cookies
     id_unidad_academica = int(sess.id_unidad_academica)
     id_rol = int(sess.id_rol)
+
+    if id_rol == 3:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": "No tienes permisos para acceder a este catálogo.", 
+            "redirect_url": "/mod_principal/",
+            "session": sess
+        })
+
     nombre_usuario = sess.nombre_usuario
     apellidoP_usuario = sess.apellidoP_usuario
     apellidoM_usuario = sess.apellidoM_usuario

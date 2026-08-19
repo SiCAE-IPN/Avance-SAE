@@ -496,7 +496,17 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
     Id_Unidad_Academica = int(getattr(sess, 'id_unidad_academica', 0) or 0)
     nombre_completo = getattr(sess, 'nombre_completo', '')
 
-    if Rol == "Capturista":
+    id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+    roles_permitidos = [1, 3, 4, 5, 6, 7, 8, 9]
+    if id_rol not in roles_permitidos:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": "Acceso denegado: Su rol no tiene permisos para acceder a esta funcionalidad.",
+            "redirect_url": "/mod_principal/",
+            "session": sess
+        })
+
+    if Rol == "Capturista" or id_rol == 3:
         aprovechamientos_limpios = []
         reincorporados_detallados = []
         inscritos_final = []
@@ -781,7 +791,8 @@ async def guardar_captura_completa_aprovechamiento(request: Request, db: Session
 
 
 @router.post("/guardar_progreso_aprovechamiento")
-def guardar_progreso_aprovechamiento(datos: List[Dict[str, Any]], db: Session = Depends(get_db)):
+def guardar_progreso_aprovechamiento(datos: List[Dict[str, Any]], sess=Depends(get_current_session), db: Session = Depends(get_db)):
+    verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=2, id_rol=int(sess.id_rol))
     try:
         _, periodo_anterior = get_periodo_anterior_al_ultimo(db)
         if not periodo_anterior:
@@ -854,6 +865,7 @@ def guardar_progreso_aprovechamiento(datos: List[Dict[str, Any]], db: Session = 
 
 @router.post("/actualizar_aprovechamiento")
 async def actualizar_aprovechamiento(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
+    verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=2, id_rol=int(sess.id_rol))
     try:
         _, periodo_sp = get_periodo_activo(db)
         unidad_sigla = getattr(sess, 'sigla_unidad_academica')
@@ -884,6 +896,7 @@ async def actualizar_aprovechamiento(request: Request, sess=Depends(get_current_
 
 @router.post("/finalizar_captura_semestre")
 async def finalizar_captura_semestre(request: Request, data: Dict[str, Any], sess=Depends(get_current_session), db: Session = Depends(get_db)):
+    verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=2, id_rol=int(sess.id_rol))
     try:
         unidad_sigla = (getattr(sess, 'sigla_unidad_academica', '') or '').strip()
         usuario = getattr(sess, 'usuario', '') or ''
@@ -932,10 +945,13 @@ async def finalizar_captura_semestre(request: Request, data: Dict[str, Any], ses
         })
         db.commit()
         return {"status": "success", "message": "Proceso completado."}
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         print(f"❌ ERROR SQL DETECTADO: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 validar_acuse = VerificarAccesoAcuse()
 
@@ -949,6 +965,16 @@ async def resumen_aprovechamiento_dinamico_view(
     sess=Depends(validar_acuse),
     db: Session = Depends(get_db)
 ):
+    id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+    roles_permitidos = [1, 4, 5, 6, 7, 8, 9]
+    if id_rol not in roles_permitidos:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": "Acceso denegado: Su rol no tiene permisos para acceder a esta funcionalidad.",
+            "redirect_url": "/mod_principal/",
+            "session": sess
+        })
+
     # Forzamos los valores seguros de la sesión si vienen vacíos en la URL
     final_unidad = unidad if (unidad and unidad.strip()) else sess.sigla_unidad_academica
     final_nivel = nivel if (nivel and nivel.strip()) else sess.nombre_nivel

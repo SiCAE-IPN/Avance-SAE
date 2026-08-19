@@ -14,6 +14,14 @@ router = APIRouter()
 async def unidad_academica_view(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
     # Obtener ID de UA desde cookies del usuario logueado
     id_unidad_academica = int(sess.id_unidad_academica)
+    id_rol = int(sess.id_rol)
+    if id_rol == 3:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "error_message": "No tienes permisos para acceder a este catálogo.", 
+            "redirect_url": "/mod_principal/",
+            "session": sess
+        })
     
     # Obtener información de la UA
     unidad_academica = db.query(CatUnidadAcademica).filter_by(Id_Unidad_Academica=id_unidad_academica).first()

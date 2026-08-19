@@ -102,7 +102,7 @@ async def consulta_titulados(
     niveles_por_unidad = None
 
     try:
-        verificar_permiso_formato(db, id_usuario, 4)
+        verificar_permiso_formato(db, id_usuario, 4, id_rol=id_rol)
     except HTTPException as e:
         return templates.TemplateResponse("error.html", {
         "request": request,

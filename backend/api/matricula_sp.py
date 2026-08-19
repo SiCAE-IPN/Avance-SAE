@@ -1886,7 +1886,7 @@ async def guardar_captura_completa(request: Request, sess=Depends(get_current_se
         raise HTTPException(status_code=500, detail=f"Error al guardar la matrícula: {str(e)}")
 
 @router.post("/guardar_progreso")
-def guardar_progreso(datos: List[Dict[str, Any]], db: Session = Depends(get_db)):
+def guardar_progreso(datos: List[Dict[str, Any]], sess=Depends(get_current_session), db: Session = Depends(get_db)):
     """
     Guardar el progreso de la matrícula en la tabla Temp_Matricula.
     Args:
@@ -1895,6 +1895,7 @@ def guardar_progreso(datos: List[Dict[str, Any]], db: Session = Depends(get_db))
     Returns:
         Mensaje de éxito o error.
     """
+    verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=1, id_rol=int(sess.id_rol))
     try:
         # Obtener campos válidos desde el modelo Temp_Matricula
         valid_fields = set()
@@ -2497,6 +2498,7 @@ async def validar_captura_semestre(request: Request, sess=Depends(get_current_se
     
     SOLO debe llamarse cuando todos los turnos del semestre estén validados.
     """
+    verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=1, id_rol=int(sess.id_rol))
     try:
         # Obtener datos del request
         data = await request.json()
@@ -3191,6 +3193,7 @@ async def ejecutar_sp_finalizar_captura(request: Request, sess=Depends(get_curre
     Verifica que TODOS los semestres de TODAS las combinaciones Programa-Modalidad
     de la UA y periodo estén en semáforo 3 (Id_Formato=1).
     """
+    verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=1, id_rol=int(sess.id_rol))
     try:
         # Obtener datos del request
         body = await request.json()

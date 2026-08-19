@@ -384,6 +384,14 @@ async def eliminar_usuario(
     db: Session = Depends(get_db),
     _limit=Depends(limiter_sensible),
 ):
+    id_rol = int(sess.id_rol)
+    nombre_usuario = sess.nombre_usuario
+    apellidoP_usuario = sess.apellidoP_usuario
+    apellidoM_usuario = sess.apellidoM_usuario
+    es_super = is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
+    if not es_super and id_rol not in PERMISOS_CREACION_ROLES:
+        return JSONResponse(status_code=403, content={"mensaje": "No tienes permisos para dar de baja usuarios."})
+
     try:
         baja_usuario_sp(
             db,

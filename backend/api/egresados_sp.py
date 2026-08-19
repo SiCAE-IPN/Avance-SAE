@@ -36,7 +36,7 @@ from backend.database.models.Temp_Egresados import Temp_Egresados
 from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo, get_periodo_anterior_al_ultimo
 from backend.core.auth import VerificarAccesoAcuse
-from backend.services.encargado_ua_service import obtener_encargados
+from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 from backend.core.session_store import SessionData,session_store
 from backend.database.models.Usuario import Usuario
 
@@ -273,6 +273,18 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(validar_acuse
                 "session": sess
             })
     
+    if id_rol == 3:  # Solo aplicamos la restricción al capturista
+        try:
+            # ID 3 corresponde a Egresados
+            verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=3, id_rol=id_rol)
+        except HTTPException as e:
+            return templates.TemplateResponse("error.html", {
+                "request": request,
+                "error_message": e.detail,
+                "redirect_url": "/mod_principal/",
+                "session": sess
+            })
+
     # Determinar el modo de vista según el rol
     es_capturista = (id_rol == 3)
     es_validador = (id_rol in [4, 5, 6, 7, 8, 9])  # Roles de validación/rechazo
@@ -818,6 +830,7 @@ async def consultar_egresados(request: Request, sess=Depends(get_current_session
     """
     Ejecuta el SP_Consulta_Egresados_Unidad_Academica para obtener datos de egresados
     """
+    verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=3, id_rol=int(sess.id_rol))
     try:
         data = await request.json()
 
@@ -910,6 +923,7 @@ async def consultar_egresados(request: Request, sess=Depends(get_current_session
 
 @router.post('/guardar')
 async def guardar_egresados(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
+    verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=3, id_rol=int(sess.id_rol))
     try:
         data = await request.json()
         registros = data.get('registros', [])
@@ -1371,6 +1385,7 @@ async def guardar_avance_egresados(request: Request, sess=Depends(get_current_se
     Ejecuta el SP SP_Actualiza_Egresados_Por_Unidad_Academica para actualizar 
     la tabla Egresados con los datos de Temp_Egresados y actualizar el semáforo a estado 2 (En Proceso).
     """
+    verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=3, id_rol=int(sess.id_rol))
     try:
         # Obtener datos del usuario desde cookies
         nombre_usuario = sess.nombre_usuario
@@ -1511,6 +1526,7 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
     2. Llama internamente a SP_Actualiza_Egresados_Por_Unidad_Academica
     3. Devuelve la consulta actualizada de egresados
     """
+    verificar_permiso_formato(db, usuario_id=int(sess.id_usuario), formato_id=3, id_rol=int(sess.id_rol))
     try:
         # Obtener datos del usuario desde cookies
         nombre_usuario = sess.nombre_usuario

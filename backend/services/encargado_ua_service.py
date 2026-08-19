@@ -1,7 +1,8 @@
+from __future__ import annotations
 # backend/services/usuario_service.py
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from typing import Dict
+from typing import Dict, Optional
 from backend.database.models.FormatoUsuario import Usuario as FormatoUsuario
 from backend.database.models.Usuario import Usuario
 from fastapi import HTTPException, status
@@ -75,23 +76,26 @@ def obtener_encargados(db: Session, Id_Unidad_Academica: int, Id_formato: int) -
 
     return encargados
 
-def verificar_permiso_formato(db: Session, usuario_id: int, formato_id: int):
+def verificar_permiso_formato(db: Session, usuario_id: int, formato_id: int, id_rol: Optional[int] = None):
     """
-    Verifica si un usuario tiene registro en la tabla formatousuario.
-    Si no existe, lanza una excepción HTTP 403 de FastAPI inmediatamente.
+    Verifica si un usuario tiene permiso institucional para un formato específico.
+    - Si id_rol está en [1, 4, 5, 6, 7, 8, 9] (Administradores / Supervisores / Validadores): Acceso institucional permitido.
+    - Si id_rol == 3 (o no especificado): Verifica en FormatoUsuario que el usuario tenga asignado el formato activo (Id_Estatus == 1).
+    Si no existe permiso, lanza una excepción HTTP 403 de FastAPI inmediatamente.
     """
-
+    if id_rol is not None and int(id_rol) in [1, 4, 5, 6, 7, 8, 9]:
+        return True
 
     permiso_existe = db.query(FormatoUsuario).filter(
         FormatoUsuario.Id_Formato == formato_id,
-        FormatoUsuario.Id_Usuario == usuario_id
+        FormatoUsuario.Id_Usuario == usuario_id,
+        FormatoUsuario.Id_Estatus == 1
     ).first()
 
     if not permiso_existe:
-        
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acceso denegado: No tienes permisos institucionales para consultar este Formato."
         )
-    
+
     return permiso_existe

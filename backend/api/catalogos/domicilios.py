@@ -103,6 +103,10 @@ def registrar_ua(
     sess=Depends(get_current_session), 
     db: Session = Depends(get_db)
 ):
+    id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+    if id_rol == 3:
+        return {"status": "error", "msg": "No tienes permisos para realizar esta acción."}
+
     print("Datos recibidos en REGISTRAR:", data)
     try:
         # Obtener valores en tiempo de ejecución
@@ -162,6 +166,10 @@ def actualizar_ua(
     sess=Depends(get_current_session), 
     db: Session = Depends(get_db)
 ):
+    id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+    if id_rol == 3:
+        return {"status": "error", "msg": "No tienes permisos para realizar esta acción."}
+
     print("Body recibido en ACTUALIZAR:", data)
     try:
         # Obtener valores en tiempo de ejecución
@@ -211,6 +219,10 @@ def eliminar_ua(
     sess=Depends(get_current_session), 
     db: Session = Depends(get_db)
 ):
+    id_rol = int(getattr(sess, 'id_rol', 0) or 0)
+    if id_rol == 3:
+        return {"status": "error", "msg": "No tienes permisos para realizar esta acción."}
+
     print("Sigla a ELIMINAR:", sigla)
     try:
         # Obtener valores en tiempo de ejecución
