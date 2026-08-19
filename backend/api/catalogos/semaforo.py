@@ -67,6 +67,10 @@ def semaforo_view(
             "request": request,
             "semaforo": data,
             "rol": Rol,
+            "nombre_rol": Rol,
+            "nombre_usuario": getattr(sess, 'nombre_completo', '') or getattr(sess, 'nombre_usuario', ''),
+            "sigla_unidad_academica": getattr(sess, 'sigla_unidad_academica', ''),
+            "periodo_literal": PPeriodo,
             "session": sess
         }
     )

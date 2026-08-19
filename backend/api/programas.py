@@ -10,7 +10,7 @@ from backend.database.models.ProgramaModalidad import ProgramaModalidad
 from backend.database.models.UnidadProgramaModalidad import CatUnidadProgramaModalidad
 from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
 from backend.database.models.CatModalidad import CatModalidad
-from backend.services.periodo_service import get_periodo_anterior_al_ultimo, get_ultimo_periodo
+from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
 from backend.database.models.CatNivel import CatNivel
 
 router = APIRouter()
@@ -29,9 +29,8 @@ async def programas_view(request: Request, sess=Depends(get_current_session), db
                      apellidoP_usuario.strip().lower() == 'admin' and
                      apellidoM_usuario.strip().lower() == 'admin')
     
-    _, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
-    if not periodo_anterior_literal:
-        _, periodo_anterior_literal = get_ultimo_periodo(db)
+    _, periodo_literal = get_periodo_activo(db) or get_ultimo_periodo(db)
+    periodo_literal = periodo_literal or ""
 
     # Si es super admin, obtener todas las UAs para el selector
     todas_uas = []
@@ -88,7 +87,7 @@ async def programas_view(request: Request, sess=Depends(get_current_session), db
             "nombre_usuario": sess.nombre_completo,
             "nombre_rol": sess.nombre_rol,
             "sigla_unidad_academica": sess.sigla_unidad_academica,
-            "periodo_literal": periodo_anterior_literal or "",
+            "periodo_literal": periodo_literal,
             "session": sess,
         }
     )

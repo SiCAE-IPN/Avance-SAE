@@ -73,6 +73,10 @@ def periodos_view(
             "request": request,
             "periodos": data,
             "rol": Rol,
+            "nombre_rol": Rol,
+            "nombre_usuario": getattr(sess, 'nombre_completo', '') or getattr(sess, 'nombre_usuario', ''),
+            "sigla_unidad_academica": getattr(sess, 'sigla_unidad_academica', ''),
+            "periodo_literal": PPeriodo,
             "session": sess
         }
     )

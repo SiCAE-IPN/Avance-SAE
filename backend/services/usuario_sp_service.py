@@ -12,7 +12,7 @@ from backend.database.models.CatRoles import CatRoles
 from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
 from backend.database.models.Usuario import Usuario
 from backend.services.bitacora_service import registrar_bitacora
-from backend.services.periodo_service import get_ultimo_periodo
+from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
 from backend.utils.email import EmailSendError, send_email
 from backend.utils.security import generate_random_password, hash_password
 
@@ -29,7 +29,7 @@ def _capitalizar_nombre(texto: str) -> str:
 
 
 def _get_periodo_literal(db: Session) -> str:
-    _, periodo_literal = get_ultimo_periodo(db)
+    _, periodo_literal = get_periodo_activo(db) or get_ultimo_periodo(db)
     if not periodo_literal:
         raise ValueError("No hay periodos configurados en el sistema.")
     return periodo_literal

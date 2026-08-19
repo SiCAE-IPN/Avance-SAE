@@ -13,11 +13,23 @@
 {% block content %}
 <div class="container">
     <div class="header-usuarios">
-        <h2>Catálogo de Programas</h2>
+        <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario or session.nombre_completo }}</strong>
+            {% if periodo_literal %}
+                &nbsp;|&nbsp; Periodo: <strong>{{ periodo_literal }}</strong>
+            {% endif %}
+            {% if session.sigla_unidad_academica or sigla_unidad_academica %}
+                &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or sigla_unidad_academica }}</strong>
+            {% endif %}
+            {% if nombre_rol or session.nombre_rol %}
+                &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
+            {% endif %}
+        </div>
         <form action="/mod_principal" method="get">
             <button type="submit" class="btn-volver">Regresar</button>
         </form>
     </div>
+
+    <h2>Catálogo de Programas</h2>
 
 
      <!-- Formulario de registro/edición de usuarios -->

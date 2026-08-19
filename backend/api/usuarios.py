@@ -22,7 +22,7 @@ from backend.services.usuario_sp_service import (
 from backend.services.roles_service import get_all_roles, get_roles_for_user_group
 from backend.services.unidad_services import get_all_units
 from backend.services.nivel_service import get_all_niveles
-from backend.services.periodo_service import get_ultimo_periodo
+from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
 from backend.schemas.Usuario import UsuarioCreate
 from sqlalchemy.orm import Session
 from backend.utils.request import get_request_host
@@ -86,7 +86,7 @@ async def usuarios_view(
     usuario_operador = str(getattr(sess, "usuario", "") or "sistema")
     ua_obj = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Id_Unidad_Academica == id_unidad_academica).first()
     unidad_operador = ua_obj.Sigla if ua_obj else "-"
-    _, periodo_literal = get_ultimo_periodo(db)
+    _, periodo_literal = get_periodo_activo(db) or get_ultimo_periodo(db)
     periodo_literal = periodo_literal or ""
     host_operador = get_request_host(request)
 
@@ -158,7 +158,6 @@ async def usuarios_view(
     unidades_academicas = get_all_units(db)
     niveles = get_all_niveles(db)
     formatos = get_formatos_activos(db)
-    _, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
     return templates.TemplateResponse(
         "usuarios.html",
         {
@@ -168,7 +167,7 @@ async def usuarios_view(
             "nombre_rol": Rol or getattr(sess, "nombre_rol", ""),
             "id_unidad_academica": id_unidad_academica,
             "sigla_unidad_academica": getattr(sess, "sigla_unidad_academica", ""),
-            "periodo_literal": periodo_anterior_literal or periodo_literal,
+            "periodo_literal": periodo_literal,
             "nombre_ua": nombre_ua,
             "nombre_usuario": nombre_completo,
             "roles": roles_disponibles,
