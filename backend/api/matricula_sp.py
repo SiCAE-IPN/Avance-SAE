@@ -2050,60 +2050,6 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
         
         print(f"Registros en Temp_Matricula: {temp_count}")
         
-        # DIAGNÓSTICO: Mostrar contenido de Temp_Matricula antes de actualizar
-        print(f"\n=== DIAGNÓSTICO TEMP_MATRICULA ===")
-        temp_records = db.query(Temp_Matricula).all()
-        for i, record in enumerate(temp_records, 1):
-            print(f"Registro {i}:")
-            print(f"  Periodo: '{record.Periodo}'")
-            print(f"  Sigla: '{record.Sigla}'")
-            print(f"  Nombre_Programa: '{record.Nombre_Programa}'")
-            print(f"  Nombre_Rama: '{record.Nombre_Rama}'")
-            print(f"  Nivel: '{record.Nivel}'")
-            print(f"  Modalidad: '{record.Modalidad}'")
-            print(f"  Turno: '{record.Turno}'")
-            print(f"  Semestre: '{record.Semestre}'")
-            print(f"  Grupo_Edad: '{record.Grupo_Edad}'")
-            print(f"  Tipo_Ingreso: '{record.Tipo_Ingreso}'")
-            print(f"  Sexo: '{record.Sexo}'")
-            print(f"  Matricula: {record.Matricula}")
-            print("-" * 40)
-        
-        # DIAGNÓSTICO: Verificar si existen registros en Matricula que coincidan
-        print(f"\n=== VERIFICANDO COINCIDENCIAS EN MATRICULA ===")
-        matricula_count = db.query(Matricula).count()
-        print(f"Total registros en Matricula: {matricula_count}")
-        
-        # Buscar un registro de ejemplo para ver si hay coincidencias
-        if temp_records:
-            temp_ejemplo = temp_records[0]
-            print(f"\nBuscando coincidencias para el primer registro de Temp_Matricula:")
-            
-            # Verificar periodo
-            periodo_match = db.query(Periodo).filter(Periodo.Periodo == temp_ejemplo.Periodo).first()
-            print(f"Periodo '{temp_ejemplo.Periodo}' encontrado: {periodo_match is not None}")
-            if periodo_match:
-                print(f"  ID Periodo: {periodo_match.Id_Periodo}")
-            
-            # Verificar unidad académica
-            unidad_match = db.query(Unidad_Academica).filter(Unidad_Academica.Sigla == temp_ejemplo.Sigla).first()
-            print(f"Unidad '{temp_ejemplo.Sigla}' encontrada: {unidad_match is not None}")
-            if unidad_match:
-                print(f"  ID Unidad: {unidad_match.Id_Unidad_Academica}")
-            
-            # Verificar programa
-            programa_match = db.query(Programas).filter(Programas.Nombre_Programa == temp_ejemplo.Nombre_Programa).first()
-            print(f"Programa '{temp_ejemplo.Nombre_Programa}' encontrado: {programa_match is not None}")
-            if programa_match:
-                print(f"  ID Programa: {programa_match.Id_Programa}")
-        
-        print(f"=================================")
-        
-        # **NUEVO: Contar registros en Matricula ANTES del SP**
-        print(f"\n=== CONTEO ANTES DEL SP ===")
-        count_antes = db.query(Matricula).count()
-        print(f"Total registros en Matricula ANTES: {count_antes}")
-        
         print(f"\n=== PARÁMETROS DEL SP ===")
         print(f"@UUnidad_Academica = '{unidad_sigla}' (tipo: {type(unidad_sigla).__name__})")
         print(f"@SSalones = '{total_grupos}' (tipo: {type(total_grupos).__name__})")
@@ -2124,71 +2070,20 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
                 host=host_sp,
                 nivel=nivel,
             )
-            print("SP ejecutado exitosamente")
-            
-            # **NUEVO: Contar registros en Matricula DESPUÉS del SP**
-            print(f"\n=== CONTEO DESPUÉS DEL SP ===")
-            count_despues = db.query(Matricula).count()
-            print(f"Total registros en Matricula DESPUÉS: {count_despues}")
-            print(f"Diferencia: {count_despues - count_antes} registros")
-            
-            if count_despues == count_antes:
-                print(f"⚠️ WARNING: El SP no insertó ni actualizó registros en Matricula")
-                print(f"⚠️ Posibles causas:")
-                print(f"   1. No había datos en Temp_Matricula para procesar")
-                print(f"   2. Los datos en Temp_Matricula no coinciden con catálogos")
-                print(f"   3. El SP tiene un problema interno")
-            elif count_despues > count_antes:
-                print(f"✅ El SP insertó {count_despues - count_antes} registros nuevos")
-            else:
-                print(f"⚠️ El SP eliminó {count_antes - count_despues} registros (esto no debería pasar)")
-            
-            # LIMPIAR VALIDACIONES PREVIAS cuando el capturista hace cambios
-            # Esto permite que los validadores vuelvan a validar/rechazar
-            print(f"\n🔄 Limpiando validaciones previas del periodo...")
-            id_unidad_academica = int(sess.id_unidad_academica)
-            
-            # Obtener el ID del periodo
-            periodo_obj = db.query(Periodo).filter(Periodo.Periodo == periodo).first()
-            if periodo_obj:
-                periodo_id = periodo_obj.Id_Periodo
-                
-                # Eliminar registros de validación anteriores para este periodo/formato
-                #validaciones_eliminadas = db.query(Validacion).filter(
-                #    Validacion.Id_Periodo == periodo_id,
-                #    Validacion.Id_Formato == 1  # Formato de matrícula
-                #).delete()
-                
-                db.commit()
-                #print(f"✅ {validaciones_eliminadas} validaciones previas eliminadas")
-                print(f"   Los validadores pueden volver a validar/rechazar")
-            else:
-                print(f"⚠️  No se pudo obtener ID del periodo para limpiar validaciones")
+            print("✅ SP ejecutado exitosamente")
                 
         except Exception as sp_error:
             print(f"ERROR al ejecutar SP: {sp_error}")
             raise
         
-        # Verificar que Temp_Matricula quedó vacía (el SP hace TRUNCATE)
-        temp_count_after = db.query(Temp_Matricula).count()
-        
-        print(f"Registros en Temp_Matricula después: {temp_count_after}")
         print("=== ACTUALIZACIÓN COMPLETADA ===")
         
         return {
             "mensaje": "Matrícula actualizada exitosamente",
             "registros_procesados": temp_count,
-            "temp_matricula_limpiada": temp_count_after == 0,
             "usuario": usuario_sp,
             "periodo": periodo,
-            "timestamp": datetime.now().isoformat(),
-            # **NUEVO: Información de diagnóstico**
-            "diagnostico": {
-                "registros_antes": count_antes,
-                "registros_despues": count_despues,
-                "diferencia": count_despues - count_antes,
-                "sp_hizo_cambios": count_despues != count_antes
-            }
+            "timestamp": datetime.now().isoformat()
         }
         
     except Exception as e:

@@ -3743,34 +3743,7 @@ function updateInputsBySemestre(semestreNum) {
             return;
         }
 
-        // 1. REGLA OBLIGATORIA DE GRUPOS: Todos los turnos visibles deben tener grupos >= 1
-        const inputsGrupos = document.querySelectorAll('.input-total-grupos-turno');
-        let gruposFaltantes = false;
-        let primerInputGrupoVacio = null;
-
-        inputsGrupos.forEach(input => {
-            const semId = parseInt(input.getAttribute('data-semestre-id') || semestre);
-            if (semId === parseInt(semestre)) {
-                const valorGrupo = parseInt(input.value);
-                if (isNaN(valorGrupo) || valorGrupo <= 0) {
-                    gruposFaltantes = true;
-                    if (!primerInputGrupoVacio) primerInputGrupoVacio = input;
-                }
-            }
-        });
-
-        if (gruposFaltantes && inputsGrupos.length > 0) {
-            await Swal.fire({
-                icon: 'warning',
-                title: 'Grupos requeridos',
-                text: 'El campo de grupos es obligatorio para cada turno y debe ser mayor a 0.',
-                confirmButtonText: 'Entendido'
-            });
-            if (primerInputGrupoVacio) primerInputGrupoVacio.focus();
-            return;
-        }
-
-        // 2. REGLA DE COHERENCIA: Si hay grupos en un turno, al menos 1 alumno debe ingresarse en ese turno
+        // 1. Calcular suma de alumnos por turno en el semestre
         const inputs = document.querySelectorAll('input.input-matricula-nueva');
         const sumaAlumnosPorTurno = {};
         let totalAlumnosSemestre = 0;
@@ -3784,6 +3757,47 @@ function updateInputsBySemestre(semestreNum) {
             totalAlumnosSemestre += val;
         });
 
+        // 2. REGLA DE GRUPOS: Solo se exige grupos si hay alumnos en ese turno
+        const inputsGrupos = document.querySelectorAll('.input-total-grupos-turno');
+        let gruposFaltantes = false;
+        let primerInputGrupoVacio = null;
+        let turnoFaltanteNombre = '';
+
+        inputsGrupos.forEach(input => {
+            const semId = parseInt(input.getAttribute('data-semestre-id') || semestre);
+            if (semId === parseInt(semestre)) {
+                const turnoId = parseInt(input.getAttribute('data-turno-id'));
+                const valorGrupo = parseInt(input.value);
+                const alumnosTurno = sumaAlumnosPorTurno[turnoId] || 0;
+
+                // Si hay alumnos en el turno, los grupos deben ser >= 1
+                if (alumnosTurno > 0 && (isNaN(valorGrupo) || valorGrupo <= 0)) {
+                    gruposFaltantes = true;
+                    if (!primerInputGrupoVacio) {
+                        primerInputGrupoVacio = input;
+                        const matchTurno = turnosDisponibles.find(t => parseInt(t.Id_Turno) === turnoId);
+                        turnoFaltanteNombre = matchTurno ? matchTurno.Turno : `Turno ${turnoId}`;
+                    }
+                } else if (alumnosTurno === 0 && (!input.value || input.value.trim() === '')) {
+                    input.value = '0';
+                    const clave = `${parseInt(semestre)}_${turnoId}`;
+                    totalGruposPorSemestreYTurno[clave] = 0;
+                }
+            }
+        });
+
+        if (gruposFaltantes && inputsGrupos.length > 0) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Grupos requeridos',
+                text: `Ha ingresado matrícula en el turno "${turnoFaltanteNombre}", por lo que el campo de grupos es obligatorio y debe ser mayor a 0.`,
+                confirmButtonText: 'Entendido'
+            });
+            if (primerInputGrupoVacio) primerInputGrupoVacio.focus();
+            return;
+        }
+
+        // 3. REGLA DE COHERENCIA: Si se especifican grupos > 0 en un turno, al menos 1 alumno debe ingresarse en ese turno
         for (let input of inputsGrupos) {
             const semId = parseInt(input.getAttribute('data-semestre-id') || semestre);
             if (semId === parseInt(semestre)) {
@@ -4722,6 +4736,7 @@ function updateInputsBySemestre(semestreNum) {
 
         const plan = [];
         const resumen = [];
+        const turnosEnCero = [];
         let totalSemestresPlan = 0;
         let semestresProcesados = 0;
         let semestresExitosos = 0;
@@ -4771,6 +4786,34 @@ function updateInputsBySemestre(semestreNum) {
                     await cargarDatosExistentes();
 
                     const semestres = Array.isArray(semestresDisponiblesSP) ? [...new Set(semestresDisponiblesSP)] : [];
+                    const turnos = Array.isArray(turnosDisponibles) ? [...turnosDisponibles] : [];
+
+                    // Rastrear turnos en cero para este programa y modalidad
+                    const datosCtx = obtenerDatosContexto(false);
+                    for (const semId of semestres) {
+                        for (const t of turnos) {
+                            const turnoId = parseInt(t.Id_Turno, 10);
+                            const turnoNombre = t.Turno || `Turno ${turnoId}`;
+                            const claveTurno = `${semId}_${turnoId}`;
+                            const gruposVal = totalGruposPorSemestreYTurno[claveTurno] || 0;
+
+                            const datosTurno = (datosCtx[turnoId] || {})[semId] || {};
+                            let sumaAlumnos = 0;
+                            Object.values(datosTurno).forEach(v => {
+                                const n = parseInt(v);
+                                if (!isNaN(n) && n > 0) sumaAlumnos += n;
+                            });
+
+                            if (sumaAlumnos === 0 && gruposVal === 0) {
+                                turnosEnCero.push({
+                                    programaNombre,
+                                    modalidadNombre,
+                                    semestreId: semId,
+                                    turnoNombre
+                                });
+                            }
+                        }
+                    }
 
                     plan.push({
                         programaId,
@@ -4802,6 +4845,47 @@ function updateInputsBySemestre(semestreNum) {
                     text: 'No se detectaron semestres en programas/modalidades de la UA.'
                 });
                 return;
+            }
+
+            // Preguntar al usuario si desea validar los turnos en cero detectados
+            if (turnosEnCero.length > 0) {
+                const htmlLista = turnosEnCero.map(t => `<li style="padding: 3px 0;"><strong>${t.programaNombre} (${t.modalidadNombre})</strong> — Semestre ${t.semestreId}, ${t.turnoNombre}</li>`).join('');
+
+                const confirmacionCeros = await Swal.fire({
+                    title: 'Turnos en cero detectados',
+                    html: `
+                        <div style="text-align: left; margin: 5px 0;">
+                            <p style="margin-bottom: 8px;">Se detectaron <strong>${turnosEnCero.length} turno(s)</strong> con <strong>0 alumnos y 0 grupos</strong>:</p>
+                            <div style="max-height: 180px; overflow-y: auto; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px 14px; margin: 10px 0;">
+                                <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #495057;">
+                                    ${htmlLista}
+                                </ul>
+                            </div>
+                            <p style="margin-top: 10px; font-weight: 600; color: #750946;">¿Desea continuar y validarlos en 0?</p>
+                        </div>
+                    `,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, validar en 0',
+                    cancelButtonText: 'Cancelar y revisar',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#dc3545'
+                });
+
+                if (!confirmacionCeros.isConfirmed) {
+                    btnValidarTodos.disabled = false;
+                    btnValidarTodos.textContent = estadoOriginal.textoBoton;
+                    validacionMasivaEnCurso = false;
+
+                    // Restaurar estado original de la vista
+                    programaSelect.value = estadoOriginal.programa;
+                    filtrarModalidadesPorPrograma();
+                    modalidadSelect.value = estadoOriginal.modalidad;
+                    semestreInput.value = estadoOriginal.semestre;
+                    turnoInput.value = estadoOriginal.turno;
+                    await cargarDatosExistentes();
+                    return;
+                }
             }
 
             // 2) Abrir un unico modal de progreso circular
@@ -5066,34 +5150,7 @@ function updateInputsBySemestre(semestreNum) {
         
         const inputs = document.querySelectorAll('input.input-matricula-nueva');
         
-        // 1. REGLA OBLIGATORIA DE GRUPOS: Todos los turnos visibles deben tener grupos >= 1
-        const inputsGrupos = document.querySelectorAll('.input-total-grupos-turno');
-        let gruposFaltantes = false;
-        let primerInputGrupoVacio = null;
-
-        inputsGrupos.forEach(input => {
-            const semId = parseInt(input.getAttribute('data-semestre-id') || semestreActual);
-            if (semId === semestreActual) {
-                const valorGrupo = parseInt(input.value);
-                if (isNaN(valorGrupo) || valorGrupo <= 0) {
-                    gruposFaltantes = true;
-                    if (!primerInputGrupoVacio) primerInputGrupoVacio = input;
-                }
-            }
-        });
-
-        if (gruposFaltantes && inputsGrupos.length > 0) {
-            await Swal.fire({
-                icon: 'warning',
-                title: 'Grupos requeridos',
-                text: 'El campo de grupos es obligatorio para cada turno y debe ser mayor a 0 antes de finalizar el semestre.',
-                confirmButtonText: 'Entendido'
-            });
-            if (primerInputGrupoVacio) primerInputGrupoVacio.focus();
-            return;
-        }
-
-        // 2. REGLA DE COHERENCIA: Si hay grupos en un turno, al menos 1 alumno debe tener valor > 0
+        // 1. Calcular suma de alumnos por turno
         const sumaAlumnosPorTurno = {};
         inputs.forEach(input => {
             const turnoId = parseInt(input.getAttribute('data-turno'));
@@ -5103,6 +5160,47 @@ function updateInputsBySemestre(semestreNum) {
             }
         });
 
+        // 2. REGLA DE GRUPOS: Solo se exige grupos si hay alumnos en ese turno
+        const inputsGrupos = document.querySelectorAll('.input-total-grupos-turno');
+        let gruposFaltantes = false;
+        let primerInputGrupoVacio = null;
+        let turnoFaltanteNombre = '';
+
+        inputsGrupos.forEach(input => {
+            const semId = parseInt(input.getAttribute('data-semestre-id') || semestreActual);
+            if (semId === semestreActual) {
+                const turnoId = parseInt(input.getAttribute('data-turno-id'));
+                const valorGrupo = parseInt(input.value);
+                const alumnosTurno = sumaAlumnosPorTurno[turnoId] || 0;
+
+                // Si hay alumnos en el turno, los grupos deben ser >= 1
+                if (alumnosTurno > 0 && (isNaN(valorGrupo) || valorGrupo <= 0)) {
+                    gruposFaltantes = true;
+                    if (!primerInputGrupoVacio) {
+                        primerInputGrupoVacio = input;
+                        const matchTurno = turnosDisponibles.find(t => parseInt(t.Id_Turno) === turnoId);
+                        turnoFaltanteNombre = matchTurno ? matchTurno.Turno : `Turno ${turnoId}`;
+                    }
+                } else if (alumnosTurno === 0 && (!input.value || input.value.trim() === '')) {
+                    input.value = '0';
+                    const clave = `${semestreActual}_${turnoId}`;
+                    totalGruposPorSemestreYTurno[clave] = 0;
+                }
+            }
+        });
+
+        if (gruposFaltantes && inputsGrupos.length > 0) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Grupos requeridos',
+                text: `Ha ingresado matrícula en el turno "${turnoFaltanteNombre}", por lo que el campo de grupos es obligatorio y debe ser mayor a 0 antes de finalizar el semestre.`,
+                confirmButtonText: 'Entendido'
+            });
+            if (primerInputGrupoVacio) primerInputGrupoVacio.focus();
+            return;
+        }
+
+        // 3. REGLA DE COHERENCIA: Si se especifican grupos > 0 en un turno, al menos 1 alumno debe tener valor > 0
         for (let input of inputsGrupos) {
             const semId = parseInt(input.getAttribute('data-semestre-id') || semestreActual);
             if (semId === semestreActual) {
