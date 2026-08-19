@@ -745,7 +745,7 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
             {
                 "rol": Rol,
                 "nombre_usuario": nombre_completo,
-                "periodo_activo_literal": periodo_aprovechamiento,
+                "periodo_activo_literal": PPeriodo,
                 "periodo_anterior_literal": periodo_anterior_literal,
                 "unidad_academica": UUnidad_Academica,
                 "mi_unidad_sigla": UUnidad_Academica,
@@ -768,7 +768,8 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
                 "nombre_usuario": nombre_completo,
                 "nivel_usuario": nivel_usuario,
                 "periodos": todos_los_periodos,
-                "periodo_activo_literal": periodo_aprovechamiento,
+                "periodo_activo_literal": PPeriodo,
+                "periodo_activo_id": ID_PPeriodo,
                 "periodo_anterior_literal": periodo_anterior_literal,
                 "unidad_academica": UUnidad_Academica,
                 "unidades": unidades_con_niveles,

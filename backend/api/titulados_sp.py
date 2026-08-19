@@ -152,19 +152,13 @@ async def consulta_titulados(
 
     print(f"Usuario: {nombre_usuario}, Rol: {nombre_rol} (ID: {id_rol}), Unidad Académica: {unidad_academica} ({sigla_unidad_academica}), Nivel: {nombre_nivel}, Host: {host}")
     try:
-        periodo_id, periodo_literal = get_periodo_anterior_al_ultimo(db)
+        periodo_id_anterior, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
         periodo_id_actual, periodo_literal_actual = get_periodo_activo(db)
-        if not periodo_id or not periodo_literal:
-            return templates.TemplateResponse("error.html", {
-                "request": request,
-                "error_message": "No hay un periodo activo configurado en el sistema.",
-                "redirect_url": "/mod_principal/",
-                "session": sess
-            })
-        
-        periodo_default_literal = periodo_literal
+        if not periodo_id_actual or not periodo_literal_actual:
+            periodo_id_actual, periodo_literal_actual = get_ultimo_periodo(db)
 
-        print(f" Periodo por defecto: {periodo_default_literal}")
+        periodo_default_literal = periodo_literal_actual
+        print(f" Periodo activo (default): {periodo_default_literal} | Periodo anterior (header): {periodo_anterior_literal}")
 
 
     except Exception as e:
@@ -328,6 +322,7 @@ async def consulta_titulados(
              "rechazo_info" : rechazo_info,
              "nombre_usuario": sess.nombre_completo,
              "periodo_default_literal": periodo_default_literal,
+             "periodo_anterior_literal": periodo_anterior_literal,
              "periodos" : periodosDisponibles,
              "niveles" : nombres_niveles,
              "niveles_por_unidad" : niveles_por_unidad,

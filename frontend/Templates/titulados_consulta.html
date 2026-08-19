@@ -226,8 +226,8 @@
     {% if acceso_restringido %}
     <div class="header-usuarios">
         <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario or session.nombre_completo }}</strong>
-            {% if periodo_default_literal %}
-                &nbsp;|&nbsp; Periodo: <strong>{{ periodo_default_literal }}</strong>
+            {% if periodo_anterior_literal or periodo_default_literal %}
+                &nbsp;|&nbsp; Periodo: <strong>{{ periodo_anterior_literal or periodo_default_literal }}</strong>
             {% endif %}
             {% if session.sigla_unidad_academica or sigla_unidad_academica or unidad_academica %}
                 &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or sigla_unidad_academica or unidad_academica }}</strong>
@@ -260,8 +260,8 @@
    
      <div class="header-usuarios">
         <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario or session.nombre_completo }}</strong>
-            {% if periodo_default_literal %}
-                &nbsp;|&nbsp; Periodo: <strong>{{ periodo_default_literal }}</strong>
+            {% if periodo_anterior_literal or periodo_default_literal %}
+                &nbsp;|&nbsp; Periodo: <strong>{{ periodo_anterior_literal or periodo_default_literal }}</strong>
             {% endif %}
             {% if session.sigla_unidad_academica or sigla_unidad_academica or unidad_academica %}
                 &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or sigla_unidad_academica or unidad_academica }}</strong>
