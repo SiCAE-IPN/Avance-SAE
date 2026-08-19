@@ -491,10 +491,10 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
     periodo_literal = get_periodo_activo(db)
     PPeriodo = periodo_literal[1]
     ID_PPeriodo = periodo_literal[0]
-    periodo_aprovechamiento = PPeriodo
+    periodo_anterior_id, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
+    periodo_aprovechamiento = periodo_anterior_literal or PPeriodo
     Id_Unidad_Academica = int(getattr(sess, 'id_unidad_academica', 0) or 0)
     nombre_completo = getattr(sess, 'nombre_completo', '')
-    periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
 
     if Rol == "Capturista":
         aprovechamientos_limpios = []
@@ -735,7 +735,8 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
             {
                 "rol": Rol,
                 "nombre_usuario": nombre_completo,
-                "periodo_activo_literal": PPeriodo,
+                "periodo_activo_literal": periodo_aprovechamiento,
+                "periodo_anterior_literal": periodo_anterior_literal,
                 "unidad_academica": UUnidad_Academica,
                 "mi_unidad_sigla": UUnidad_Academica,
                 "mi_unidad_id": Id_Unidad_Academica,
@@ -757,7 +758,8 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
                 "nombre_usuario": nombre_completo,
                 "nivel_usuario": nivel_usuario,
                 "periodos": todos_los_periodos,
-                "periodo_activo_literal": PPeriodo,
+                "periodo_activo_literal": periodo_aprovechamiento,
+                "periodo_anterior_literal": periodo_anterior_literal,
                 "unidad_academica": UUnidad_Academica,
                 "unidades": unidades_con_niveles,
                 "niveles": niveles,

@@ -158,13 +158,17 @@ async def usuarios_view(
     unidades_academicas = get_all_units(db)
     niveles = get_all_niveles(db)
     formatos = get_formatos_activos(db)
+    _, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
     return templates.TemplateResponse(
         "usuarios.html",
         {
             "request": request,
             "usuarios": usuarios,
             "id_rol": id_rol,
+            "nombre_rol": Rol or getattr(sess, "nombre_rol", ""),
             "id_unidad_academica": id_unidad_academica,
+            "sigla_unidad_academica": getattr(sess, "sigla_unidad_academica", ""),
+            "periodo_literal": periodo_anterior_literal or periodo_literal,
             "nombre_ua": nombre_ua,
             "nombre_usuario": nombre_completo,
             "roles": roles_disponibles,

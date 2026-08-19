@@ -105,15 +105,15 @@
 {% block content %}
 <div class="container">
     <div class="header-usuarios">
-        <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario }}</strong>
-            {% if periodo_activo_literal %}
-            &nbsp;|&nbsp; Periodo: <strong>{{ periodo_activo_literal }}</strong>
+        <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario or session.nombre_completo }}</strong>
+            {% if periodo_anterior_literal or periodo_activo_literal %}
+            &nbsp;|&nbsp; Periodo: <strong>{{ periodo_anterior_literal or periodo_activo_literal }}</strong>
             {% endif %}
-            {% if unidad_academica %}
-            &nbsp;|&nbsp; Unidad: <strong>{{ unidad_academica }}</strong>
+            {% if session.sigla_unidad_academica or unidad_academica %}
+            &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or unidad_academica }}</strong>
             {% endif %}
-            {% if rol %}
-            &nbsp;|&nbsp; Rol: <strong>{{ rol }}</strong>
+            {% if rol or nombre_rol or session.nombre_rol %}
+            &nbsp;|&nbsp; Rol: <strong>{{ rol or nombre_rol or session.nombre_rol }}</strong>
             {% endif %}
         </div>
         <form action="/mod_principal" method="get">

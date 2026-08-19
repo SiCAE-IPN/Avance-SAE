@@ -10,6 +10,7 @@ from backend.database.models.ProgramaModalidad import ProgramaModalidad
 from backend.database.models.UnidadProgramaModalidad import CatUnidadProgramaModalidad
 from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
 from backend.database.models.CatModalidad import CatModalidad
+from backend.services.periodo_service import get_periodo_anterior_al_ultimo, get_ultimo_periodo
 from backend.database.models.CatNivel import CatNivel
 
 router = APIRouter()
@@ -28,19 +29,35 @@ async def programas_view(request: Request, sess=Depends(get_current_session), db
                      apellidoP_usuario.strip().lower() == 'admin' and
                      apellidoM_usuario.strip().lower() == 'admin')
     
-    programas_por_ua = {}
+    _, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
+    if not periodo_anterior_literal:
+        _, periodo_anterior_literal = get_ultimo_periodo(db)
+
+    # Si es super admin, obtener todas las UAs para el selector
     todas_uas = []
     if es_super_admin:
-        todas_uas = db.query(CatUnidadAcademica).all()
-        # No cargar programas aquí, solo pasar la lista de UAs
-    else:
-        # Usuarios normales solo ven programas de su UA
+        todas_uas = db.query(CatUnidadAcademica).order_by(CatUnidadAcademica.Nombre).all()
+        
+    # Obtener programas según el rol
+    if es_super_admin:
+        # Para super admin, inicialmente mostrar los de la primera UA o vacío
+        unidad_academica = db.query(CatUnidadAcademica).first()
+        if unidad_academica:
+            id_unidad_academica = unidad_academica.Id_Unidad_Academica
+        else:
+            id_unidad_academica = 0
+            
+    # Obtener los programas de la unidad académica del usuario
+    programas_unidad = db.query(CatUnidadProgramaModalidad).filter_by(Id_Unidad_Academica=id_unidad_academica).all()
+    
+    # Agrupar por unidad académica
+    programas_por_ua = {}
+    if id_unidad_academica > 0:
         unidad_academica = db.query(CatUnidadAcademica).filter_by(Id_Unidad_Academica=id_unidad_academica).first()
-        upms = db.query(CatUnidadProgramaModalidad).filter_by(Id_Unidad_Academica=id_unidad_academica).all()
         
         programas_info = []
-        for upm in upms:
-            pm = db.query(ProgramaModalidad).filter_by(Id_Modalidad_Programa=upm.Id_Modalidad_Programa).first()
+        for pup in programas_unidad:
+            pm = db.query(ProgramaModalidad).filter_by(Id_Modalidad_Programa=pup.Id_Modalidad_Programa).first()
             if not pm:
                 continue
                 
@@ -67,7 +84,12 @@ async def programas_view(request: Request, sess=Depends(get_current_session), db
             "request": request,
             "programas_por_ua": programas_por_ua,
             "es_super_admin": es_super_admin,
-            "todas_uas": todas_uas
+            "todas_uas": todas_uas,
+            "nombre_usuario": sess.nombre_completo,
+            "nombre_rol": sess.nombre_rol,
+            "sigla_unidad_academica": sess.sigla_unidad_academica,
+            "periodo_literal": periodo_anterior_literal or "",
+            "session": sess,
         }
     )
 

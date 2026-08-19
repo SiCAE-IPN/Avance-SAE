@@ -217,6 +217,20 @@
      * Muestra la tarjeta con soporte para secuencias de mensajes progresivos
      */
     function show(options = {}) {
+        // 1. NUNCA mostrar si la petición o URL es de cierre de sesión
+        if (options.url && isLogoutTarget(null, options.url)) {
+            return;
+        }
+
+        // 2. NUNCA mostrar si SweetAlert2 está visible en pantalla
+        if (typeof window.Swal === 'function' && typeof window.Swal.isVisible === 'function' && window.Swal.isVisible()) {
+            return;
+        }
+        const swalContainer = document.querySelector('.swal2-container');
+        if (swalContainer && (swalContainer.classList.contains('swal2-shown') || (document.body && document.body.classList.contains('swal2-shown')))) {
+            return;
+        }
+
         initDOM();
         if (!bannerEl || !overlayEl) return;
 
@@ -298,8 +312,82 @@
         if (overlayEl) overlayEl.classList.remove('is-visible');
     }
 
+    // Exponer función para forzar ocultación desde otros módulos
+    window.forceHideLoadingBanner = forceHide;
+
     // =========================================================================
-    // INTERCEPTOR GLOBAL DE FETCH
+    // DETECCIÓN DE CIERRE DE SESIÓN (LOGOUT)
+    // =========================================================================
+    function isLogoutTarget(element, url) {
+        if (url && typeof url === 'string') {
+            const lower = url.toLowerCase();
+            if (lower.includes('logout') || lower.includes('cerrar_sesion') || lower.includes('cerrarsesion')) {
+                return true;
+            }
+        }
+        if (element && element instanceof Element) {
+            if (element.closest('.sidebar-logout, .btn-cerrar-sesion, .btn-cerrar-externo, [href*="logout"], [action*="logout"]')) {
+                return true;
+            }
+            const text = (element.textContent || '').trim().toLowerCase();
+            if (text.includes('cerrar sesión') || text.includes('cerrar sesion') || text === 'salir' || text === 'logout') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // =========================================================================
+    // DETECCIÓN DE PETICIONES DE ACCIÓN / STORED PROCEDURES / BOTONES
+    // =========================================================================
+    function isActionOrSPEndpoint(url, method) {
+        if (!url || typeof url !== 'string') return false;
+        if (isLogoutTarget(null, url)) return true;
+        const m = (method || 'GET').toUpperCase();
+        if (m === 'POST' || m === 'PUT' || m === 'DELETE' || m === 'PATCH') {
+            return true;
+        }
+        const lower = url.toLowerCase();
+        return (
+            lower.includes('guardar') ||
+            lower.includes('actualizar') ||
+            lower.includes('validar') ||
+            lower.includes('finalizar') ||
+            lower.includes('rechazar') ||
+            lower.includes('eliminar') ||
+            lower.includes('preparar') ||
+            lower.includes('_sp') ||
+            lower.includes('/sp/') ||
+            lower.includes('acuse') ||
+            lower.includes('pdf') ||
+            lower.includes('restaurar')
+        );
+    }
+
+    // =========================================================================
+    // OBSERVADOR DE SWEETALERT2: NUNCA SOLAPAR NI CERRAR ALERTAS DEL USUARIO
+    // =========================================================================
+    const swalObserver = new MutationObserver(() => {
+        const isSwal = (typeof window.Swal === 'function' && typeof window.Swal.isVisible === 'function' && window.Swal.isVisible()) ||
+                       (document.body && document.body.classList.contains('swal2-shown')) ||
+                       !!document.querySelector('.swal2-container.swal2-shown');
+        if (isSwal && isVisible) {
+            forceHide();
+        }
+    });
+
+    if (document.body) {
+        swalObserver.observe(document.body, { attributes: true, childList: true, subtree: true });
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            if (document.body) {
+                swalObserver.observe(document.body, { attributes: true, childList: true, subtree: true });
+            }
+        });
+    }
+
+    // =========================================================================
+    // INTERCEPTOR DE FETCH (EXCLUYE LOGOUT, ACCIONES SP Y MODALES EXISTENTES)
     // =========================================================================
     const originalFetch = window.fetch;
 
@@ -308,41 +396,38 @@
         const options = args[1] || {};
         const method = options.method || (args[0] && args[0].method) || 'GET';
 
-        // Permitir ignorar el banner si se especifica explícitamente
+        // 1. Excluir si se solicita supresión explícita o es logout
         const suppressBanner = options.suppressLoadingBanner || 
-                               (options.headers && (options.headers['X-Suppress-Loading'] || options.headers['X-Skip-Loading']));
+                               (options.headers && (options.headers['X-Suppress-Loading'] || options.headers['X-Skip-Loading'])) ||
+                               isLogoutTarget(null, url);
 
         if (suppressBanner) {
             return originalFetch.apply(this, args);
         }
 
-        const m = (method || 'GET').toUpperCase();
-        const isModifyingOrHeavy = m === 'POST' || m === 'PUT' || m === 'DELETE';
+        // 2. EXCLUIR SI ES ACCIÓN DE BOTÓN / SP O SI SWEETALERT YA ESTÁ ACTIVO
+        const isSwalActive = typeof window.Swal === 'function' && typeof window.Swal.isVisible === 'function' && window.Swal.isVisible();
+        if (isSwalActive || isActionOrSPEndpoint(url, method)) {
+            // No mostrar el banner global para no duplicar/interferir con los loaders y alertas existentes del módulo
+            return originalFetch.apply(this, args);
+        }
+
         const modKey = detectModuleKey(url);
         activeRequestsCount++;
 
-        if (isModifyingOrHeavy || activeRequestsCount === 1) {
+        if (activeRequestsCount === 1) {
             if (debounceTimer) clearTimeout(debounceTimer);
 
-            if (isModifyingOrHeavy) {
-                show({
-                    moduleKey: modKey,
-                    url: url,
-                    title: 'Por favor espere un momento',
-                    blocking: true
-                });
-            } else {
-                // Debounce sutil de 120ms para lecturas ultrarrápidas
-                debounceTimer = setTimeout(() => {
-                    if (activeRequestsCount > 0) {
-                        show({
-                            moduleKey: modKey,
-                            url: url,
-                            blocking: true
-                        });
-                    }
-                }, 120);
-            }
+            // Debounce de 180ms para consultas de lectura en background
+            debounceTimer = setTimeout(() => {
+                if (activeRequestsCount > 0 && !(typeof window.Swal === 'function' && typeof window.Swal.isVisible === 'function' && window.Swal.isVisible())) {
+                    show({
+                        moduleKey: modKey,
+                        url: url,
+                        blocking: true
+                    });
+                }
+            }, 180);
         }
 
         try {
@@ -363,12 +448,16 @@
         const form = e.target;
         if (!form || !(form instanceof HTMLFormElement)) return;
 
-        // Si el formulario indica que no debe mostrar banner
+        // Si el formulario indica que no debe mostrar banner o es de logout
         if (form.hasAttribute('data-no-loading') || form.classList.contains('no-loading-banner')) {
             return;
         }
 
         const formAction = form.getAttribute('action') || '';
+        if (isLogoutTarget(form, formAction) || isActionOrSPEndpoint(formAction, 'POST')) {
+            return;
+        }
+
         const modKey = detectModuleKey(formAction);
 
         manualHoldCount++;
@@ -383,6 +472,12 @@
     // INTERCEPTOR UNIVERSAL DE NAVEGACIÓN Y ENLACES (CLICS A MÓDULOS)
     // =========================================================================
     document.addEventListener('click', function (e) {
+        // Si SweetAlert2 ya está activo, no realizar ninguna acción de carga
+        if (typeof window.Swal === 'function' && typeof window.Swal.isVisible === 'function' && window.Swal.isVisible()) {
+            forceHide();
+            return;
+        }
+
         // 1. Detectar clics en enlaces <a>
         const link = e.target.closest('a');
         if (link) {
@@ -391,15 +486,29 @@
             const download = link.hasAttribute('download');
             const noLoading = link.hasAttribute('data-no-loading') || link.classList.contains('no-loading-banner');
 
-            if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.startsWith('mailto:') && !href.startsWith('tel:') && target !== '_blank' && !download && !noLoading) {
-                const modKey = detectModuleKey(href);
+            // NUNCA mostrar banner en enlaces de cierre de sesión
+            if (isLogoutTarget(link, href)) {
+                return;
+            }
 
-                manualHoldCount++;
-                show({
-                    moduleKey: modKey,
-                    url: href,
-                    blocking: true
-                });
+            if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.startsWith('mailto:') && !href.startsWith('tel:') && target !== '_blank' && !download && !noLoading) {
+                // Micro-tick para dar oportunidad a que los listeners locales manejen confirmaciones (ej. SweetAlert)
+                setTimeout(() => {
+                    if (typeof window.Swal === 'function' && typeof window.Swal.isVisible === 'function' && window.Swal.isVisible()) {
+                        forceHide();
+                        return;
+                    }
+                    if (e.defaultPrevented) {
+                        return;
+                    }
+                    const modKey = detectModuleKey(href);
+                    manualHoldCount++;
+                    show({
+                        moduleKey: modKey,
+                        url: href,
+                        blocking: true
+                    });
+                }, 20);
             }
             return;
         }
@@ -408,16 +517,73 @@
         const navBtn = e.target.closest('.btn-volver, .btn-regresar, [data-nav]');
         if (navBtn) {
             const navUrl = navBtn.getAttribute('data-nav') || navBtn.getAttribute('onclick') || '';
-            const modKey = detectModuleKey(navUrl);
+            if (isLogoutTarget(navBtn, navUrl)) {
+                return;
+            }
+            setTimeout(() => {
+                if (typeof window.Swal === 'function' && typeof window.Swal.isVisible === 'function' && window.Swal.isVisible()) {
+                    forceHide();
+                    return;
+                }
+                if (e.defaultPrevented) {
+                    return;
+                }
+                const modKey = detectModuleKey(navUrl);
+                manualHoldCount++;
+                show({
+                    moduleKey: modKey,
+                    url: navUrl,
+                    title: 'Regresando...',
+                    blocking: true
+                });
+            }, 20);
+        }
+    }, false);
+
+    // =========================================================================
+    // MANEJO DE CARGA INICIAL DE RECURSOS DEL MÓDULO (BLOQUEO HASTA ESTAR LISTO)
+    // =========================================================================
+    function checkInitialModuleLoad() {
+        const path = window.location.pathname || '';
+        const modKey = detectModuleKey(path);
+
+        // Si entramos a un módulo específico del sistema
+        if (modKey && modKey !== 'general') {
             manualHoldCount++;
             show({
                 moduleKey: modKey,
-                url: navUrl,
-                title: 'Regresando...',
+                url: path,
                 blocking: true
             });
+
+            // Función para liberar cuando el módulo esté completamente listo
+            const releaseInitialHold = () => {
+                manualHoldCount = Math.max(0, manualHoldCount - 1);
+                hide();
+            };
+
+            // Escuchar evento personalizado de módulo listo
+            window.addEventListener('sicae:module-ready', releaseInitialHold, { once: true });
+            document.addEventListener('sicae:module-ready', releaseInitialHold, { once: true });
+
+            // Escuchar window 'load' (cuando todos los recursos, scripts y assets terminaron)
+            if (document.readyState === 'complete') {
+                setTimeout(releaseInitialHold, 300);
+            } else {
+                window.addEventListener('load', () => {
+                    setTimeout(releaseInitialHold, 300);
+                }, { once: true });
+            }
+
+            // Fallback de seguridad para no dejar la pantalla bloqueada indefinidamente
+            setTimeout(() => {
+                if (manualHoldCount > 0) {
+                    manualHoldCount = 0;
+                    hide();
+                }
+            }, 6000);
         }
-    }, true);
+    }
 
     // =========================================================================
     // MANEJO DE CACHÉ DE NAVEGADOR (BFCACHE)
@@ -443,6 +609,10 @@
         }
     };
 
+    window.forceHideLoadingBanner = function () {
+        forceHide();
+    };
+
     window.withLoadingBanner = async function (asyncFn, opts = {}) {
         window.showLoadingBanner(opts);
         try {
@@ -452,10 +622,14 @@
         }
     };
 
-    // Inicializar DOM al cargar el documento
+    // Inicializar DOM y evaluar carga de módulo
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initDOM);
+        document.addEventListener('DOMContentLoaded', () => {
+            initDOM();
+            checkInitialModuleLoad();
+        });
     } else {
         initDOM();
+        checkInitialModuleLoad();
     }
 })();

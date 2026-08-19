@@ -636,12 +636,15 @@
 <div class="container">
     <!-- Header igual al selector -->
     <div class="header-usuarios">
-        <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario }}</strong>
+        <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario or session.nombre_completo }}</strong>
             {% if periodo %}
                 &nbsp;|&nbsp; Periodo: <strong>{{ periodo }}</strong>
             {% endif %}
-            {% if nombre_rol %}
-                &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol }}</strong>
+            {% if session.sigla_unidad_academica or sigla_unidad_academica or unidad_academica %}
+                &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or sigla_unidad_academica or unidad_academica }}</strong>
+            {% endif %}
+            {% if nombre_rol or session.nombre_rol %}
+                &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
             {% endif %}
         </div>
         <a href="/matricula/resumen-seleccion" class="btn-volver">Regresar</a>

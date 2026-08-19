@@ -585,10 +585,13 @@ const label = document.createElement('span');
             // Valor inicial desde el mapa
             const claveInicial = `${semestreNum}_${turno.id}`;
             const valorInicial = totalGruposPorSemestreYTurno[claveInicial];
+            const estadoSemInicial = estadosSemaforoPorSemestre[parseInt(semestreNum)];
+            const esFinalizadoInicial = parseInt(estadoSemInicial) === 3;
+
             if (valorInicial !== undefined && valorInicial !== null && valorInicial !== '') {
-                if (parseInt(valorInicial) > 0) {
-                    input.value = valorInicial;
-                }
+                input.value = valorInicial;
+            } else if (esFinalizadoInicial) {
+                input.value = '0';
             }
 
             const actualizarTotalGrupos = () => {
@@ -606,6 +609,9 @@ const label = document.createElement('span');
                 }
                 recalcularTotalGruposSemestre(semestreNum);
                 guardarTotalGruposEnLocalStorage();
+                if (parseInt(estadosSemaforoPorSemestre[parseInt(semestreNum)]) !== 3) {
+                    hayCambiosLocalesPendientes = true;
+                }
             };
 
             input.addEventListener('input', actualizarTotalGrupos);
@@ -1089,7 +1095,13 @@ const label = document.createElement('span');
             const turnoId = input.getAttribute('data-turno-id');
             const clave = `${semestreNum}_${turnoId}`;
             const valor = totalGruposPorSemestreYTurno[clave];
-            input.value = (valor !== undefined && valor !== null && valor !== '') ? valor : '';
+            if (valor !== undefined && valor !== null && valor !== '') {
+                input.value = valor;
+            } else if (debeBloquear) {
+                input.value = '0';
+            } else {
+                input.value = '';
+            }
 
             input.disabled = !!debeBloquear;
             input.classList.toggle('input-disabled', !!debeBloquear);
@@ -1373,18 +1385,20 @@ const label = document.createElement('span');
     // ============================================================
     // Procesar y guardar TODOS los datos en memoria
     // ============================================================
-    function procesarYGuardarDatosPorSemestre(rows) {
+    function procesarYGuardarDatosPorSemestre(rows, forzarReinicio = false) {
         if (!rows || rows.length === 0) {
             console.warn('⚠️ No hay rows para procesar');
             return;
         }
         
-        // Limpiar estructura del contexto antes de procesar
-        limpiarDatosContexto();
-        // Estos datos provienen directamente del SP (estado base),
-        // por lo que al procesarlos no debemos considerarlos como
-        // "cambios locales" realizados por el usuario.
-        hayCambiosLocalesPendientes = false;
+        const contextKey = obtenerClaveContextoDatos();
+        const tieneDatosPrevios = datosMatriculaPorSemestre[contextKey] && Object.keys(datosMatriculaPorSemestre[contextKey]).length > 0;
+
+        // Solo limpiar estructura del contexto si se solicita forzar reinicio o si no hay datos previos
+        if (forzarReinicio || !tieneDatosPrevios) {
+            limpiarDatosContexto();
+            hayCambiosLocalesPendientes = false;
+        }
         
         // Heurísticas para columnas posibles (igual que renderMatriculaFromSP)
         const tipoCandidates = ['Id_Tipo_Ingreso','Id_TipoIngreso','Tipo_Id','Tipo_de_Ingreso','TipoIngreso','Tipo_Ingreso','Tipo'];
@@ -1535,8 +1549,10 @@ const label = document.createElement('span');
                 const vNum = parseInt(valorRaw);
                 if (!isNaN(vNum)) {
                     const clave = `${tipoId}_${grupoId}_${sexoId}`;
-                    datosContexto[turnoId][semestreId][clave] = vNum;
-                    filasProcessadas++;
+                    if (forzarReinicio || !tieneDatosPrevios || datosContexto[turnoId][semestreId][clave] === undefined) {
+                        datosContexto[turnoId][semestreId][clave] = vNum;
+                        filasProcessadas++;
+                    }
                 }
             }
             
@@ -2184,15 +2200,35 @@ const label = document.createElement('span');
                         const datos = turnoData[tipo.nombre] || { tipoId: tipo.id, M: undefined, F: undefined };
                         const tipoId = datos.tipoId || tipo.id;
 
+                        const datosContextoActual = obtenerDatosContexto(false);
+                        const datosMemoriaTurno = (datosContextoActual[turno.id] || {})[semestreActualId] || {};
+                        const claveMemoriaM = `${tipoId}_${grupoIdBD}_M`;
+                        const claveMemoriaF = `${tipoId}_${grupoIdBD}_F`;
+
+                        const valorMemoriaM = datosMemoriaTurno[claveMemoriaM];
+                        const valorMemoriaF = datosMemoriaTurno[claveMemoriaF];
+
                         // Obtener valores del SP (preservar cero explícito). Si el semestre está finalizado (3), mostrar 0 en ausentes
                         const estadoSem = estadosSemaforoPorSemestre[parseInt(semestreActualId)];
                         const mostrarCeroSiVacio = parseInt(estadoSem) === 3;
-                        const valorM = (datos.M === undefined || datos.M === null || datos.M === '') 
-                            ? (mostrarCeroSiVacio ? '0' : '') 
-                            : String(datos.M);
-                        const valorF = (datos.F === undefined || datos.F === null || datos.F === '') 
-                            ? (mostrarCeroSiVacio ? '0' : '') 
-                            : String(datos.F);
+
+                        let valorM = '';
+                        if (valorMemoriaM !== undefined && valorMemoriaM !== null) {
+                            valorM = String(valorMemoriaM);
+                        } else if (datos.M !== undefined && datos.M !== null && datos.M !== '') {
+                            valorM = String(datos.M);
+                        } else if (mostrarCeroSiVacio) {
+                            valorM = '0';
+                        }
+
+                        let valorF = '';
+                        if (valorMemoriaF !== undefined && valorMemoriaF !== null) {
+                            valorF = String(valorMemoriaF);
+                        } else if (datos.F !== undefined && datos.F !== null && datos.F !== '') {
+                            valorF = String(datos.F);
+                        } else if (mostrarCeroSiVacio) {
+                            valorF = '0';
+                        }
                         
                         tdTipo.innerHTML = `
                         <div style="display:inline-flex; gap:4px; justify-content:center; align-items:center; width:100%; max-width:100%;">
@@ -2284,28 +2320,21 @@ const label = document.createElement('span');
         }
 
         // Restaurar datos guardados del semestre actual después de renderizar
-        // Solo cuando existan CAMBIOS LOCALES del usuario; si no, conservar
-        // los valores que vienen directamente del SP.
         const semestreActualRestaurar = parseInt(document.getElementById('semestre').value);
         setTimeout(() => {
-            if (hayCambiosLocalesPendientes) {
-                const datosContexto = obtenerDatosContexto(false);
-                const hayDatos = Object.keys(datosContexto || {}).some(turnoId => {
-                    const datosTurno = (datosContexto[turnoId] || {})[semestreActualRestaurar] || {};
-                    return Object.keys(datosTurno).length > 0;
-                });
-                if (hayDatos) {
-                    console.log('📦 Hay cambios locales guardados, restaurando sobre datos del SP...');
-                    restaurarDatosSemestre(semestreActualRestaurar);
-                }
+            const datosContexto = obtenerDatosContexto(false);
+            const hayDatos = Object.keys(datosContexto || {}).some(turnoId => {
+                const datosTurno = (datosContexto[turnoId] || {})[semestreActualRestaurar] || {};
+                return Object.keys(datosTurno).length > 0;
+            });
+            if (hayDatos || hayCambiosLocalesPendientes) {
+                console.log('📦 Restaurando datos guardados del semestre sobre tabla...');
+                restaurarDatosSemestre(semestreActualRestaurar);
             } else {
-                console.log('📊 Sin cambios locales: se conservan valores que vienen del SP');
-                // Solo aplicar reglas de validación por semestre
                 updateInputsBySemestre(semestreActualRestaurar);
-                // CALCULAR totales ya que no se restaurarán datos
                 calcularTotales();
             }
-        }, 100); // Pequeño delay para asegurar que los inputs estén renderizados
+        }, 80);
 
     calcularTotales();
     // Cargar Total Grupos del semestre-turno y aplicar bloqueo si corresponde
@@ -3186,66 +3215,59 @@ const label = document.createElement('span');
     }
 
     // Función para guardar datos del semestre actual
-    // ✨ OPTIMIZADO: Con cache DOM y acceso más eficiente
     function guardarDatosSemestreActual() {
-        // No ejecutar si aún no se ha completado el primer render
-        if (!primerRenderCompleto) {
-            console.log('🚫 guardarDatosSemestreActual: ignorado hasta completar primer render');
-            return;
-        }
-
         let semestreActual = parseInt(domCache.semestre?.value || document.getElementById('semestre')?.value);
         const tbody = domCache.tbody || document.getElementById('matricula-tbody');
         
-        if (isNaN(semestreActual) || !tbody) return;
+        if (isNaN(semestreActual)) return;
         
-        const inputs = tbody.querySelectorAll('input.input-matricula-nueva');
-        
-        // Inicializar almacén por turno/semestre si no existe
-        const datosContexto = obtenerDatosContexto(true);
-        let seGuardoAlgúnValor = false;
-        
-        // ✨ Usar for loop (más rápido) y dataset (más eficiente que getAttribute)
-        for (let i = 0; i < inputs.length; i++) {
-            const input = inputs[i];
-            const tipoIngreso = input.dataset.tipoIngreso;
-            const grupoEdad = input.dataset.grupoEdad;
-            const sexo = input.dataset.sexo;
-            const turnoId = parseInt(input.dataset.turno);
-            const valor = input.value || '';
-            // Si no hay valor numérico, no sobreescribir lo que venga del SP
-            if (valor === '' || isNaN(parseInt(valor))) {
-                continue;
-            }
-            const key = `${tipoIngreso}_${grupoEdad}_${sexo}`;
-            if (isNaN(turnoId)) {
-                continue;
-            }
-            if (!datosContexto[turnoId]) {
-                datosContexto[turnoId] = {};
-            }
-            if (!datosContexto[turnoId][semestreActual]) {
-                datosContexto[turnoId][semestreActual] = {};
-            }
+        // 1. Guardar inputs de matrícula del semestre actual
+        if (tbody) {
+            const inputs = tbody.querySelectorAll('input.input-matricula-nueva');
+            const datosContexto = obtenerDatosContexto(true);
+            let seGuardoAlgúnValor = false;
             
-            datosContexto[turnoId][semestreActual][key] = valor;
-            seGuardoAlgúnValor = true;
+            for (let i = 0; i < inputs.length; i++) {
+                const input = inputs[i];
+                const tipoIngreso = input.dataset.tipoIngreso;
+                const grupoEdad = input.dataset.grupoEdad;
+                const sexo = input.dataset.sexo;
+                const turnoId = parseInt(input.dataset.turno);
+                const valor = input.value !== undefined && input.value !== null ? input.value : '';
+                
+                const key = `${tipoIngreso}_${grupoEdad}_${sexo}`;
+                if (isNaN(turnoId)) continue;
+                
+                if (!datosContexto[turnoId]) datosContexto[turnoId] = {};
+                if (!datosContexto[turnoId][semestreActual]) datosContexto[turnoId][semestreActual] = {};
+                
+                datosContexto[turnoId][semestreActual][key] = valor;
+            }
         }
 
-        if (seGuardoAlgúnValor) {
-            // Marcar que ahora sí existen cambios locales (captura en la UI)
-            hayCambiosLocalesPendientes = true;
-            console.log(`💾 Datos guardados para semestre ${semestreActual} (todos los turnos)`);
-        } else {
-            console.log(`ℹ️ guardarDatosSemestreActual: no se encontraron valores numéricos que guardar para semestre ${semestreActual}`);
-        }
+        // 2. Guardar inputs de grupos para el semestre actual
+        const inputsGrupos = document.querySelectorAll('.input-total-grupos-turno');
+        inputsGrupos.forEach(input => {
+            const turnoId = parseInt(input.getAttribute('data-turno-id'));
+            const semId = parseInt(input.getAttribute('data-semestre-id') || semestreActual);
+            if (semId === semestreActual && !isNaN(turnoId)) {
+                const valor = input.value.trim();
+                const clave = `${semestreActual}_${turnoId}`;
+                if (valor !== '' && !isNaN(parseInt(valor)) && parseInt(valor) > 0) {
+                    totalGruposPorSemestreYTurno[clave] = parseInt(valor);
+                } else {
+                    delete totalGruposPorSemestreYTurno[clave];
+                }
+            }
+        });
+        recalcularTotalGruposSemestre(semestreActual);
+        guardarTotalGruposEnLocalStorage();
     }
     
     // ✨ Versión con debouncing para evitar guardados excesivos
     const guardarDatosSemestreActualDebounced = debounce(guardarDatosSemestreActual, 500);
 
     // Función para restaurar datos del semestre seleccionado
-    // ✨ OPTIMIZADO: Restaurar datos con cache DOM y operaciones más eficientes
     function restaurarDatosSemestre(semestreNum) {
         const datosContexto = obtenerDatosContexto(false);
         const tbody = domCache.tbody || document.getElementById('matricula-tbody');
@@ -3254,8 +3276,6 @@ const label = document.createElement('span');
         
         if (tbody) {
             const inputs = tbody.querySelectorAll('input.input-matricula-nueva');
-            
-            // ✨ Usar for loop (más rápido) y dataset (más eficiente)
             for (let i = 0; i < inputs.length; i++) {
                 const input = inputs[i];
                 const tipoIngreso = input.dataset.tipoIngreso;
@@ -3268,9 +3288,27 @@ const label = document.createElement('span');
                 if (datosTurno[key] !== undefined) {
                     input.value = datosTurno[key];
                 }
-                // Si NO hay datos guardados, NO hacer nada (conservar valores del SP)
             }
         }
+
+        // Restaurar inputs de grupos para el semestre seleccionado
+        const inputsGrupos = document.querySelectorAll('.input-total-grupos-turno');
+        const estadoSem = estadosSemaforoPorSemestre[parseInt(semestreNum)];
+        const esValidado = parseInt(estadoSem) === 3;
+
+        inputsGrupos.forEach(input => {
+            input.setAttribute('data-semestre-id', semestreNum);
+            const turnoId = parseInt(input.getAttribute('data-turno-id'));
+            const clave = `${semestreNum}_${turnoId}`;
+            const valor = totalGruposPorSemestreYTurno[clave];
+            if (valor !== undefined && valor !== null && valor !== '') {
+                input.value = valor;
+            } else if (esValidado) {
+                input.value = '0';
+            } else {
+                input.value = '';
+            }
+        });
         
         console.log(`✅ Datos restaurados para semestre ${semestreNum}`);
         
@@ -3493,6 +3531,9 @@ function updateInputsBySemestre(semestreNum) {
         tgTurnos.forEach(tg => {
             tg.disabled = true;
             tg.classList.add('input-disabled');
+            if (tg.value === '') {
+                tg.value = '0';
+            }
         });
         console.log('🔒 Vista de captura bloqueada: todos los inputs deshabilitados');
     }
@@ -3681,23 +3722,6 @@ function updateInputsBySemestre(semestreNum) {
             return;
         }
         
-        // Validar que al menos un campo tenga datos (incluye 0)
-        const inputs = document.querySelectorAll('input.input-matricula-nueva');
-        let hasData = false;
-        for (let input of inputs) {
-            const valor = parseInt(input.value);
-            if (!isNaN(valor) && valor >= 0) { hasData = true; break; }
-        }
-        if (!hasData) { 
-            await Swal.fire({
-                icon: 'warning',
-                title: 'Sin datos',
-                text: 'Por favor, ingrese datos antes de guardar.',
-                confirmButtonText: 'Entendido'
-            });
-            return; 
-        }
-
         // Filtros requeridos
         const periodo = document.getElementById('periodo').value;
         let programa = document.getElementById('programa').value;
@@ -3718,7 +3742,79 @@ function updateInputsBySemestre(semestreNum) {
             });
             return;
         }
-        
+
+        // 1. REGLA OBLIGATORIA DE GRUPOS: Todos los turnos visibles deben tener grupos >= 1
+        const inputsGrupos = document.querySelectorAll('.input-total-grupos-turno');
+        let gruposFaltantes = false;
+        let primerInputGrupoVacio = null;
+
+        inputsGrupos.forEach(input => {
+            const semId = parseInt(input.getAttribute('data-semestre-id') || semestre);
+            if (semId === parseInt(semestre)) {
+                const valorGrupo = parseInt(input.value);
+                if (isNaN(valorGrupo) || valorGrupo <= 0) {
+                    gruposFaltantes = true;
+                    if (!primerInputGrupoVacio) primerInputGrupoVacio = input;
+                }
+            }
+        });
+
+        if (gruposFaltantes && inputsGrupos.length > 0) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Grupos requeridos',
+                text: 'El campo de grupos es obligatorio para cada turno y debe ser mayor a 0.',
+                confirmButtonText: 'Entendido'
+            });
+            if (primerInputGrupoVacio) primerInputGrupoVacio.focus();
+            return;
+        }
+
+        // 2. REGLA DE COHERENCIA: Si hay grupos en un turno, al menos 1 alumno debe ingresarse en ese turno
+        const inputs = document.querySelectorAll('input.input-matricula-nueva');
+        const sumaAlumnosPorTurno = {};
+        let totalAlumnosSemestre = 0;
+
+        inputs.forEach(input => {
+            const turnoId = parseInt(input.getAttribute('data-turno'));
+            const val = parseInt(input.value) || 0;
+            if (!isNaN(turnoId)) {
+                sumaAlumnosPorTurno[turnoId] = (sumaAlumnosPorTurno[turnoId] || 0) + val;
+            }
+            totalAlumnosSemestre += val;
+        });
+
+        for (let input of inputsGrupos) {
+            const semId = parseInt(input.getAttribute('data-semestre-id') || semestre);
+            if (semId === parseInt(semestre)) {
+                const turnoId = parseInt(input.getAttribute('data-turno-id'));
+                const valorGrupo = parseInt(input.value) || 0;
+                const alumnosTurno = sumaAlumnosPorTurno[turnoId] || 0;
+
+                if (valorGrupo > 0 && alumnosTurno === 0) {
+                    const matchTurno = turnosDisponibles.find(t => parseInt(t.Id_Turno) === turnoId);
+                    const nombreTurno = matchTurno ? matchTurno.Turno : `Turno ${turnoId}`;
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Matrícula requerida',
+                        text: `Ha especificado ${valorGrupo} grupo(s) en el turno "${nombreTurno}", por lo que debe ingresar la matrícula de al menos un alumno en dicho turno.`,
+                        confirmButtonText: 'Entendido'
+                    });
+                    return;
+                }
+            }
+        }
+
+        if (totalAlumnosSemestre === 0) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Sin datos',
+                text: 'Por favor, ingrese datos de matrícula antes de guardar.',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
+
         // Mostrar overlay
         mostrarOverlayCarga('Guardando Matrícula...', 'Por favor espere mientras se actualizan los datos');
 
@@ -3863,8 +3959,9 @@ function updateInputsBySemestre(semestreNum) {
                     lastRowsSp = dSem.rows;
                     window.lastRowsSp = lastRowsSp;
                     if (typeof procesarYGuardarDatosPorSemestre === 'function') {
-                        procesarYGuardarDatosPorSemestre(dSem.rows);
+                        procesarYGuardarDatosPorSemestre(dSem.rows, true);
                     }
+                    hayCambiosLocalesPendientes = false;
                     if (typeof renderMatriculaFromSP === 'function') {
                         await renderMatriculaFromSP(dSem.rows, {});
                     }
@@ -3935,26 +4032,54 @@ function updateInputsBySemestre(semestreNum) {
         }, 10); // Pequeño retraso para asegurar que el foco esté establecido
     }
 
-    // ✨ OPTIMIZADO: Usar cache DOM
+    // ✨ OPTIMIZADO: Usar cache DOM y limpiar tabla e inputs de grupos
     function limpiarFormulario() {
         console.log('🧹 Ejecutando limpiarFormulario()...');
+        const semActual = parseInt(document.getElementById('semestre')?.value || '1');
         
-        // Limpiar todos los inputs de matrícula del semestre/turno actual
+        // 1. Limpiar todos los inputs de matrícula del semestre actual
         const tbody = domCache.tbody || document.getElementById('matricula-tbody');
         if (tbody) {
             const inputs = tbody.querySelectorAll('input.input-matricula-nueva');
-            // Usar for loop: más rápido que forEach
             for (let i = 0; i < inputs.length; i++) {
                 inputs[i].value = '';
                 inputs[i].removeAttribute('data-auto-filled');
             }
-            console.log('🗑️ Valores de inputs de matrícula limpiados (estructura preservada)');
+            console.log('🗑️ Valores de inputs de matrícula limpiados');
         }
 
-        // NO tocar la estructura de la tabla ni los totales de grupos; 
-        // solo recalcular totales de H/M/TOTAL con los nuevos valores vacíos.
+        // 2. Limpiar todos los inputs de grupos del semestre actual
+        const gruposInputs = document.querySelectorAll('.input-total-grupos-turno');
+        gruposInputs.forEach(input => {
+            input.value = '';
+        });
+        console.log('🗑️ Inputs de grupos limpiados');
+
+        // 3. Limpiar memoria de grupos para el semestre actual
+        Object.keys(totalGruposPorSemestreYTurno).forEach(k => {
+            if (k.startsWith(`${semActual}_`)) {
+                delete totalGruposPorSemestreYTurno[k];
+            }
+        });
+        delete totalGruposPorSemestre[semActual];
+        guardarTotalGruposEnLocalStorage();
+
+        // 4. Limpiar datos en memoria del contexto actual para el semestre
+        const datosContexto = obtenerDatosContexto(false);
+        Object.keys(datosContexto || {}).forEach(tId => {
+            if (datosContexto[tId] && datosContexto[tId][semActual]) {
+                datosContexto[tId][semActual] = {};
+            }
+        });
+
+        // 5. Recalcular totales de H/M/TOTAL a 0
         calcularTotales();
+
+        // 6. Resetear cambios pendientes
+        hayCambiosLocalesPendientes = false;
+        console.log('✅ Formulario de matrícula e inputs de grupos limpiados exitosamente');
     }
+    window.limpiarFormulario = limpiarFormulario;
 
     // Agregar eventos a los inputs para cálculos automáticos
     document.addEventListener('DOMContentLoaded', function() {
@@ -4886,6 +5011,20 @@ function updateInputsBySemestre(semestreNum) {
             });
 
             actualizarColoresPestanas();
+
+            if (semestresConError === 0 && totalSemestresPlan > 0) {
+                // Ocultar botón de validación masiva definitivamente ya que se validaron todos los semestres
+                const botonesMasivos = document.querySelectorAll('#btn-validar-todos-semestres, .btn-validacion-masiva');
+                botonesMasivos.forEach(b => {
+                    b.style.display = 'none';
+                });
+                window.matriculaRechazada = false;
+
+                const bannerRechazo = document.getElementById('banner-rechazo');
+                if (bannerRechazo) bannerRechazo.style.display = 'none';
+                const notifBtn = document.querySelector('.btn-notificaciones');
+                if (notifBtn) notifBtn.style.display = 'none';
+            }
         } catch (error) {
             cerrarModalProgresoCircular();
             console.error('Error en validacion masiva:', error);
@@ -4904,8 +5043,15 @@ function updateInputsBySemestre(semestreNum) {
             turnoInput.value = estadoOriginal.turno;
             await cargarDatosExistentes();
 
-            btnValidarTodos.textContent = estadoOriginal.textoBoton;
-            btnValidarTodos.disabled = false;
+            if (semestresConError === 0 && totalSemestresPlan > 0) {
+                const botonesMasivos = document.querySelectorAll('#btn-validar-todos-semestres, .btn-validacion-masiva');
+                botonesMasivos.forEach(b => {
+                    b.style.display = 'none';
+                });
+            } else {
+                btnValidarTodos.textContent = estadoOriginal.textoBoton;
+                btnValidarTodos.disabled = false;
+            }
         }
     }
     
@@ -4920,9 +5066,64 @@ function updateInputsBySemestre(semestreNum) {
         
         const inputs = document.querySelectorAll('input.input-matricula-nueva');
         
-        // Aplicar reglas de habilitación/deshabilitación al semestre actual
-        updateInputsBySemestre(semestreActual);
-        
+        // 1. REGLA OBLIGATORIA DE GRUPOS: Todos los turnos visibles deben tener grupos >= 1
+        const inputsGrupos = document.querySelectorAll('.input-total-grupos-turno');
+        let gruposFaltantes = false;
+        let primerInputGrupoVacio = null;
+
+        inputsGrupos.forEach(input => {
+            const semId = parseInt(input.getAttribute('data-semestre-id') || semestreActual);
+            if (semId === semestreActual) {
+                const valorGrupo = parseInt(input.value);
+                if (isNaN(valorGrupo) || valorGrupo <= 0) {
+                    gruposFaltantes = true;
+                    if (!primerInputGrupoVacio) primerInputGrupoVacio = input;
+                }
+            }
+        });
+
+        if (gruposFaltantes && inputsGrupos.length > 0) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Grupos requeridos',
+                text: 'El campo de grupos es obligatorio para cada turno y debe ser mayor a 0 antes de finalizar el semestre.',
+                confirmButtonText: 'Entendido'
+            });
+            if (primerInputGrupoVacio) primerInputGrupoVacio.focus();
+            return;
+        }
+
+        // 2. REGLA DE COHERENCIA: Si hay grupos en un turno, al menos 1 alumno debe tener valor > 0
+        const sumaAlumnosPorTurno = {};
+        inputs.forEach(input => {
+            const turnoId = parseInt(input.getAttribute('data-turno'));
+            const val = parseInt(input.value) || 0;
+            if (!isNaN(turnoId)) {
+                sumaAlumnosPorTurno[turnoId] = (sumaAlumnosPorTurno[turnoId] || 0) + val;
+            }
+        });
+
+        for (let input of inputsGrupos) {
+            const semId = parseInt(input.getAttribute('data-semestre-id') || semestreActual);
+            if (semId === semestreActual) {
+                const turnoId = parseInt(input.getAttribute('data-turno-id'));
+                const valorGrupo = parseInt(input.value) || 0;
+                const alumnosTurno = sumaAlumnosPorTurno[turnoId] || 0;
+
+                if (valorGrupo > 0 && alumnosTurno === 0) {
+                    const matchTurno = turnosDisponibles.find(t => parseInt(t.Id_Turno) === turnoId);
+                    const nombreTurno = matchTurno ? matchTurno.Turno : `Turno ${turnoId}`;
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Matrícula requerida',
+                        text: `Ha especificado ${valorGrupo} grupo(s) en el turno "${nombreTurno}", por lo que debe ingresar la matrícula de al menos un alumno en dicho turno antes de finalizar.`,
+                        confirmButtonText: 'Entendido'
+                    });
+                    return;
+                }
+            }
+        }
+
         // Rellenar campos vacíos con '0'
         let camposRellenados = 0;
         inputs.forEach((input) => {
@@ -5083,6 +5284,14 @@ function updateInputsBySemestre(semestreNum) {
             inputs.forEach(input => {
                 input.disabled = true;
                 input.classList.add('input-disabled');
+                if (input.value === '') input.value = '0';
+            });
+
+            const tgTurnos = document.querySelectorAll('.input-total-grupos-turno');
+            tgTurnos.forEach(tg => {
+                tg.disabled = true;
+                tg.classList.add('input-disabled');
+                if (tg.value === '') tg.value = '0';
             });
             
             const btnGuardar = document.getElementById('btn-guardar-matricula');
@@ -5102,6 +5311,7 @@ function updateInputsBySemestre(semestreNum) {
                 btnValidar.textContent = '✅ Semestre Finalizado';
                 btnValidar.title = 'Este semestre ya fue finalizado';
             }
+            hayCambiosLocalesPendientes = false;
             
         } catch (error) {
             console.error('❌ Error en la validación del semestre:', error);
@@ -5178,6 +5388,9 @@ function updateInputsBySemestre(semestreNum) {
                 tg.style.backgroundColor = '#f0f0f0';
                 tg.style.cursor = 'not-allowed';
                 tg.readOnly = true;
+                if (tg.value === '') {
+                    tg.value = '0';
+                }
             });
             
             // Deshabilitar botones de acción del capturista si existen
@@ -5793,3 +6006,93 @@ function updateInputsBySemestre(semestreNum) {
             e.target.dispatchEvent(new Event('change', { bubbles: true }));
         }
     }, true);
+
+    // =========================================================================
+    // PROTECCIÓN DE CAMBIOS SIN GUARDAR (ALERTA AL CAMBIAR DE MÓDULO O SALIR)
+    // =========================================================================
+    function hayCambiosSinGuardarReales() {
+        if (!esCapturista || modoVista !== 'captura') {
+            return false;
+        }
+
+        if (!hayCambiosLocalesPendientes) {
+            return false;
+        }
+
+        // Si todos los semestres disponibles del módulo están validados/finalizados (estado 3)
+        const listaSemestres = (Array.isArray(semestresDisponiblesSP) && semestresDisponiblesSP.length > 0)
+            ? semestresDisponiblesSP
+            : Object.keys(estadosSemaforoPorSemestre).map(s => parseInt(s));
+
+        if (listaSemestres.length > 0) {
+            const todosFinalizados = listaSemestres.every(sem => parseInt(estadosSemaforoPorSemestre[sem]) === 3);
+            if (todosFinalizados) {
+                hayCambiosLocalesPendientes = false;
+                return false;
+            }
+        }
+
+        // Si el semestre actual está finalizado
+        const semActual = parseInt(document.getElementById('semestre')?.value || '1');
+        if (parseInt(estadosSemaforoPorSemestre[semActual]) === 3) {
+            const algunSemestrePendiente = listaSemestres.some(sem => parseInt(estadosSemaforoPorSemestre[sem]) !== 3);
+            if (!algunSemestrePendiente) {
+                hayCambiosLocalesPendientes = false;
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    window.addEventListener('beforeunload', function(e) {
+        if (hayCambiosSinGuardarReales()) {
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!hayCambiosSinGuardarReales()) return;
+        const target = e.target.closest('a, .btn-volver, .btn-regresar, [data-nav], .sidebar-logout, .btn-cerrar-sesion, .btn-cerrar-externo');
+        if (!target) return;
+        
+        const href = target.getAttribute('href') || target.getAttribute('data-nav') || (target.closest('form') ? target.closest('form').getAttribute('action') : '');
+        if (!href || href.startsWith('#') || href.startsWith('javascript:') || target.getAttribute('target') === '_blank') {
+            return;
+        }
+
+        const esLogout = href.toLowerCase().includes('logout') || !!target.closest('.sidebar-logout, .btn-cerrar-sesion, .btn-cerrar-externo');
+
+        // Bloquear navegación inmediata y preguntar al usuario
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (typeof window.forceHideLoadingBanner === 'function') {
+            window.forceHideLoadingBanner();
+        }
+
+        Swal.fire({
+            title: esLogout ? '¿Desea cerrar sesión sin guardar?' : '¿Desea salir sin guardar?',
+            text: esLogout 
+                ? 'Tiene modificaciones sin guardar en la matrícula. ¿Desea descartar los cambios y cerrar sesión?'
+                : 'Tiene modificaciones sin guardar en el módulo de matrícula. ¿Desea descartar los cambios y salir?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: esLogout ? 'Sí, cerrar sesión' : 'Sí, descartar y salir',
+            cancelButtonText: 'Permanecer aquí'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                hayCambiosLocalesPendientes = false;
+                window.location.href = href;
+            }
+        });
+    }, true);
+
+    // Notificar al sistema que los recursos del módulo están listos
+    setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('sicae:module-ready'));
+    }, 300);
