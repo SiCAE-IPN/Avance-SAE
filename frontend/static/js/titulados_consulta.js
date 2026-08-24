@@ -212,6 +212,7 @@ function generarCabeceraTabla() {
         fila1 += `<th colspan="2" style="padding:10px 15px; text-align:center; font-weight:700; font-size:13px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.15);">${nombreTurno}</th>`;
     });
 
+    fila1 += '<th rowspan="2" style="padding:12px 15px; text-align:center; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,0.2); vertical-align:middle; width:60px;">Acciones</th>';
     fila1 += '</tr>';
 
     // Fila 2: H y M por cada turno
@@ -230,7 +231,7 @@ function renderizarTablaTituladosCaptura() {
     if (!tbody) return;
 
     const turnos = (turnosDisponibles && turnosDisponibles.length > 0) ? turnosDisponibles : ['Matutino', 'Vespertino'];
-    const colspan = 3 + turnos.length * 2;
+    const colspan = 4 + turnos.length * 2; // +1 por columna Acciones
 
     if (filasTitulados.length === 0) {
         tbody.innerHTML = `
@@ -281,6 +282,15 @@ function renderizarTablaTituladosCaptura() {
                 </div>
             </td>`;
         });
+
+        celdas += `
+            <td style="padding:8px; text-align:center;">
+                <button class="btn-eliminar" onclick="eliminarFilaTitulado(${fila.id})" title="Eliminar fila"
+                    style="background:#dc3545; color:white; border:none; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:14px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"
+                    onmouseover="this.style.background='#c82333'; this.style.transform='scale(1.1)'"
+                    onmouseout="this.style.background='#dc3545'; this.style.transform='scale(1)'"
+                >🗑️</button>
+            </td>`;
 
         tr.innerHTML = celdas;
         tbody.appendChild(tr);
@@ -467,6 +477,16 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (!periodo || !nivel || !unidad) return;
+
+            // Mostrar overlay de carga
+            const overlay = document.getElementById('overlay-carga-sp');
+            if (overlay) {
+                const titleEl = overlay.querySelector('.texto-carga-sp');
+                const subtitleEl = overlay.querySelector('.subtexto-carga-sp');
+                if (titleEl) titleEl.textContent = 'Cargando Consulta...';
+                if (subtitleEl) subtitleEl.textContent = 'Obteniendo datos de titulados, por favor espere';
+                overlay.classList.add('activo');
+            }
 
             const url = `/titulados/acuse-validacion`
                 + `?periodo=${encodeURIComponent(periodo)}`
@@ -1603,7 +1623,7 @@ function calculateDynamicDropdownWidth(values, headerElement) {
             unidades.forEach(function (unidad) {
                 const option = document.createElement('option');
                 option.value = unidad.sigla;
-                option.textContent = unidad.nombre;
+                option.textContent = `${unidad.sigla} - ${unidad.nombre}`;
                 selectUnidadAcademica.appendChild(option);
             });
 

@@ -329,7 +329,7 @@ async def consulta_titulados(
              "nombre_usuario": sess.nombre_completo,
              "periodo_default_literal": periodo_default_literal,
              "periodo_anterior_literal": periodo_anterior_literal,
-             "periodos" : periodosDisponibles,
+             "periodos" : periodos,
              "niveles" : nombres_niveles,
              "niveles_por_unidad" : niveles_por_unidad,
              "unidades": resultado,

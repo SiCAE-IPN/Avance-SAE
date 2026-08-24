@@ -442,9 +442,9 @@
                 <label for="select-periodo-superior"><strong>1. Periodo:</strong></label>
                 <select id="select-periodo-superior" name="periodo_superior" required>
                     <option value="">-- Seleccione un Periodo --</option>
-                    {% for periodo in periodos %}
-                    <option value="{{ periodo }}">
-                        {{ periodo }}
+                    {% for p in periodos %}
+                    <option value="{{ p.Periodo }}" {% if p.Id_Estatus == 1 %}selected{% endif %}>
+                        {{ p.Periodo }} {% if p.Id_Estatus == 1 %}(Activo){% endif %}
                     </option>
                     {% endfor %}
                 </select>
@@ -462,13 +462,8 @@
 
             <div class="filtro-superior-item">
                 <label for="select-ua-superior"><strong>3. Unidad Académica:</strong></label>
-                <select id="select-ua-superior" name="ua_superior" required>
+                <select id="select-ua-superior" name="ua_superior" required disabled>
                     <option value="">-- Primero seleccione un Nivel --</option>
-
-                    {% for unidad in unidades %}
-                    <option value="{{ unidad }}">{{ unidad }}</option>
-                    {% endfor %}
-
                 </select>
             </div>
 
@@ -764,7 +759,7 @@
     const boletas = JSON.parse('{{ boletas | tojson | safe }}');
 
     const periodoDefault = JSON.parse('{{ periodo_default_literal | tojson | safe }}');
-    const unidadesPorNivel = JSON.parse('{{ unidades | tojson }}');
+    const unidadesPorNivel = JSON.parse('{{ unidades | tojson | safe }}');
     const catalogoTurnosGlobal = {{ turnos | tojson }};
     const programaModalidadTurnos = {{ programa_modalidad_turnos_json | safe }};
 
@@ -809,7 +804,7 @@
 
 </script>
 
-<script src="/static/js/titulados_consulta.js?v=2.0.0"></script>
+<script src="/static/js/titulados_consulta.js?v=2.2.0"></script>
 <script src="/static/js/notificacion.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {

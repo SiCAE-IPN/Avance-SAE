@@ -125,7 +125,7 @@ MAPA_APROVECHAMIENTO_CORTO = {
 }
 
 LEYENDA_APROVECHAMIENTO_MAP = {
-    'A': 'Alumnos Aprobados',
+    'A': 'Aprobados',
     'B. T.': 'Baja Temporal',
     'B. D.': 'Baja Definitiva',
     'D': 'Deserción',
@@ -1212,12 +1212,68 @@ async def exportar_aprovechamiento_pdf(
         )
 
     try:
-        pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
-            stylesheets=[
-                weasyprint.CSS(filename=str(ruta_css)),
-                weasyprint.CSS(string='''
-                    @page { size: landscape; margin: 1cm }
+        es_esm_posgrado = ('ESM' in unidad or 'Escuela Superior de Medicina' in unidad) and ('posgrado' in nivel.lower())
 
+        if es_esm_posgrado:
+            css_content = '''
+                    @page {
+                        size: letter;
+                        margin: 2.0cm 1.2cm 1.5cm 1.2cm;
+                        @bottom-right {
+                            content: "Página " counter(page) " de " counter(pages);
+                            font-size: 10px;
+                            font-family: Arial, sans-serif;
+                            color: #636569;
+                        }
+                    }
+                    @page :first {
+                        margin-top: 1.3cm;
+                    }
+                    .acuse-header {
+                        position: fixed !important;
+                        top: -1.8cm !important;
+                        left: 0 !important;
+                        right: 0 !important;
+                        height: 0.9cm !important;
+                        text-align: center !important;
+                        border-bottom: 2.5px solid #750946 !important;
+                        margin: 0 !important;
+                        background-color: white !important;
+                        z-index: 1000 !important;
+                        padding-top: 4px !important;
+                    }
+            '''
+        else:
+            css_content = '''
+                    @page {
+                        size: letter;
+                        margin: 2.6cm 1.2cm 1.5cm 1.2cm;
+                        @bottom-right {
+                            content: "Página " counter(page) " de " counter(pages);
+                            font-size: 10px;
+                            font-family: Arial, sans-serif;
+                            color: #636569;
+                        }
+                    }
+                    @page :first {
+                        margin-top: 2.3cm;
+                    }
+                    .acuse-header {
+                        position: fixed !important;
+                        top: -1.9cm !important;
+                        left: 0 !important;
+                        right: 0 !important;
+                        height: 1.0cm !important;
+                        text-align: center !important;
+                        border-bottom: 2.5px solid #750946 !important;
+                        margin: 0 !important;
+                        background-color: white !important;
+                        z-index: 1000 !important;
+                        padding-top: 4px !important;
+                    }
+            '''
+
+        css_content += '''
                     /* 👈 4. CSS de la Marca de agua optimizado para WeasyPrint */
                     .marca-agua {
                         position: fixed;
@@ -1244,7 +1300,12 @@ async def exportar_aprovechamiento_pdf(
                         break-inside: avoid;
                         box-shadow: none;
                     }
-                ''')
+                '''
+
+        pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
+            stylesheets=[
+                weasyprint.CSS(filename=str(ruta_css)),
+                weasyprint.CSS(string=css_content)
             ]
         )
     except Exception as e:
