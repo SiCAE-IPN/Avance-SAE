@@ -11,6 +11,8 @@ body {
 }
 
 .contenedor-acuse {
+    position: relative;
+    overflow: hidden;
     max-width: 8.5in;
     margin: 0 auto;
     background-color: white;
@@ -24,7 +26,7 @@ body {
 
 /* HEADER - INFORMACIÓN DEL ACUSE */
 .acuse-header {
-    border-bottom: 3px solid #2c3e50;
+    border-bottom: 3px solid #750946;
     margin-bottom: 0.25in;
     padding-bottom: 0.15in;
     text-align: center;
@@ -34,7 +36,7 @@ body {
     margin: 0 0 8px 0;
     font-size: 16px;
     font-weight: bold;
-    color: #2c3e50;
+    color: #750946;
 }
 
 .header-info-grid {
@@ -48,16 +50,17 @@ body {
 
 .header-item-label {
     font-weight: bold;
-    color: #2c3e50;
+    color: #750946;
 }
 
 .header-item-value {
-    color: #555;
+    color: #636569;
 }
 
 .total-resumen {
-    background-color: #ecf0f1;
-    border-left: 4px solid #3498db;
+    background-color: #fcf6f9;
+    border: 1px solid #e8d0db;
+    border-left: 4px solid #750946;
     padding: 8px 10px;
     border-radius: 3px;
     text-align: center;
@@ -71,12 +74,12 @@ body {
 .total-resumen-texto {
     font-size: 12px;
     font-weight: bold;
-    color: #2c3e50;
+    color: #750946;
 }
 
 .total-resumen-numero {
     font-size: 24px;
-    color: #2c3e50;
+    color: #750946;
     font-weight: bold;
 }
 
@@ -100,14 +103,14 @@ body {
 }
 
 .tabla-titulo {
-    background-color: #34495e;
+    background-color: #750946;
     color: white;
     padding: 6px 8px;
     font-weight: bold;
     font-size: 11px;
     margin-bottom: 4px;
     border-radius: 3px;
-    border-left: 4px solid #3498db;
+    border-left: 4px solid #636569;
     text-align: left;
 }
 
@@ -118,16 +121,16 @@ body {
 }
 
 .tabla-acuse thead {
-    background-color: #ecf0f1;
-    border-bottom: 2px solid #2c3e50;
+    background-color: #f4f4f6;
+    border-bottom: 2px solid #750946;
 }
 
 .tabla-acuse th {
     padding: 5px 6px;
     text-align: center;
     font-weight: bold;
-    color: #2c3e50;
-    border-right: 1px solid #bdc3c7;
+    color: #000000;
+    border-right: 1px solid #d3d4d6;
 }
 
 .tabla-acuse th:last-child {
@@ -136,9 +139,10 @@ body {
 
 .tabla-acuse td {
     padding: 4px 6px;
-    border-right: 1px solid #d0d0d0;
-    border-bottom: 1px solid #d0d0d0;
+    border-right: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
     text-align: center;
+    color: #000000;
 }
 
 .tabla-acuse td:first-child, 
@@ -162,23 +166,23 @@ body {
 }
 
 .tabla-acuse tbody tr:hover {
-    background-color: #f0f7ff;
+    background-color: #fdf5f8;
 }
 
 /* Fila de Totales */
 .tabla-acuse tfoot, 
 .tabla-acuse .fila-total td {
-    background-color: #e8f4f8 !important;
-    border-top: 2px solid #2c3e50 !important;
+    background-color: #fbf0f5 !important;
+    border-top: 2px solid #750946 !important;
     font-weight: bold !important;
-    color: #2c3e50 !important;
+    color: #750946 !important;
 }
 
 /* FOOTER Y ESTADOS DE VALIDACIÓN */
 .acuse-footer {
     margin-top: 0.25in;
     padding-top: 0.15in;
-    border-top: 3px solid #2c3e50;
+    border-top: 3px solid #750946;
     text-align: center;
 }
 
@@ -280,17 +284,20 @@ body {
 
 /* MARCA DE AGUA */
 .marca-agua {
-    position: fixed; 
-    top: 45%;
-    left: 25%;
-    transform: rotate(-45deg);
+    position: absolute; 
+    top: 50%;
+    left: 50%;
+    width: 140%;
+    text-align: center;
+    transform: translate(-50%, -50%) rotate(-45deg);
     font-size: 70px;
     font-weight: bold;
-    color: rgba(128, 128, 128, 0.25);
+    color: rgba(120, 120, 120, 0.22);
     text-transform: uppercase;
     pointer-events: none;
-    z-index: 999;
+    z-index: 10;
     white-space: nowrap;
+    user-select: none;
 }
 
 /* RESPONSIVE */

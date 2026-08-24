@@ -1,38 +1,63 @@
 {% extends "base_pdf.html" if exportando_pdf else "base.html" %}
 
-{% block title %}Acuse de Validación - Aprovechamiento{% endblock  %}
+{% block title %}Acuse de Validación - Aprovechamiento{% endblock %}
 
 {% block styles %}
-    {% if not exportando_pdf %}
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
-    {% endif %}
+{% if not exportando_pdf %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
+{% endif %}
 
 <style>
-    .submenu-categorias-box { display: none !important; }
+    @font-face {
+        font-family: 'Noto Sans';
+        src: url('../fonts/NotoSans-Regular.ttf') format('truetype'),
+            url('/static/fonts/NotoSans-Regular.ttf') format('truetype');
+        font-style: normal;
+        font-weight: 400;
+    }
+
+    @font-face {
+        font-family: 'Noto Sans';
+        src: url('../fonts/NotoSans-Bold.ttf') format('truetype'),
+            url('/static/fonts/NotoSans-Bold.ttf') format('truetype');
+        font-style: normal;
+        font-weight: 700;
+    }
+
+    body,
+    .contenedor-acuse,
+    .tabla-dinamica {
+        font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+    }
+
+    .submenu-categorias-box {
+        display: none !important;
+    }
 
     .tabla-seccion {
-        margin-top: 30px;
+        margin-top: 25px;
         background: white;
-        padding: 20px;
+        padding: 15px;
         border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     }
-    
 
     .tabla-titulo {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         font-weight: bold;
         color: #ffffff;
-        margin-bottom: 15px;
+        background-color: #750946;
+        margin-bottom: 12px;
         border-bottom: 2px solid #e2e8f0;
-        padding-bottom: 8px;
+        padding: 6px 10px;
+        border-radius: 4px;
     }
 
     .tabla-wrapper {
         width: 100%;
         overflow-x: auto;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
     }
 
     .tabla-dinamica {
@@ -112,37 +137,495 @@
         font-weight: bold;
     }
 
-    /* Marca de agua - centrada y rotada */
-    .marca-agua {
-        position: fixed;
-        top: 50%;
-        left: -25%;
-        width: 150%;
+    /* ==========================================================================
+       ESTILOS PARA TABLAS TRANSPUESTAS (PROGRAMAS Y SEMESTRES) - GUINDA IPN
+       ========================================================================== */
+    .tabla-transpuesta {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #cbd5e1;
+        font-size: 0.72rem;
+        table-layout: auto;
+    }
+
+    .tabla-transpuesta th,
+    .tabla-transpuesta td {
+        border: 1px solid #e2e8f0 !important;
+        padding: 4px 4px;
         text-align: center;
-        transform: rotate(-45deg);
-        font-size: 70px;
+        vertical-align: middle;
+    }
+
+    /* Encabezados con Guinda IPN */
+    .tabla-transpuesta thead th {
+        background-color: #750946 !important;
+        color: #ffffff !important;
         font-weight: bold;
-        color: rgba(128, 128, 128, 0.25);
-        text-transform: uppercase;
-        pointer-events: none;
-        z-index: 9999;
+        padding: 5px 4px;
+        font-size: 0.72rem;
+        border: 1px solid #5a0636 !important;
+    }
+
+    .tabla-transpuesta th.th-dimension {
+        text-align: left !important;
+        padding-left: 8px !important;
+        min-width: 160px;
+    }
+
+    .tabla-transpuesta th.th-tipo {
+        min-width: 32px;
+        font-weight: bold;
+    }
+
+    .tabla-transpuesta th.th-total {
+        min-width: 45px;
+        background-color: #5c0737 !important;
+    }
+
+    /* Cuadro de Dimensión con H / M / ST */
+    .tabla-transpuesta .celda-dimension-nombre {
+        background-color: #f8fafc !important;
+        color: #1e293b !important;
+        font-weight: 600;
+        text-align: left !important;
+        vertical-align: middle !important;
+        padding: 4px 8px !important;
+        border-right: 1px solid #e2e8f0 !important;
+    }
+
+    .tabla-transpuesta .celda-dimension-letra {
+        background-color: #f8fafc !important;
+        color: #334155 !important;
+        font-weight: 600;
+        text-align: center !important;
+        vertical-align: middle !important;
+        width: 24px !important;
+        min-width: 24px !important;
+        max-width: 26px !important;
+        padding: 4px 2px !important;
+        border-left: 1px solid #cbd5e1 !important;
+    }
+
+    .tabla-transpuesta .celda-st-letra {
+        background-color: #f1f5f9 !important;
+        color: #750946 !important;
+        font-weight: bold !important;
+    }
+
+    .tabla-transpuesta .fila-subtotal td {
+        background-color: #faf5f8;
+        font-weight: bold;
+    }
+
+    .tabla-transpuesta .fila-subtotal td.total-celda {
+        color: #750946;
+    }
+
+    .tabla-transpuesta td.celda-total-sub {
+        background-color: #f1f5f9 !important;
+        font-weight: bold;
+        color: #1e293b;
+    }
+
+    /* Pie de tabla transpuesta */
+    .tabla-transpuesta tfoot td {
+        background-color: #f8fafc !important;
+        font-weight: bold;
+    }
+
+    .tabla-transpuesta .celda-pie-dimension-nombre {
+        background-color: #f1f5f9 !important;
+        color: #750946 !important;
+        font-weight: bold;
+        text-align: left !important;
+        padding-left: 8px !important;
+        vertical-align: middle !important;
+        border-right: 1px solid #e2e8f0 !important;
+    }
+
+    .tabla-transpuesta .celda-pie-dimension-letra {
+        background-color: #f1f5f9 !important;
+        color: #750946 !important;
+        font-weight: bold;
+        text-align: center !important;
+        vertical-align: middle !important;
+        width: 24px !important;
+        min-width: 24px !important;
+        max-width: 26px !important;
+        padding: 4px 2px !important;
+        border-left: 1px solid #cbd5e1 !important;
+    }
+
+    /* Fila Total General en Guinda IPN */
+    .tabla-transpuesta .fila-pie-total td {
+        background-color: #750946 !important;
+        color: #ffffff !important;
+        font-weight: bold;
+        border-color: #5a0636 !important;
+    }
+
+    .tabla-transpuesta .celda-pie-total-label {
+        background-color: #750946 !important;
+        color: #ffffff !important;
+        font-weight: bold;
+        text-align: left !important;
+        padding-left: 8px !important;
+        vertical-align: middle !important;
+        font-size: 0.76rem;
+    }
+
+    /* Leyenda de siglas / iniciales con toque institucional */
+    .leyenda-aprovechamiento {
+        margin-top: 8px;
+        padding: 6px 10px;
+        background-color: #fdf6fa;
+        border: 1px solid #f3d7e7;
+        border-radius: 4px;
+        font-size: 0.65rem;
+        color: #334155;
+        line-height: 1.35;
+    }
+
+    .leyenda-titulo {
+        font-weight: bold;
+        color: #750946;
+        margin-bottom: 3px;
+        font-size: 0.68rem;
+    }
+
+    .leyenda-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+    }
+
+    .leyenda-item {
         white-space: nowrap;
+    }
+
+    .leyenda-item strong {
+        color: #750946;
+    }
+
+    /* Confinar marca de agua dentro de la hoja y colocarla DELANTE de las tablas */
+    .contenedor-acuse {
+        position: relative !important;
+        overflow: hidden !important;
+        z-index: 1 !important;
+    }
+
+    .marca-agua {
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        width: 140% !important;
+        text-align: center !important;
+        transform: translate(-50%, -50%) rotate(-45deg) !important;
+        font-size: 70px !important;
+        font-weight: bold !important;
+        color: rgba(120, 120, 120, 0.22) !important;
+        text-transform: uppercase !important;
+        pointer-events: none !important;
+        z-index: 10 !important;
+        white-space: nowrap !important;
+        user-select: none !important;
+    }
+
+    /* Botones y acciones del acuse accesibles */
+    .botones-accion,
+    .panel-rechazo,
+    .acuse-footer {
+        position: relative !important;
+        z-index: 15 !important;
+    }
+
+    .linea-divisoria-firmas {
+        border-top: 2px solid #750946;
+        margin-top: 30px;
+        margin-bottom: 20px;
+        width: 100%;
     }
 
     /* Estilos para impresión/PDF */
     @media print {
-        .btn, .acciones-validacion, .panel-rechazo, .no-print { display: none !important; }
-        body { margin: 0; padding: 0; background: white; }
-        .tabla-seccion { page-break-inside: avoid; box-shadow: none; padding: 0; }
-        .tabla-dinamica { font-size: 0.6rem; }
+
+        .btn,
+        .acciones-validacion,
+        .panel-rechazo,
+        .no-print,
+        .barra-navegacion-superior {
+            display: none !important;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: white;
+        }
+
+        .tabla-seccion {
+            page-break-inside: avoid;
+            box-shadow: none;
+            padding: 0;
+            margin-top: 15px;
+        }
+
+        .tabla-dinamica {
+            font-size: 0.6rem;
+        }
+    }
+
+        {
+        % if exportando_pdf %
+    }
+
+    @page {
+        size: letter portrait;
+        margin: 0.6cm 0.6cm 0.7cm 0.6cm;
+    }
+
+    .contenedor-acuse {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        position: relative !important;
+        text-align: center !important;
+    }
+
+    .acuse-header {
+        margin: 0 0 8px 0 !important;
+        text-align: center !important;
+    }
+
+    .acuse-header h1 {
+        font-size: 14px !important;
+        margin: 0 0 3px 0 !important;
+        color: #750946 !important;
+        font-weight: bold !important;
+    }
+
+    .acuse-header div {
+        font-size: 9.5px !important;
+        margin-top: 1px !important;
+        margin-bottom: 6px !important;
+    }
+
+    .marca-agua {
+        position: fixed !important;
+        top: 45% !important;
+        left: -20% !important;
+        width: 140% !important;
+        text-align: center !important;
+        transform: rotate(-45deg) !important;
+        font-size: 70px !important;
+        font-weight: bold !important;
+        color: rgba(120, 120, 120, 0.22) !important;
+        text-transform: uppercase !important;
+        pointer-events: none !important;
+        z-index: 100 !important;
+        white-space: nowrap !important;
+    }
+
+    .tabla-seccion {
+        page-break-inside: avoid !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        width: 100% !important;
+    }
+
+    .tabla-titulo {
+        font-size: 10.5px !important;
+        font-weight: bold !important;
+        color: #ffffff !important;
+        background-color: #750946 !important;
+        padding: 3px 8px !important;
+        margin-bottom: 5px !important;
+        text-align: left !important;
+        border-radius: 4px !important;
+    }
+
+    .tabla-wrapper {
+        margin-bottom: 0 !important;
+        width: 100% !important;
+    }
+
+    .tabla-transpuesta {
+        font-size: 7.2px !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+    }
+
+    .tabla-transpuesta th,
+    .tabla-transpuesta td {
+        padding: 2px 1px !important;
+        line-height: 1.1 !important;
+        font-size: 7.2px !important;
+        overflow: hidden !important;
+    }
+
+    .tabla-transpuesta th.th-dimension {
+        width: 32% !important;
+        text-align: left !important;
+        padding-left: 5px !important;
+    }
+
+    .tabla-transpuesta td.celda-dimension-nombre {
+        width: 32% !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        padding: 2px 4px !important;
+    }
+
+    .tabla-transpuesta td.celda-dimension-letra,
+    .tabla-transpuesta td.celda-pie-dimension-letra {
+        width: 4% !important;
+        padding: 2px 0px !important;
+    }
+
+    .tabla-transpuesta th.th-tipo {
+        width: 5% !important;
+    }
+
+    .tabla-transpuesta td:not(.celda-dimension-nombre):not(.celda-dimension-letra) {
+        width: 5% !important;
+    }
+
+    .tabla-transpuesta th.th-total,
+    .tabla-transpuesta td.celda-total-sub {
+        width: 9% !important;
+    }
+
+    .tabla-dinamica:not(.tabla-transpuesta) {
+        font-size: 7.5px !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+        border-collapse: collapse !important;
+    }
+
+    .tabla-dinamica:not(.tabla-transpuesta) th,
+    .tabla-dinamica:not(.tabla-transpuesta) td {
+        padding: 2.5px 2px !important;
+        line-height: 1.1 !important;
+        font-size: 7.5px !important;
+    }
+
+    .leyenda-aprovechamiento {
+        font-size: 6.8px !important;
+        padding: 4px 8px !important;
+        margin-top: 5px !important;
+        line-height: 1.2 !important;
+        text-align: left !important;
+        background-color: #fdf6fa !important;
+        border: 1px solid #f3d7e7 !important;
+        border-radius: 4px !important;
+    }
+
+    .leyenda-titulo {
+        font-size: 7.2px !important;
+        margin-bottom: 2px !important;
+        color: #750946 !important;
+        font-weight: bold !important;
+    }
+
+    .leyenda-items {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 3px 8px !important;
+    }
+
+    /* Paginación y centrado vertical por sección */
+    #sec-programa {
+        page-break-after: always !important;
+        padding-top: 0cm !important;
+    }
+
+    #sec-semestre {
+        page-break-after: always !important;
+        padding-top: 0.5cm !important;
+    }
+
+    #sec-modalidad {
+        page-break-after: always !important;
+        padding-top: 4.5cm !important;
+    }
+
+    #sec-turno {
+        page-break-after: auto !important;
+        padding-top: 1cm !important;
+    }
+
+    /* Firmas en la parte inferior de la última hoja */
+    .linea-divisoria-firmas {
+        border-top: 2px solid #750946 !important;
+        margin-top: 5cm !important;
+        margin-bottom: 10px !important;
+        width: 100% !important;
+        page-break-inside: avoid !important;
+    }
+
+    .firmas-container {
+        margin-top: 8px !important;
+        margin-bottom: 0 !important;
+        display: table !important;
+        width: 100% !important;
+        page-break-inside: avoid !important;
+    }
+
+    .firma-box {
+        display: table-cell !important;
+        width: 33.33% !important;
+        text-align: center !important;
+        vertical-align: bottom !important;
+        padding: 0 10px !important;
+    }
+
+    .firma-linea {
+        border-bottom: 1px solid #333 !important;
+        margin-bottom: 5px !important;
+        height: 1px !important;
+    }
+
+    .firma-nombre {
+        font-weight: bold !important;
+        font-size: 10px !important;
+        color: #000000 !important;
+        margin-bottom: 2px !important;
+    }
+
+    .firma-rol {
+        font-size: 9px !important;
+        color: #636569 !important;
+    }
+
+        {
+        % endif %
     }
 </style>
 {% endblock %}
 
 {% block content %}
+{% if not exportando_pdf %}
+<div class="barra-navegacion-superior no-print"
+    style="display: flex; justify-content: flex-end; margin-bottom: 15px; max-width: 95%; margin-left: auto; margin-right: auto;">
+    <a href="/aprovechamiento/consulta" class="btn-volver"
+        style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 6px; font-weight: 600; background: #750946; color: white; border: none; cursor: pointer;">
+        ← Regresar
+    </a>
+</div>
+{% endif %}
+
 <div class="contenedor-acuse">
-    {% if no_validado %}
-    <div class="marca-agua"> Sin Validez Oficial </div>
+    {% if no_validado or (estado_semaforo_actual is defined and estado_semaforo_actual < 9) or (estado_semaforo is
+        defined and estado_semaforo < 9) %} <div class="marca-agua">Sin Validez Oficial</div>
+{% endif %}
+
+{% if estado_semaforo is defined and estado_semaforo >= 1 and estado_semaforo <= 8 %} <div class="marca-agua">DOCUMENTO
+    EN REVISIÓN</div>
     {% endif %}
 
     <div class="acuse-header">
@@ -154,522 +637,639 @@
             <strong>Unidad:</strong> {{ unidad }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
             <strong>Fecha:</strong> <span id="fecha-actual">{{ fecha_hoy if exportando_pdf else '' }}</span>
         </div>
-        
+
 
     </div>
 
     {% if error %}
-        <div class="alerta-error">{{ error }}</div>
+    <div class="alerta-error">{{ error }}</div>
     {% else %}
 
-        <!-- TABLA 1: PROGRAMA ACADÉMICO -->
-        <div class="tabla-seccion">
-            <div class="tabla-titulo" >{{ '1.' if exportando_pdf else '1️⃣ ' }}Programa Académico</div>
-            <div class="tabla-wrapper">
-                <table class="tabla-dinamica" id="tbl-programa">
-                    <thead>
-                        <tr>
-                            <th rowspan="2"><strong>Aprovechamiento</strong></th>
-                            {% for cat in tabla_programa.categorias %}
-                                <th colspan="3">{{ cat }}</th>
-                            {% endfor %}
-                            <th colspan="3">Total</th>
-                        </tr>
-                        <tr>
-                            {% for _ in tabla_programa.categorias %}
-                                <th>H</th><th>M</th><th>T</th>
-                            {% endfor %}
-                            <th>H</th><th>M</th><th>T</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in tabla_programa.filas %}
-                        <tr>
-                            <td>{{ fila.tipo }}</td>
-                            {% for celda in fila.celdas %}
-                                <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
-                            {% endfor %}
-                            <td>{{ fila.total_h }}</td><td>{{ fila.total_m }}</td><td class="total-celda">{{ fila.total_t }}</td>
-                        </tr>
+    <!-- TABLA 1: PROGRAMA ACADÉMICO -->
+    <div class="tabla-seccion" id="sec-programa">
+        <div class="tabla-titulo">1. Programa Académico</div>
+        <div class="tabla-wrapper">
+            <table class="tabla-dinamica tabla-transpuesta" id="tbl-programa">
+                <thead>
+                    <tr>
+                        <th colspan="2" class="th-dimension">Programa Académico</th>
+                        {% for col in tabla_programa.columnas %}
+                        <th class="th-tipo">{{ col }}</th>
                         {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td><strong>TOTAL GENERAL</strong></td>
-                            {% for total_cat in tabla_programa.totales_por_columna %}
-                                <td>{{ total_cat.h }}</td><td>{{ total_cat.m }}</td><td class="total-celda">{{ total_cat.t }}</td>
-                            {% endfor %}
-                            <td>{{ tabla_programa.total_general_h }}</td><td>{{ tabla_programa.total_general_m }}</td><td class="total-celda">{{ tabla_programa.total_general_t }}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-
-        <!-- TABLA 2: SEMESTRE -->
-        <div class="tabla-seccion">
-            <div class="tabla-titulo">{{ '2.' if exportando_pdf else '2️⃣ ' }}Semestre</div>
-            <div class="tabla-wrapper">
-                <table class="tabla-dinamica" id="tbl-semestre">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">Aprovechamiento</th>
-                            {% for cat in tabla_semestre.categorias %}
-                                <th colspan="3">{{ cat }}</th>
-                            {% endfor %}
-                            <th colspan="3">Total</th>
-                        </tr>
-                        <tr>
-                            {% for _ in tabla_semestre.categorias %}
-                                <th>H</th><th>M</th><th>T</th>
-                            {% endfor %}
-                            <th>H</th><th>M</th><th>T</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in tabla_semestre.filas %}
-                        <tr>
-                            <td>{{ fila.tipo }}</td>
-                            {% for celda in fila.celdas %}
-                                <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
-                            {% endfor %}
-                            <td>{{ fila.total_h }}</td><td>{{ fila.total_m }}</td><td class="total-celda">{{ fila.total_t }}</td>
-                        </tr>
+                        <th class="th-total">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_programa.filas %}
+                    <!-- Subfila Hombre -->
+                    <tr class="fila-hombre">
+                        <td rowspan="3" class="celda-dimension-nombre">{{ fila.nombre }}</td>
+                        <td class="celda-dimension-letra">H</td>
+                        {% for val in fila.hombres %}
+                        <td>{{ val }}</td>
                         {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td><strong>TOTAL GENERAL</strong></td>
-                            {% for total_cat in tabla_semestre.totales_por_columna %}
-                                <td>{{ total_cat.h }}</td><td>{{ total_cat.m }}</td><td class="total-celda">{{ total_cat.t }}</td>
-                            {% endfor %}
-                            <td>{{ tabla_semestre.total_general_h }}</td><td>{{ tabla_semestre.total_general_m }}</td><td class="total-celda">{{ tabla_semestre.total_general_t }}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-
-        <!-- TABLA 3: MODALIDAD -->
-        <div class="tabla-seccion">
-            <div class="tabla-titulo">{{ '3.' if exportando_pdf else '3️⃣ ' }}Modalidad</div>
-            <div class="tabla-wrapper">
-                <table class="tabla-dinamica" id="tbl-modalidad">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">Aprovechamiento</th>
-                            {% for cat in tabla_modalidad.categorias %}
-                                <th colspan="3">{{ cat }}</th>
-                            {% endfor %}
-                            <th colspan="3">Total</th>
-                        </tr>
-                        <tr>
-                            {% for _ in tabla_modalidad.categorias %}
-                                <th>H</th><th>M</th><th>T</th>
-                            {% endfor %}
-                            <th>H</th><th>M</th><th>T</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in tabla_modalidad.filas %}
-                        <tr>
-                            <td>{{ fila.tipo }}
-                            {% for celda in fila.celdas %}
-                                <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
-                            {% endfor %}
-                            <td>{{ fila.total_h }}</td><td>{{ fila.total_m }}</td><td class="total-celda">{{ fila.total_t }}</td>
-                        </tr>
+                        <td class="celda-total-sub">{{ fila.total_h }}</td>
+                    </tr>
+                    <!-- Subfila Mujer -->
+                    <tr class="fila-mujer">
+                        <td class="celda-dimension-letra">M</td>
+                        {% for val in fila.mujeres %}
+                        <td>{{ val }}</td>
                         {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td><strong>TOTAL GENERAL</strong></td>
-                            {% for total_cat in tabla_modalidad.totales_por_columna %}
-                                <td>{{ total_cat.h }}</td><td>{{ total_cat.m }}</td><td class="total-celda">{{ total_cat.t }}</td>
-                            {% endfor %}
-                            <td>{{ tabla_modalidad.total_general_h }}</td><td>{{ tabla_modalidad.total_general_m }}</td><td class="total-celda">{{ tabla_modalidad.total_general_t }}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-
-        <!-- TABLA 4: TURNO -->
-        <div class="tabla-seccion">
-            <div class="tabla-titulo">{{ '4.' if exportando_pdf else '4️⃣ ' }}Turno</div>
-            <div class="tabla-wrapper">
-                <table class="tabla-dinamica" id="tbl-turno">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">Aprovechamiento</th>
-                            {% for cat in tabla_turno.categorias %}
-                                <th colspan="3">{{ cat }}</th>
-                            {% endfor %}
-                            <th colspan="3">Total</th>
-                        </tr>
-                        <tr>
-                            {% for _ in tabla_turno.categorias %}
-                                <th>H</th><th>M</th><th>T</th>
-                            {% endfor %}
-                            <th>H</th><th>M</th><th>T</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in tabla_turno.filas %}
-                        <tr>
-                            <td>{{ fila.tipo }}</td>
-                            {% for celda in fila.celdas %}
-                                <td>{{ celda.h }}</td><td>{{ celda.m }}</td><td class="total-celda">{{ celda.t }}</td>
-                            {% endfor %}
-                            <td>{{ fila.total_h }}</td><td>{{ fila.total_m }}</td><td class="total-celda">{{ fila.total_t }}</td>
-                        </tr>
+                        <td class="celda-total-sub">{{ fila.total_m }}</td>
+                    </tr>
+                    <!-- Subfila Subtotal -->
+                    <tr class="fila-subtotal">
+                        <td class="celda-dimension-letra celda-st-letra">ST</td>
+                        {% for val in fila.subtotales %}
+                        <td class="total-celda">{{ val }}</td>
                         {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td><strong>TOTAL GENERAL</strong></td>
-                            {% for total_cat in tabla_turno.totales_por_columna %}
-                                <td>{{ total_cat.h }}</td><td>{{ total_cat.m }}</td><td class="total-celda">{{ total_cat.t }}</td>
-                            {% endfor %}
-                            <td>{{ tabla_turno.total_general_h }}</td><td>{{ tabla_turno.total_general_m }}</td><td class="total-celda">{{ tabla_turno.total_general_t }}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-        <div class="firmas-container">
-            <div class="firma-box">
-                <div class="firma-linea"></div>
-                <div class="firma-nombre">{{ nombre_capturista }}</div>
-                <div class="firma-rol">Capturista</div>
-            </div>
-            <div class="firma-box">
-                <div class="firma-linea"></div>
-                <div class="firma-nombre">{{ nombre_ceget }}</div>
-                <div class="firma-rol">CEGET</div>
-            </div>
-            <div class="firma-box">
-                <div class="firma-linea"></div>
-                <div class="firma-nombre">{{ nombre_titular }}</div>
-                <div class="firma-rol">Titular de la Unidad Académica</div>
-            </div>
-        </div>
-
-        <!-- Footer con botones y estado -->
-        <div class="acuse-footer">
-
-            {% if usuario_ya_valido %}
-                <div class="estado-validacion estado-validado">
-                    ✅ APROVECHAMIENTO VALIDADO
-                </div>
-                {% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %}
-                <div class="estado-validacion estado-pendiente">
-                    ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
-                </div>
-                {% endif %}
-            {% elif usuario_ya_rechazo %}
-                <div class="estado-validacion estado-rechazado">
-                    ❌ APROVECHAMIENTO RECHAZADO
-                </div>
-            {% elif puede_validar or pendiente_validacion %}
-                {% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %}
-                <div class="estado-validacion estado-pendiente">
-                    ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
-                </div>
-                {% else %}
-                    <div class="estado-validacion estado-validado">
-                        ✅ APROVECHAMIENTO VALIDADO
-                    </div>
-                {% endif %}
-            {% else %}
-                <div class="estado-validacion estado-esperando">
-                    ⏸️ EN ESPERA DE VALIDACIÓN
-                </div>
-            {% endif %}
-
-            {% if not exportando_pdf %}
-            <div class="acciones-validacion" id="acciones-validacion">
-                {% if id_rol in [4,5,6,7,8,9] and periodo_activo %}
-                    <button class="btn btn-success" id="btn-validar" onclick="validarAprovechamiento()"
-                            {% if usuario_ya_valido or usuario_ya_rechazo or not puede_validar %}disabled{% endif %}>
-                        ✅ Validar Aprovechamiento
-                    </button>
-                    <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarAprovechamiento()"
-                            {% if usuario_ya_valido or usuario_ya_rechazo or not puede_validar %}disabled{% endif %}>
-                        ❌ Rechazar Aprovechamiento
-                    </button>
-                {% endif %}
-                <button class="btn btn-info" onclick="exportarPdf()">📄 Exportar a PDF</button>
-                <button class="btn btn-info" onclick="exportarExcel()">📊 Exportar a Excel</button>
-            </div>
-
-            {% if id_rol in [4,5,6,7,8,9] and periodo_activo %}
-            <div class="panel-rechazo" id="panel-rechazo">
-                <h4>
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Motivo de Rechazo
-                </h4>
-                <textarea
-                    id="motivo-rechazo"
-                    placeholder="Por favor, describa el motivo del rechazo (mínimo 10, máximo 250 caracteres)..."
-                    maxlength="250"
-                    oninput="actualizarContador()"
-                ></textarea>
-                <div class="panel-rechazo-footer">
-                    <span class="contador-caracteres">
-                        <span id="contador-caracteres">0</span>/250 caracteres
-                    </span>
-                    <div class="panel-rechazo-botones">
-                        <button class="btn-cancelar-rechazo" onclick="cerrarPanelRechazo()">
-                            <i class="fas fa-times"></i> Cancelar
-                        </button>
-                        <button class="btn-confirmar-rechazo" onclick="confirmarRechazo()">
-                            <i class="fas fa-paper-plane"></i> Enviar Rechazo
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mensaje-validacion" id="mensaje-validacion" style="display:none;"></div>
-            {% endif %}
-            {% endif %}
-
+                        <td class="total-celda celda-total-sub">{{ fila.total_st }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <!-- Subtotal Hombre -->
+                    <tr class="fila-pie-subtotal">
+                        <td rowspan="2" class="celda-pie-dimension-nombre">Subtotal</td>
+                        <td class="celda-pie-dimension-letra">H</td>
+                        {% for val in tabla_programa.totales_h_col %}
+                        <td>{{ val }}</td>
+                        {% endfor %}
+                        <td class="celda-total-sub">{{ tabla_programa.total_gen_h }}</td>
+                    </tr>
+                    <!-- Subtotal Mujer -->
+                    <tr class="fila-pie-subtotal">
+                        <td class="celda-pie-dimension-letra">M</td>
+                        {% for val in tabla_programa.totales_m_col %}
+                        <td>{{ val }}</td>
+                        {% endfor %}
+                        <td class="celda-total-sub">{{ tabla_programa.total_gen_m }}</td>
+                    </tr>
+                    <!-- Total General -->
+                    <tr class="fila-pie-total">
+                        <td colspan="2" class="celda-pie-total-label">Total</td>
+                        {% for val in tabla_programa.totales_general_col %}
+                        <td class="total-celda">{{ val }}</td>
+                        {% endfor %}
+                        <td class="total-celda celda-total-sub">{{ tabla_programa.total_general_t }}</td>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
 
+        <!-- Leyenda de iniciales/siglas -->
+        {% if tabla_programa.leyenda %}
+        <div class="leyenda-aprovechamiento">
+            <div class="leyenda-titulo">Significado de abreviaturas:</div>
+            <div class="leyenda-items">
+                <span class="leyenda-item"><strong>H:</strong> Hombre</span>
+                <span class="leyenda-item"><strong>M:</strong> Mujer</span>
+                <span class="leyenda-item"><strong>ST:</strong> Subtotal</span>
+                {% for item in tabla_programa.leyenda %}
+                <span class="leyenda-item"><strong>{{ item.sigla }}:</strong> {{ item.significado }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- TABLA 2: SEMESTRE -->
+    <div class="tabla-seccion" id="sec-semestre">
+        <div class="tabla-titulo">2. Semestre</div>
+        <div class="tabla-wrapper">
+            <table class="tabla-dinamica tabla-transpuesta" id="tbl-semestre">
+                <thead>
+                    <tr>
+                        <th colspan="2" class="th-dimension">Semestre</th>
+                        {% for col in tabla_semestre.columnas %}
+                        <th class="th-tipo">{{ col }}</th>
+                        {% endfor %}
+                        <th class="th-total">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_semestre.filas %}
+                    <!-- Subfila Hombre -->
+                    <tr class="fila-hombre">
+                        <td rowspan="3" class="celda-dimension-nombre">{{ fila.nombre }}</td>
+                        <td class="celda-dimension-letra">H</td>
+                        {% for val in fila.hombres %}
+                        <td>{{ val }}</td>
+                        {% endfor %}
+                        <td class="celda-total-sub">{{ fila.total_h }}</td>
+                    </tr>
+                    <!-- Subfila Mujer -->
+                    <tr class="fila-mujer">
+                        <td class="celda-dimension-letra">M</td>
+                        {% for val in fila.mujeres %}
+                        <td>{{ val }}</td>
+                        {% endfor %}
+                        <td class="celda-total-sub">{{ fila.total_m }}</td>
+                    </tr>
+                    <!-- Subfila Subtotal -->
+                    <tr class="fila-subtotal">
+                        <td class="celda-dimension-letra celda-st-letra">ST</td>
+                        {% for val in fila.subtotales %}
+                        <td class="total-celda">{{ val }}</td>
+                        {% endfor %}
+                        <td class="total-celda celda-total-sub">{{ fila.total_st }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <!-- Subtotal Hombre -->
+                    <tr class="fila-pie-subtotal">
+                        <td rowspan="2" class="celda-pie-dimension-nombre">Subtotal</td>
+                        <td class="celda-pie-dimension-letra">H</td>
+                        {% for val in tabla_semestre.totales_h_col %}
+                        <td>{{ val }}</td>
+                        {% endfor %}
+                        <td class="celda-total-sub">{{ tabla_semestre.total_gen_h }}</td>
+                    </tr>
+                    <!-- Subtotal Mujer -->
+                    <tr class="fila-pie-subtotal">
+                        <td class="celda-pie-dimension-letra">M</td>
+                        {% for val in tabla_semestre.totales_m_col %}
+                        <td>{{ val }}</td>
+                        {% endfor %}
+                        <td class="celda-total-sub">{{ tabla_semestre.total_gen_m }}</td>
+                    </tr>
+                    <!-- Total General -->
+                    <tr class="fila-pie-total">
+                        <td colspan="2" class="celda-pie-total-label">Total</td>
+                        {% for val in tabla_semestre.totales_general_col %}
+                        <td class="total-celda">{{ val }}</td>
+                        {% endfor %}
+                        <td class="total-celda celda-total-sub">{{ tabla_semestre.total_general_t }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Leyenda de iniciales/siglas -->
+        {% if tabla_semestre.leyenda %}
+        <div class="leyenda-aprovechamiento">
+            <div class="leyenda-titulo">Significado de abreviaturas:</div>
+            <div class="leyenda-items">
+                <span class="leyenda-item"><strong>H:</strong> Hombre</span>
+                <span class="leyenda-item"><strong>M:</strong> Mujer</span>
+                <span class="leyenda-item"><strong>ST:</strong> Subtotal</span>
+                {% for item in tabla_semestre.leyenda %}
+                <span class="leyenda-item"><strong>{{ item.sigla }}:</strong> {{ item.significado }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- TABLA 3: MODALIDAD -->
+    <div class="tabla-seccion" id="sec-modalidad">
+        <div class="tabla-titulo">3. Modalidad</div>
+        <div class="tabla-wrapper">
+            <table class="tabla-dinamica" id="tbl-modalidad">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Aprovechamiento</th>
+                        {% for cat in tabla_modalidad.categorias %}
+                        <th colspan="3">{{ cat }}</th>
+                        {% endfor %}
+                        <th colspan="3">Total</th>
+                    </tr>
+                    <tr>
+                        {% for _ in tabla_modalidad.categorias %}
+                        <th>H</th>
+                        <th>M</th>
+                        <th>T</th>
+                        {% endfor %}
+                        <th>H</th>
+                        <th>M</th>
+                        <th>T</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_modalidad.filas %}
+                    <tr>
+                        <td>{{ fila.tipo }}
+                            {% for celda in fila.celdas %}
+                        <td>{{ celda.h }}</td>
+                        <td>{{ celda.m }}</td>
+                        <td class="total-celda">{{ celda.t }}</td>
+                        {% endfor %}
+                        <td>{{ fila.total_h }}</td>
+                        <td>{{ fila.total_m }}</td>
+                        <td class="total-celda">{{ fila.total_t }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td><strong>TOTAL GENERAL</strong></td>
+                        {% for total_cat in tabla_modalidad.totales_por_columna %}
+                        <td>{{ total_cat.h }}</td>
+                        <td>{{ total_cat.m }}</td>
+                        <td class="total-celda">{{ total_cat.t }}</td>
+                        {% endfor %}
+                        <td>{{ tabla_modalidad.total_general_h }}</td>
+                        <td>{{ tabla_modalidad.total_general_m }}</td>
+                        <td class="total-celda">{{ tabla_modalidad.total_general_t }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- TABLA 4: TURNO -->
+    <div class="tabla-seccion" id="sec-turno">
+        <div class="tabla-titulo">4. Turno</div>
+        <div class="tabla-wrapper">
+            <table class="tabla-dinamica" id="tbl-turno">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Aprovechamiento</th>
+                        {% for cat in tabla_turno.categorias %}
+                        <th colspan="3">{{ cat }}</th>
+                        {% endfor %}
+                        <th colspan="3">Total</th>
+                    </tr>
+                    <tr>
+                        {% for _ in tabla_turno.categorias %}
+                        <th>H</th>
+                        <th>M</th>
+                        <th>T</th>
+                        {% endfor %}
+                        <th>H</th>
+                        <th>M</th>
+                        <th>T</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in tabla_turno.filas %}
+                    <tr>
+                        <td>{{ fila.tipo }}</td>
+                        {% for celda in fila.celdas %}
+                        <td>{{ celda.h }}</td>
+                        <td>{{ celda.m }}</td>
+                        <td class="total-celda">{{ celda.t }}</td>
+                        {% endfor %}
+                        <td>{{ fila.total_h }}</td>
+                        <td>{{ fila.total_m }}</td>
+                        <td class="total-celda">{{ fila.total_t }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td><strong>TOTAL GENERAL</strong></td>
+                        {% for total_cat in tabla_turno.totales_por_columna %}
+                        <td>{{ total_cat.h }}</td>
+                        <td>{{ total_cat.m }}</td>
+                        <td class="total-celda">{{ total_cat.t }}</td>
+                        {% endfor %}
+                        <td>{{ tabla_turno.total_general_h }}</td>
+                        <td>{{ tabla_turno.total_general_m }}</td>
+                        <td class="total-celda">{{ tabla_turno.total_general_t }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <div class="linea-divisoria-firmas"></div>
+
+    <div class="firmas-container">
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-nombre">{{ nombre_capturista }}</div>
+            <div class="firma-rol">Capturista</div>
+        </div>
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-nombre">{{ nombre_ceget }}</div>
+            <div class="firma-rol">CEGET</div>
+        </div>
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-nombre">{{ nombre_titular }}</div>
+            <div class="firma-rol">Titular de la Unidad Académica</div>
+        </div>
+    </div>
+
+    {% if not exportando_pdf %}
+    <!-- Footer con botones y estado -->
+    <div class="acuse-footer">
+
+        {% if usuario_ya_valido %}
+        <div class="estado-validacion estado-validado">
+            ✅ APROVECHAMIENTO VALIDADO
+        </div>
+        {% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %} <div
+            class="estado-validacion estado-pendiente">
+            ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista"
+                }}</strong>
+    </div>
     {% endif %}
-</div>
-{% endblock %}
+    {% elif usuario_ya_rechazo %}
+    <div class="estado-validacion estado-rechazado">
+        ❌ APROVECHAMIENTO RECHAZADO
+    </div>
+    {% elif puede_validar or pendiente_validacion %}
+    {% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %} <div
+        class="estado-validacion estado-pendiente">
+        ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista"
+            }}</strong>
+        </div>
+        {% else %}
+        <div class="estado-validacion estado-validado">
+            ✅ APROVECHAMIENTO VALIDADO
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="estado-validacion estado-esperando">
+            ⏸️ EN ESPERA DE VALIDACIÓN
+        </div>
+        {% endif %}
 
-{% block scripts %}
-{% if not exportando_pdf %}
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script>
-    // Fecha actual en vista web
-    const noValidado = {{ no_validado|lower }};   // true/false desde el backend
-    const fechaEl = document.getElementById('fecha-actual');
-    if (fechaEl && !fechaEl.textContent.trim()) {
-        fechaEl.textContent = new Date().toLocaleDateString('es-MX', {
-            day: '2-digit', month: '2-digit', year: 'numeric'
-        });
-    }
+        <div class="acciones-validacion" id="acciones-validacion">
+            {% if id_rol in [4,5,6,7,8,9] and periodo_activo %}
+            <button class="btn btn-success" id="btn-validar" onclick="validarAprovechamiento()" {% if usuario_ya_valido
+                or usuario_ya_rechazo or not puede_validar %}disabled{% endif %}>
+                ✅ Validar Aprovechamiento
+            </button>
+            <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarAprovechamiento()" {% if usuario_ya_valido
+                or usuario_ya_rechazo or not puede_validar %}disabled{% endif %}>
+                ❌ Rechazar Aprovechamiento
+            </button>
+            {% endif %}
+            <button class="btn btn-info" onclick="exportarPdf()">📄 Exportar a PDF</button>
+            <button class="btn btn-info" onclick="exportarExcel()">📊 Exportar a Excel</button>
+        </div>
 
-    const periodo = "{{ periodo }}";
-    const nivel   = "{{ nivel }}";
-    const unidad  = "{{ unidad }}";
-    const idRol   = {{ id_rol }};
-    const idUnidadAcademica = {{ id_unidad_academica }};
+        {% if id_rol in [4,5,6,7,8,9] and periodo_activo %}
+        <div class="panel-rechazo" id="panel-rechazo">
+            <h4>
+                <i class="fas fa-exclamation-triangle"></i>
+                Motivo de Rechazo
+            </h4>
+            <textarea id="motivo-rechazo"
+                placeholder="Por favor, describa el motivo del rechazo (mínimo 10, máximo 250 caracteres)..."
+                maxlength="250" oninput="actualizarContador()"></textarea>
+            <div class="panel-rechazo-footer">
+                <span class="contador-caracteres">
+                    <span id="contador-caracteres">0</span>/250 caracteres
+                </span>
+                <div class="panel-rechazo-botones">
+                    <button class="btn-cancelar-rechazo" onclick="cerrarPanelRechazo()">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button class="btn-confirmar-rechazo" onclick="confirmarRechazo()">
+                        <i class="fas fa-paper-plane"></i> Enviar Rechazo
+                    </button>
+                </div>
+            </div>
+        </div>
 
-    async function exportarPdf() {
-        const url = `/aprovechamiento/acuse-validacion/pdf?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}&no_validado={{ no_validado|lower }}&nombre_capturista={{ nombre_capturista }}&nombre_ceget={{ nombre_ceget }}&nombre_titular={{ nombre_titular }}`;
+        <div class="mensaje-validacion" id="mensaje-validacion" style="display:none;"></div>
+        {% endif %}
 
-        // 1. Mostrar la pantalla de carga (SweetAlert2)
-        Swal.fire({
-            title: 'Generando archivo PDF',
-            text: 'Por favor espera, esto puede tomar unos segundos...',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            didOpen: () => {
-                Swal.showLoading();
+        </div>
+        {% endif %}
+
+        {% endif %}
+        </div>
+        {% endblock %}
+
+        {% block scripts %}
+        {% if not exportando_pdf %}
+        <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+        <script>
+            // Fecha actual en vista web
+            const noValidado = {{ no_validado| lower }};   // true/false desde el backend
+            const fechaEl = document.getElementById('fecha-actual');
+            if (fechaEl && !fechaEl.textContent.trim()) {
+                fechaEl.textContent = new Date().toLocaleDateString('es-MX', {
+                    day: '2-digit', month: '2-digit', year: 'numeric'
+                });
             }
-        });
 
-        try {
-            // 2. Realizar la petición fetch de manera asíncrona
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText);
+            const periodo = "{{ periodo }}";
+            const periodoUrl = "{{ periodo_url or periodo }}";
+            const nivel = "{{ nivel }}";
+            const unidad = "{{ unidad }}";
+            const idRol = {{ id_rol }};
+            const idUnidadAcademica = {{ id_unidad_academica }};
+
+            async function exportarPdf() {
+                const url = `/aprovechamiento/acuse-validacion/pdf?periodo=${encodeURIComponent(periodoUrl)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}&no_validado={{ no_validado|lower }}&nombre_capturista={{ nombre_capturista }}&nombre_ceget={{ nombre_ceget }}&nombre_titular={{ nombre_titular }}`;
+
+                // 1. Mostrar la pantalla de carga (SweetAlert2)
+                Swal.fire({
+                    title: 'Generando archivo PDF',
+                    text: 'Por favor espera, esto puede tomar unos segundos...',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                try {
+                    // 2. Realizar la petición fetch de manera asíncrona
+                    const response = await fetch(url);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText);
+                    }
+
+                    // 3. Convertir la respuesta en un archivo Blob
+                    const blob = await response.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+
+                    // 4. Forzar la descarga o apertura del archivo de forma limpia
+                    const link = document.createElement('a');
+                    link.href = objectUrl;
+                    link.download = `Aprovechamiento_${unidad}_${periodo}.pdf`; // Nombre del archivo descargado
+                    link.click();
+
+                    // 5. Limpiar memoria y cerrar el loading exitosamente
+                    URL.revokeObjectURL(objectUrl);
+                    Swal.close();
+
+                } catch (error) {
+                    console.error(error);
+                    // Mostrar alerta en caso de error
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al exportar',
+                        text: 'Ocurrió un problema al generar el PDF. Revisa la consola o contacta a soporte.',
+                    });
+                }
             }
 
-            // 3. Convertir la respuesta en un archivo Blob
-            const blob = await response.blob();
-            const objectUrl = URL.createObjectURL(blob);
-            
-            // 4. Forzar la descarga o apertura del archivo de forma limpia
-            const link = document.createElement('a');
-            link.href = objectUrl;
-            link.download = `Aprovechamiento_${unidad}_${periodo}.pdf`; // Nombre del archivo descargado
-            link.click();
-            
-            // 5. Limpiar memoria y cerrar el loading exitosamente
-            URL.revokeObjectURL(objectUrl);
-            Swal.close(); 
+            async function exportarExcel() {
+                const periodo = "{{ periodo }}";
+                const nivel = "{{ nivel }}";
+                const unidad = "{{ unidad }}";
+                const carrera = document.getElementById('selector-carrera')?.value || 'TODAS';
 
-        } catch (error) {
-            console.error(error);
-            // Mostrar alerta en caso de error
-            Swal.fire({
-                icon: 'error',
-                title: 'Error al exportar',
-                text: 'Ocurrió un problema al generar el PDF. Revisa la consola o contacta a soporte.',
-            });
-        }
-    }
-
-    async function exportarExcel() {
-        const periodo = "{{ periodo }}";
-        const nivel   = "{{ nivel }}";
-        const unidad  = "{{ unidad }}";
-        const carrera = document.getElementById('selector-carrera')?.value || 'TODAS';
-
-        let url = `/aprovechamiento/exportar-excel-aprovechamiento?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}`;
-        if (carrera !== 'TODAS') {
-            url += `&carrera=${encodeURIComponent(carrera)}`;
-        }
-
-        // Mostrar loading
-        Swal.fire({
-            title: 'Generando archivo Excel',
-            text: 'Por favor espera, esto puede tomar unos segundos...',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText);
-            }
-            const blob = await response.blob();
-            const link = document.createElement('a');
-            const objectUrl = URL.createObjectURL(blob);
-            link.href = objectUrl;
-            link.download = `Aprovechamiento_${unidad}_${nivel}_${periodo}.xlsx`;
-            link.click();
-            URL.revokeObjectURL(objectUrl);
-            Swal.close(); // Cerrar el loading
-        } catch (error) {
-            console.error(error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error al exportar',
-                text: 'Ocurrió un problema al generar el Excel. Revisa la consola o contacta a soporte.',
-            });
-        }
-    }
-
-
-    async function validarAprovechamiento() {
-        const r = await Swal.fire({
-            icon: 'question',
-            title: '¿Validar Aprovechamiento?',
-            html: `Período: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br>Esta acción marcará el aprovechamiento como aprobado y bloqueará cualquier modificación futura.`,
-            showCancelButton: true,
-            confirmButtonText: 'Sí, validar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#28a745',
-            cancelButtonColor: '#6c757d',
-            allowOutsideClick: false,
-        });
-        if (!r.isConfirmed) return;
-
-        Swal.fire({
-            title: 'Validando aprovechamiento...',
-            allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false,
-            didOpen: () => Swal.showLoading()
-        });
-        ejecutarAccion('/aprovechamiento/validar', { periodo, nivel, unidad_academica: unidad });
-    }
-
-    function rechazarAprovechamiento() {
-        document.getElementById('panel-rechazo').style.display = 'block';
-        document.getElementById('motivo-rechazo').focus();
-    }
-
-    function cerrarPanelRechazo() {
-        document.getElementById('panel-rechazo').style.display = 'none';
-        document.getElementById('motivo-rechazo').value = '';
-        document.getElementById('contador-caracteres').textContent = '0';
-    }
-
-    function actualizarContador() {
-        document.getElementById('contador-caracteres').textContent =
-            document.getElementById('motivo-rechazo').value.length;
-    }
-
-    async function ejecutarAccion(url, body) {
-        try {
-            const res  = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            const txt  = await res.text();
-            let data   = {};
-            try { data = JSON.parse(txt); } catch { data = { detail: txt.slice(0, 200) }; }
-
-            if (res.ok) {
-                const esValidacion = url.includes('validar');
-                const mensaje      = document.getElementById('mensaje-validacion');
-                const panel        = document.getElementById('panel-rechazo');
-
-                if (panel)   panel.style.display = 'none';
-                document.getElementById('btn-validar')?.setAttribute('disabled', true);
-                document.getElementById('btn-rechazar')?.setAttribute('disabled', true);
-
-                if (mensaje) {
-                    mensaje.style.display = 'block';
-                    mensaje.className = `mensaje-validacion ${esValidacion ? 'validada' : 'rechazada'}`;
-                    mensaje.innerHTML = esValidacion
-                        ? '<span style="font-size:20px;">✅</span> <strong>Aprovechamiento validado correctamente.</strong>'
-                        : '<span style="font-size:20px;">❌</span> <strong>Aprovechamiento rechazado correctamente.</strong>';
+                let url = `/aprovechamiento/exportar-excel-aprovechamiento?periodo=${encodeURIComponent(periodo)}&nivel=${encodeURIComponent(nivel)}&unidad=${encodeURIComponent(unidad)}`;
+                if (carrera !== 'TODAS') {
+                    url += `&carrera=${encodeURIComponent(carrera)}`;
                 }
 
-                await Swal.fire({
-                    icon: esValidacion ? 'success' : 'error',
-                    title: esValidacion ? '¡Aprovechamiento validado!' : '¡Aprovechamiento rechazado!',
-                    html: `${data.detail || data.mensaje || 'Acción completada.'}<br><br><strong>Ya no se permite editar ni volver a validar.</strong>`,
-                    timer: 2600, showConfirmButton: false,
+                // Mostrar loading
+                Swal.fire({
+                    title: 'Generando archivo Excel',
+                    text: 'Por favor espera, esto puede tomar unos segundos...',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
                 });
-            } else {
-                Swal.fire('Error', data.detail || 'No se pudo completar la acción', 'error');
+
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText);
+                    }
+                    const blob = await response.blob();
+                    const link = document.createElement('a');
+                    const objectUrl = URL.createObjectURL(blob);
+                    link.href = objectUrl;
+                    link.download = `Aprovechamiento_${unidad}_${nivel}_${periodo}.xlsx`;
+                    link.click();
+                    URL.revokeObjectURL(objectUrl);
+                    Swal.close(); // Cerrar el loading
+                } catch (error) {
+                    console.error(error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al exportar',
+                        text: 'Ocurrió un problema al generar el Excel. Revisa la consola o contacta a soporte.',
+                    });
+                }
             }
-        } catch (e) {
-            Swal.fire('Error', 'Fallo de conexión', 'error');
-        }
-    }
 
-    async function confirmarRechazo() {
-        const motivo = document.getElementById('motivo-rechazo').value.trim();
-        if (motivo.length < 10) {
-            await Swal.fire({
-                icon: 'warning', title: 'Motivo insuficiente',
-                text: 'Ingrese un motivo de al menos 10 caracteres.',
-                confirmButtonColor: '#6c757d'
+
+            async function validarAprovechamiento() {
+                const r = await Swal.fire({
+                    icon: 'question',
+                    title: '¿Validar Aprovechamiento?',
+                    html: `Período: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br>Esta acción marcará el aprovechamiento como aprobado y bloqueará cualquier modificación futura.`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, validar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    allowOutsideClick: false,
+                });
+                if (!r.isConfirmed) return;
+
+                Swal.fire({
+                    title: 'Validando aprovechamiento...',
+                    allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
+                ejecutarAccion('/aprovechamiento/validar', { periodo, nivel, unidad_academica: unidad });
+            }
+
+            function rechazarAprovechamiento() {
+                document.getElementById('panel-rechazo').style.display = 'block';
+                document.getElementById('motivo-rechazo').focus();
+            }
+
+            function cerrarPanelRechazo() {
+                document.getElementById('panel-rechazo').style.display = 'none';
+                document.getElementById('motivo-rechazo').value = '';
+                document.getElementById('contador-caracteres').textContent = '0';
+            }
+
+            function actualizarContador() {
+                document.getElementById('contador-caracteres').textContent =
+                    document.getElementById('motivo-rechazo').value.length;
+            }
+
+            async function ejecutarAccion(url, body) {
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    const txt = await res.text();
+                    let data = {};
+                    try { data = JSON.parse(txt); } catch { data = { detail: txt.slice(0, 200) }; }
+
+                    if (res.ok) {
+                        const esValidacion = url.includes('validar');
+                        const mensaje = document.getElementById('mensaje-validacion');
+                        const panel = document.getElementById('panel-rechazo');
+
+                        if (panel) panel.style.display = 'none';
+                        document.getElementById('btn-validar')?.setAttribute('disabled', true);
+                        document.getElementById('btn-rechazar')?.setAttribute('disabled', true);
+
+                        if (mensaje) {
+                            mensaje.style.display = 'block';
+                            mensaje.className = `mensaje-validacion ${esValidacion ? 'validada' : 'rechazada'}`;
+                            mensaje.innerHTML = esValidacion
+                                ? '<span style="font-size:20px;">✅</span> <strong>Aprovechamiento validado correctamente.</strong>'
+                                : '<span style="font-size:20px;">❌</span> <strong>Aprovechamiento rechazado correctamente.</strong>';
+                        }
+
+                        await Swal.fire({
+                            icon: esValidacion ? 'success' : 'error',
+                            title: esValidacion ? '¡Aprovechamiento validado!' : '¡Aprovechamiento rechazado!',
+                            html: `${data.detail || data.mensaje || 'Acción completada.'}<br><br><strong>Ya no se permite editar ni volver a validar.</strong>`,
+                            timer: 2600, showConfirmButton: false,
+                        });
+                    } else {
+                        Swal.fire('Error', data.detail || 'No se pudo completar la acción', 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Error', 'Fallo de conexión', 'error');
+                }
+            }
+
+            async function confirmarRechazo() {
+                const motivo = document.getElementById('motivo-rechazo').value.trim();
+                if (motivo.length < 10) {
+                    await Swal.fire({
+                        icon: 'warning', title: 'Motivo insuficiente',
+                        text: 'Ingrese un motivo de al menos 10 caracteres.',
+                        confirmButtonColor: '#6c757d'
+                    });
+                    return;
+                }
+                const r = await Swal.fire({
+                    icon: 'warning', title: '¿Rechazar Aprovechamiento?',
+                    html: `Período: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br><b>Motivo:</b> ${motivo.substring(0, 100)}${motivo.length > 100 ? '...' : ''}<br><br>Esta acción devolverá el aprovechamiento para correcciones.`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, rechazar', cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545', cancelButtonColor: '#6c757d',
+                    allowOutsideClick: false,
+                });
+                if (!r.isConfirmed) return;
+
+                Swal.fire({
+                    title: 'Enviando rechazo...',
+                    allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
+                ejecutarAccion('/aprovechamiento/rechazar', { periodo, nivel, unidad_academica: unidad, id_unidad_academica: idUnidadAcademica, motivo });
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                if (window.history && window.history.replaceState && window.location.search) {
+                    try {
+                        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                    } catch (e) { }
+                }
             });
-            return;
-        }
-        const r = await Swal.fire({
-            icon: 'warning', title: '¿Rechazar Aprovechamiento?',
-            html: `Período: <b>${periodo}</b><br>Nivel: <b>${nivel}</b><br>Unidad: <b>${unidad}</b><br><br><b>Motivo:</b> ${motivo.substring(0,100)}${motivo.length > 100 ? '...' : ''}<br><br>Esta acción devolverá el aprovechamiento para correcciones.`,
-            showCancelButton: true,
-            confirmButtonText: 'Sí, rechazar', cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#dc3545', cancelButtonColor: '#6c757d',
-            allowOutsideClick: false,
-        });
-        if (!r.isConfirmed) return;
-
-        Swal.fire({
-            title: 'Enviando rechazo...',
-            allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false,
-            didOpen: () => Swal.showLoading()
-        });
-        ejecutarAccion('/aprovechamiento/rechazar', { periodo, nivel, unidad_academica: unidad, id_unidad_academica: idUnidadAcademica, motivo });
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        if (window.history && window.history.replaceState && window.location.search) {
-            try {
-                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-                window.history.replaceState({}, document.title, cleanUrl);
-            } catch(e) {}
-        }
-    });
-</script>
-{% endif %}
-{% endblock %}
+        </script>
+        {% endif %}
+        {% endblock %}

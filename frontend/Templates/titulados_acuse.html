@@ -7,6 +7,35 @@
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
+        <style>
+            /* Confinar marca de agua dentro de la hoja y colocarla DELANTE de las tablas */
+            .contenedor-acuse {
+                position: relative !important;
+                overflow: hidden !important;
+                z-index: 1 !important;
+            }
+            .marca-agua {
+                position: absolute !important;
+                top: 50% !important;
+                left: 50% !important;
+                width: 140% !important;
+                text-align: center !important;
+                transform: translate(-50%, -50%) rotate(-45deg) !important;
+                font-size: 70px !important;
+                font-weight: bold !important;
+                color: rgba(120, 120, 120, 0.22) !important;
+                text-transform: uppercase !important;
+                pointer-events: none !important;
+                z-index: 10 !important;
+                white-space: nowrap !important;
+                user-select: none !important;
+            }
+            /* Botones y acciones del acuse accesibles */
+            .botones-accion, .panel-rechazo, .acuse-footer {
+                position: relative !important;
+                z-index: 15 !important;
+            }
+        </style>
     {% else %}
         <style>
             /* === MARGEN DE PÁGINA PARA RESERVAR ESPACIO A LAS FIRMAS FIJAS === */
@@ -27,10 +56,28 @@
                 padding: 0 !important;
                 margin: 0 !important;
                 box-shadow: none !important;
+                overflow: visible !important;
+                position: relative !important;
+            }
+
+            .marca-agua {
+                position: fixed !important;
+                top: 40% !important;
+                left: -15% !important;
+                width: 130% !important;
+                text-align: center !important;
+                transform: rotate(-35deg) !important;
+                font-size: 60px !important;
+                font-weight: bold !important;
+                color: rgba(120, 120, 120, 0.22) !important;
+                text-transform: uppercase !important;
+                pointer-events: none !important;
+                z-index: 100 !important;
+                white-space: nowrap !important;
             }
 
             .acuse-header {
-                border-bottom: 2.5px solid #2c3e50 !important;
+                border-bottom: 2.5px solid #750946 !important;
                 margin-bottom: 10px !important;
                 padding-bottom: 6px !important;
                 text-align: center !important;
@@ -39,13 +86,13 @@
             .acuse-header h1 {
                 font-size: 15px !important;
                 font-weight: bold !important;
-                color: #2c3e50 !important;
+                color: #750946 !important;
                 margin: 0 0 6px 0 !important;
             }
 
             .total-resumen {
-                background-color: #ecf0f1 !important;
-                border-left: 4px solid #3498db !important;
+                background-color: #fbf0f5 !important;
+                border-left: 4px solid #750946 !important;
                 border-radius: 3px !important;
                 text-align: center !important;
                 padding: 5px 8px !important;
@@ -55,7 +102,7 @@
 
             .total-resumen-numero {
                 font-size: 20px !important;
-                color: #2c3e50 !important;
+                color: #750946 !important;
                 font-weight: bold !important;
             }
 
@@ -81,14 +128,14 @@
             }
 
             .tabla-titulo {
-                background-color: #34495e !important;
+                background-color: #750946 !important;
                 color: white !important;
                 padding: 4px 6px !important;
                 font-weight: bold !important;
                 font-size: 10px !important;
                 margin-bottom: 3px !important;
                 border-radius: 2px !important;
-                border-left: 3px solid #3498db !important;
+                border-left: 3px solid #5c0737 !important;
                 text-align: left !important;
             }
 
@@ -100,17 +147,17 @@
             }
 
             .tabla-acuse thead {
-                background-color: #ecf0f1 !important;
-                border-bottom: 1.5px solid #2c3e50 !important;
+                background-color: #fcf6f9 !important;
+                border-bottom: 1.5px solid #750946 !important;
             }
 
             .tabla-acuse th {
                 padding: 3px 4px !important;
                 text-align: center !important;
                 font-weight: bold !important;
-                color: #2c3e50 !important;
-                border-right: 1px solid #bdc3c7 !important;
-                background-color: #ecf0f1 !important;
+                color: #750946 !important;
+                border-right: 1px solid #e0d0d8 !important;
+                background-color: #fcf6f9 !important;
                 font-size: 9px !important;
             }
 
@@ -144,16 +191,16 @@
             }
 
             .tabla-acuse tfoot {
-                background-color: #e8f4f8 !important;
-                border-top: 1.5px solid #2c3e50 !important;
+                background-color: #fbf0f5 !important;
+                border-top: 1.5px solid #750946 !important;
                 font-weight: bold !important;
-                color: #2c3e50 !important;
+                color: #750946 !important;
             }
 
             .tabla-acuse tfoot td {
-                background-color: #e8f4f8 !important;
+                background-color: #fbf0f5 !important;
                 font-weight: bold !important;
-                color: #2c3e50 !important;
+                color: #750946 !important;
                 padding: 3px 4px !important;
             }
 
@@ -177,7 +224,7 @@
             /* === FIRMAS FIJAS EN PIE DE PÁGINA === */
             .firmas-container {
                 position: fixed !important;
-                bottom: -2.6cm !important;
+                bottom: -2.0cm !important;
                 left: 0 !important;
                 right: 0 !important;
                 margin: 0 !important;
@@ -202,13 +249,13 @@
             .firma-nombre {
                 font-weight: bold !important;
                 font-size: 10px !important;
-                color: #2c3e50 !important;
+                color: #000000 !important;
                 margin-bottom: 1px !important;
             }
 
             .firma-rol {
                 font-size: 9px !important;
-                color: #7f8c8d !important;
+                color: #636569 !important;
             }
 
             .estado-validacion,
@@ -222,11 +269,23 @@
 
 {% block content %}
 
-    {% if no_validado or (estado_semaforo_actual is defined and estado_semaforo_actual < 9) %}
+{% if not exportando_pdf %}
+<div class="barra-navegacion-superior no-print" style="display: flex; justify-content: flex-end; margin-bottom: 15px; max-width: 8.5in; margin-left: auto; margin-right: auto;">
+    <a href="/titulados/consulta" class="btn-volver" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 6px; font-weight: 600; background: #750946; color: white; border: none; cursor: pointer;">
+        ← Regresar
+    </a>
+</div>
+{% endif %}
+
+<div class="contenedor-acuse">
+
+    {% if no_validado or (estado_semaforo_actual is defined and estado_semaforo_actual < 9) or (estado_semaforo is defined and estado_semaforo < 9) %}
         <div class="marca-agua">Sin Validez Oficial</div>
     {% endif %}
 
-<div class="contenedor-acuse">
+    {% if estado_semaforo is defined and estado_semaforo >= 1 and estado_semaforo <= 8 %}
+        <div class="marca-agua">DOCUMENTO EN REVISIÓN</div>
+    {% endif %}
 
     {# ── ENCABEZADO ── #}
     <div class="acuse-header">
@@ -254,7 +313,7 @@
         {% if tabla_boletas %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
-                {{ '1. ' if exportando_pdf else '1️⃣ ' }}Boleta
+                1. Boleta
             </div>
             <table class="tabla-acuse">
                 <thead>
@@ -290,7 +349,7 @@
         {% if tabla_tipo_tit %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
-                {{ '2. ' if exportando_pdf else '2️⃣ ' }}Tipo de Titulación
+                2. Tipo de Titulación
             </div>
             <table class="tabla-acuse">
                 <thead>
@@ -331,7 +390,7 @@
         {% if tabla_edades %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
-                {{ '3. ' if exportando_pdf else '3️⃣ ' }}Grupo de Edad
+                3. Grupo de Edad
             </div>
             <table class="tabla-acuse">
                 <thead>
@@ -367,7 +426,7 @@
         {% if tabla_programas %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
-                {{ '4. ' if exportando_pdf else '4️⃣ ' }}Programa Académico
+                4. Programa Académico
             </div>
             <table class="tabla-acuse">
                 <thead>
@@ -403,7 +462,7 @@
         {% if tabla_modalidades %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
-                {{ '5. ' if exportando_pdf else '5️⃣ ' }}Modalidad
+                5. Modalidad
             </div>
             <table class="tabla-acuse">
                 <thead>
@@ -439,7 +498,7 @@
         {% if tabla_turnos %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
-                {{ '6. ' if exportando_pdf else '6️⃣ ' }}Turno
+                6. Turno
             </div>
             <table class="tabla-acuse">
                 <thead>
@@ -540,6 +599,9 @@
             {% endif %}
             <button class="btn btn-info" onclick="exportarPdf()">
                 📄 Exportar a PDF
+            </button>
+            <button class="btn btn-info" onclick="exportarExcel()">
+                📊 Exportar a Excel
             </button>
         </div>
 
@@ -689,12 +751,84 @@
     function cerrarPanelRechazo(){ window.__validacionRechazo?.cerrarPanelRechazo(); }
     function actualizarContador(){ window.__validacionRechazo?.actualizarContador(); }
     function confirmarRechazo()  { window.__validacionRechazo?.ejecutarRechazo(); }
-    function exportarPdf() {
+    async function exportarPdf() {
         const url = `/titulados/acuse-validacion/pdf`
             + `?periodo=${encodeURIComponent(periodo)}`
             + `&nivel=${encodeURIComponent(nivel)}`
             + `&unidad=${encodeURIComponent(unidad)}`;
-        window.location.href = url;
+
+        Swal.fire({
+            title: 'Generando archivo PDF',
+            text: 'Por favor espera, esto puede tomar unos segundos...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText);
+            }
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = `Titulados_${unidad}_${periodo}.pdf`;
+            link.click();
+            URL.revokeObjectURL(objectUrl);
+            Swal.close();
+        } catch (error) {
+            console.error(error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error al exportar',
+                text: 'Ocurrió un problema al generar el PDF. Revisa la consola o contacta a soporte.',
+            });
+        }
+    }
+
+    async function exportarExcel() {
+        const url = `/titulados/exportar-excel-titulados`
+            + `?periodo=${encodeURIComponent(periodo)}`
+            + `&nivel=${encodeURIComponent(nivel)}`
+            + `&unidad=${encodeURIComponent(unidad)}`;
+
+        Swal.fire({
+            title: 'Generando archivo Excel',
+            text: 'Por favor espera, esto puede tomar unos segundos...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText);
+            }
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = `Titulados_${unidad}_${periodo}.xlsx`;
+            link.click();
+            URL.revokeObjectURL(objectUrl);
+            Swal.close();
+        } catch (error) {
+            console.error(error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error al exportar',
+                text: 'Ocurrió un problema al generar el Excel. Revisa la consola o contacta a soporte.',
+            });
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function() {

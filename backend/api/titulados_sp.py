@@ -12,7 +12,7 @@ from backend.core.templates import templates
 from backend.schemas import Nivel
 from backend.services import notificacion
 from backend.services.titulados_service import obtener_titulados, preparar_datos_temp_titulados, preparar_datos_temp_titulados_desde_db, procesar_titulados
-from backend.crud.ConsultaTitulados import insertar_temp_titulados, insertar_titulados_sp, finalizar_captura_programa_modalidad, verificar_todos_programas_finalizados, finalizar_unidad_academica
+from backend.crud.ConsultaTitulados import get_titulados, insertar_temp_titulados, insertar_titulados_sp, finalizar_captura_programa_modalidad, verificar_todos_programas_finalizados, finalizar_unidad_academica
 from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo, get_ultimo_periodo
 from backend.core.auth import get_current_session
 from backend.database.models.CatPeriodo import CatPeriodo as Periodo
@@ -32,6 +32,7 @@ from backend.utils.request import get_request_host
 from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 from backend.services.envio_correo_service import notificar_rechazo_global, obtener_correos_involucrados
 from backend.core.auth import VerificarAccesoAcuse
+validar_acuse = VerificarAccesoAcuse()
 from backend.core.security_logger import registrar_bloqueo_seguridad
 import traceback
 import json
@@ -150,7 +151,7 @@ async def consulta_titulados(
     nivel_acceso = getattr(sess, 'id_nivel', 0)
     usuario = getattr(sess, 'usuario', "usuario_prueba")"""
 
-    print(f"Usuario: {nombre_usuario}, Rol: {nombre_rol} (ID: {id_rol}), Unidad Académica: {unidad_academica} ({sigla_unidad_academica}), Nivel: {nombre_nivel}, Host: {host}")
+    print(f"Usuario: {nombre_usuario}, Rol: {nombre_rol} (ID: {id_rol}), Unidad Académica: {unidad_academica_usuario} ({sigla_unidad_academica}), Nivel: {nombre_nivel}, Host: {host}")
     try:
         periodo_id_anterior, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
         periodo_id_actual, periodo_literal_actual = get_periodo_activo(db)
@@ -194,9 +195,13 @@ async def consulta_titulados(
     es_rol_superior = (id_rol in [6, 7, 8, 9])  
     modo_vista = "captura" if es_capturista else "validacion"
 
-    periodos = []
-
-    periodos = db.query(Periodo).order_by(Periodo.Id_Periodo.desc()).all()
+    # Obtener periodos según el rol:
+    # Roles 6-9 (y admin): Todos los periodos disponibles en la BD (incluso Id_Estatus == 0)
+    # Roles 4-5 y capturistas: Únicamente periodos activos (Id_Estatus == 1)
+    if es_rol_superior:
+        periodos = db.query(Periodo).order_by(Periodo.Id_Periodo.desc()).all()
+    else:
+        periodos = db.query(Periodo).filter(Periodo.Id_Estatus == 1).order_by(Periodo.Id_Periodo.desc()).all()
     
     niveles = db.query(Nivel).filter(Nivel.Id_Estatus == 1).order_by(Nivel.Id_Nivel).all()
     
@@ -232,13 +237,13 @@ async def consulta_titulados(
                 f"Obteniendo titulados para UA: {sigla_unidad_academica}, "
                 f"Periodo: {periodo_default_literal}, "
                 f"Nivel: {nombre_nivel}, "
-                f"Periodo anterior (id): {periodo_id}, " 
+                f"Periodo anterior (id): {periodo_id_anterior}, " 
                 f"Usuario: {nombre_usuario}"
             )
 
             rechazo_info = notificacion.notificacion_rechazo(
                 db=db,
-                periodo_anterior_id=periodo_id,
+                periodo_anterior_id=periodo_id_anterior,
                 Id_Unidad_Academica=id_unidad_academica,
                 id_formato=4,
                 id_nivel=getattr(sess, 'id_nivel', None))
@@ -284,6 +289,7 @@ async def consulta_titulados(
     programa_modalidad_turnos = {k: sorted(list(v)) for k, v in programa_modalidad_turnos.items()}
     programa_modalidad_turnos_json = json.dumps(programa_modalidad_turnos)
 
+    boletas = []
     try:
         boleta = contexto.get("Boleta")
 
@@ -761,6 +767,109 @@ async def acuse_titulados_pdf(
         content=pdf_bytes,
         media_type='application/pdf',
         headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
+
+@router.get('/exportar-excel-titulados')
+async def exportar_titulados_excel(
+    request: Request,
+    periodo: str,
+    nivel: str,
+    unidad: str,
+    sess=Depends(validar_acuse),
+    db: Session = Depends(get_db)
+):
+    """
+    Exporta a Excel los datos de SP_Consulta_Titulados_Unidad_Academica.
+    Filtra ÚNICAMENTE aquellos registros que tengan en la columna de Titulados > 0 (omitiendo los '0').
+    """
+    import io
+    import xlsxwriter
+    from fastapi.responses import StreamingResponse
+
+    usuario_login = sess.usuario
+    host = "Sistema"
+
+    # Resolver sigla limpia
+    ua_sigla = (unidad or sess.sigla_unidad_academica or '').strip()
+    if ua_sigla:
+        ua_obj = db.query(Unidad_Academica).filter(
+            (Unidad_Academica.Sigla == ua_sigla) | (Unidad_Academica.Nombre == ua_sigla)
+        ).first()
+        if ua_obj and ua_obj.Sigla:
+            ua_sigla = ua_obj.Sigla
+
+    # 1. Determinar el periodo de consulta adecuado de forma directa (igual que hace acuse_titulados_view)
+    id_p_actual, periodo_actual = get_periodo_activo(db)
+    periodo_a_usar = periodo_actual or periodo
+
+    datos_titulados = get_titulados(
+        db=db,
+        unidad_academica=ua_sigla,
+        periodo=periodo_a_usar,
+        nivel=nivel,
+        usuario=usuario_login,
+        host=host
+    )
+
+    def extraer_titulados_filtrados(datos):
+        filtrados = []
+        for row in datos:
+            val = row.get('Titulados')
+            if val is None:
+                for k, v in row.items():
+                    if str(k).lower() == 'titulados':
+                        val = v
+                        break
+            try:
+                num = int(float(val)) if val not in (None, '') else 0
+            except (ValueError, TypeError):
+                num = 0
+            if num > 0:
+                filtrados.append(row)
+        return filtrados
+
+    rows_filtradas = extraer_titulados_filtrados(datos_titulados)
+
+    # 2. Fallback solo si no se encontraron registros con periodo_a_usar
+    if not rows_filtradas and periodo and periodo != periodo_a_usar:
+        datos_alterno = get_titulados(
+            db=db,
+            unidad_academica=ua_sigla,
+            periodo=periodo,
+            nivel=nivel,
+            usuario=usuario_login,
+            host=host
+        )
+        rows_filtradas = extraer_titulados_filtrados(datos_alterno)
+
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+    ws = workbook.add_worksheet("Titulados")
+
+    if rows_filtradas:
+        headers = [k for k in rows_filtradas[0].keys() if str(k).lower() not in ('id_semaforo', 'id_semaforo_actual')]
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#750946', 'font_color': '#FFFFFF'})
+        for col, h in enumerate(headers):
+            ws.write(0, col, h, header_format)
+        for row_idx, row in enumerate(rows_filtradas, start=1):
+            for col_idx, key in enumerate(headers):
+                ws.write(row_idx, col_idx, row.get(key, ''))
+    else:
+        ws.write(0, 0, "No hay datos de titulados mayores a 0 para los filtros seleccionados")
+
+    workbook.close()
+    output.seek(0)
+
+    unidad_limpia = str(ua_sigla).replace(' ', '_').strip()
+    periodo_limpio = str(periodo).replace('/', '_').replace(' ', '_').strip()
+    nivel_limpio = str(nivel).replace(' ', '_').strip()
+    filename = f"Titulados_{unidad_limpia}_{nivel_limpio}_{periodo_limpio}.xlsx"
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 

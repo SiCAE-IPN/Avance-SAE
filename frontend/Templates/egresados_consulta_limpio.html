@@ -694,6 +694,14 @@
                     style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
                 ✅ Finalizar Captura
             </button>
+            {% if matricula_rechazada %}
+            <button id="btn-validar-todos-egresados" type="button" class="btn-success btn-validacion-masiva" 
+                    onclick="validarTodosLosEgresados()" 
+                    {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado estos egresados"{% endif %}
+                    style="padding: 12px 30px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; margin-left: 10px;">
+                ✅✅ Validar Todos los Programas
+            </button>
+            {% endif %}
             {% else %}
             <button id="btn-validar-egresados" type="button" class="btn-success" onclick="validarEgresados()"
                 {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado estos egresados"{% endif %} 
@@ -2317,13 +2325,20 @@
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'success',
-                        title: esBorrado ? '¡Registro eliminado!' : '¡Guardado exitoso!',
-                        text: esBorrado ? 'El registro ha sido eliminado correctamente y la tabla de informe ha sido actualizada.' : 'El avance se ha guardado y la tabla de informe ha sido actualizada.',
-                        timer: 2500,
+                        title: esBorrado ? '¡Registros eliminados!' : '¡Guardado exitoso!',
+                        text: esBorrado ? 'Los registros seleccionados se establecieron a 0 y se actualizaron en la base de datos.' : 'El avance se ha guardado y la tabla de informe ha sido actualizada.',
+                        timer: 2000,
                         showConfirmButton: false
+                    }).then(() => {
+                        if (esBorrado) {
+                            window.location.reload();
+                        }
                     });
                 } else {
-                    alert(esBorrado ? '✅ Registro eliminado exitosamente' : '✅ Avance guardado exitosamente');
+                    alert(esBorrado ? '✅ Registros eliminados exitosamente' : '✅ Avance guardado exitosamente');
+                    if (esBorrado) {
+                        window.location.reload();
+                    }
                 }
             } else if (resultado.warning) {
                 if (typeof Swal !== 'undefined') {
@@ -2549,6 +2564,353 @@
             ocultarOverlayCarga();
         }
     }
+
+    /* ==========================================================
+       VALIDACIÓN MASIVA DE TODOS LOS PROGRAMAS Y MODALIDADES (EGRESADOS)
+       ========================================================== */
+    let validacionMasivaEnCurso = false;
+    let modalProgresoEgresados = null;
+
+    function abrirModalProgresoCircularEgresados(total) {
+        if (modalProgresoEgresados) {
+            modalProgresoEgresados.close();
+            modalProgresoEgresados = null;
+        }
+        Swal.fire({
+            title: 'Validación masiva de Egresados...',
+            html: `
+                <div style="position: relative; width: 150px; height: 150px; margin: 0 auto;">
+                    <svg viewBox="0 0 120 120" style="transform: rotate(-90deg); width: 100%; height: 100%;">
+                        <circle cx="60" cy="60" r="54" fill="none" stroke="#e0e0e0" stroke-width="8" />
+                        <circle cx="60" cy="60" r="54" fill="none" stroke="#28a745" stroke-width="8"
+                                stroke-dasharray="339.292" stroke-dashoffset="339.292"
+                                class="progress-ring__circle" />
+                    </svg>
+                    <div id="progreso-porcentaje-modal-egr" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 28px; font-weight: bold; color: #28a745;">0%</div>
+                </div>
+                <div id="progreso-texto-modal-egr" style="margin-top: 20px; font-size: 14px; color: #555; text-align: center;">Preparando validación...</div>
+                <div id="progreso-detalle-modal-egr" style="margin-top: 8px; font-size: 12px; color: #999; text-align: center;">0 de ${total}</div>
+            `,
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                modalProgresoEgresados = Swal.getPopup();
+                const circle = modalProgresoEgresados.querySelector('.progress-ring__circle');
+                if (circle) {
+                    const radius = 54;
+                    const circumference = radius * 2 * Math.PI;
+                    circle.style.strokeDasharray = `${circumference} ${circumference}`;
+                    circle.style.strokeDashoffset = circumference;
+                    window.progressCircumferenceEgr = circumference;
+                } else {
+                    window.progressCircumferenceEgr = 339.292;
+                }
+            }
+        });
+    }
+
+    function actualizarModalProgresoCircularEgresados(actual, total, texto, detalle) {
+        if (!modalProgresoEgresados) return;
+        const percent = total > 0 ? Math.round((actual / total) * 100) : 0;
+        const circle = modalProgresoEgresados.querySelector('.progress-ring__circle');
+        if (circle && window.progressCircumferenceEgr) {
+            const offset = window.progressCircumferenceEgr - (percent / 100) * window.progressCircumferenceEgr;
+            circle.style.strokeDashoffset = offset;
+        }
+        const porcentajeSpan = modalProgresoEgresados.querySelector('#progreso-porcentaje-modal-egr');
+        if (porcentajeSpan) porcentajeSpan.innerText = `${percent}%`;
+        const textoDiv = modalProgresoEgresados.querySelector('#progreso-texto-modal-egr');
+        if (textoDiv) textoDiv.innerText = texto;
+        const detalleDiv = modalProgresoEgresados.querySelector('#progreso-detalle-modal-egr');
+        if (detalleDiv) detalleDiv.innerText = detalle;
+    }
+
+    function cerrarModalProgresoCircularEgresados() {
+        if (modalProgresoEgresados) {
+            Swal.close();
+            modalProgresoEgresados = null;
+        }
+    }
+
+    async function validarTodosLosEgresados() {
+        if (validacionMasivaEnCurso) {
+            Swal.fire({ icon: 'info', title: 'En proceso', text: 'Ya hay una validación masiva en curso.' });
+            return;
+        }
+
+        const confirmacion = await Swal.fire({
+            title: 'Validación masiva de Egresados',
+            html: '<p><strong>Se validarán todos los programas y modalidades de la Unidad Académica.</strong></p>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, continuar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#dc3545'
+        });
+
+        if (!confirmacion.isConfirmed) return;
+
+        const periodoInput = document.getElementById('periodo')?.value;
+        if (!periodoInput) {
+            await Swal.fire({ icon: 'warning', title: 'Periodo faltante', text: 'No se pudo obtener el periodo.' });
+            return;
+        }
+
+        const todosLosProgramas = {{ programas | tojson }};
+        if (!Array.isArray(todosLosProgramas) || todosLosProgramas.length === 0) {
+            await Swal.fire({ icon: 'warning', title: 'Sin programas', text: 'No hay programas disponibles para esta UA.' });
+            return;
+        }
+
+        // Construir plan de Programa + Modalidad
+        const plan = [];
+        const resumen = [];
+        const paresEnCero = [];
+
+        for (const prog of todosLosProgramas) {
+            const progId = String(prog.id);
+            const progNombre = prog.nombre || `Programa ${progId}`;
+            const modalidadesIds = programaAModalidades[progId] || programaAModalidades[prog.id] || [];
+
+            if (!Array.isArray(modalidadesIds) || modalidadesIds.length === 0) {
+                (todasLasModalidades || []).forEach(m => {
+                    const mId = String(m.id || m.Id_Modalidad || m);
+                    const mNombre = m.nombre || m.Modalidad || `Modalidad ${mId}`;
+                    plan.push({
+                        programaId: prog.id,
+                        programaNombre: progNombre,
+                        modalidadId: mId,
+                        modalidadNombre: mNombre
+                    });
+                });
+            } else {
+                for (const modId of modalidadesIds) {
+                    const modIdStr = String(modId);
+                    const modObj = (todasLasModalidades || []).find(m => String(m.id || m.Id_Modalidad || m) === modIdStr);
+                    const modNombre = modObj ? (modObj.nombre || modObj.Modalidad || `Modalidad ${modIdStr}`) : `Modalidad ${modIdStr}`;
+                    plan.push({
+                        programaId: prog.id,
+                        programaNombre: progNombre,
+                        modalidadId: modIdStr,
+                        modalidadNombre: modNombre
+                    });
+                }
+            }
+        }
+
+        if (plan.length === 0) {
+            await Swal.fire({ icon: 'warning', title: 'Sin elementos', text: 'No se encontraron programas ni modalidades para validar.' });
+            return;
+        }
+
+        // Detectar si hay programas+modalidades con 0 egresados registrados
+        const filasTotales = Array.isArray(datosFilas) ? datosFilas : [];
+        for (const item of plan) {
+            const progBuscado = item.programaNombre.trim().toLowerCase();
+            const modBuscada = item.modalidadNombre.trim().toLowerCase();
+            
+            let totalEgresados = 0;
+            filasTotales.forEach(row => {
+                if (!row) return;
+                const rProg = (row.Nombre_Programa || '').trim().toLowerCase();
+                const rMod = (row.Modalidad || '').trim().toLowerCase();
+                if (rProg === progBuscado && rMod === modBuscada) {
+                    const eg = parseInt(row.Egresados || 0, 10);
+                    if (!isNaN(eg)) totalEgresados += eg;
+                }
+            });
+
+            if (totalEgresados === 0) {
+                paresEnCero.push({
+                    programaNombre: item.programaNombre,
+                    modalidadNombre: item.modalidadNombre
+                });
+            }
+        }
+
+        // Si hay programas en 0, preguntar al usuario
+        if (paresEnCero.length > 0) {
+            const htmlLista = paresEnCero.map(p => `<li style="padding: 3px 0;"><strong>${p.programaNombre}</strong> — ${p.modalidadNombre}</li>`).join('');
+
+            const confirmacionCeros = await Swal.fire({
+                title: 'Programas sin egresados detectados',
+                html: `
+                    <div style="text-align: left; margin: 5px 0;">
+                        <p style="margin-bottom: 8px;">Se detectaron <strong>${paresEnCero.length} programa(s)/modalidad(es)</strong> con <strong>0 egresados</strong>:</p>
+                        <div style="max-height: 180px; overflow-y: auto; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px 14px; margin: 10px 0;">
+                            <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #495057;">
+                                ${htmlLista}
+                            </ul>
+                        </div>
+                        <p style="margin-top: 10px; font-weight: 600; color: #750946;">¿Desea continuar y validarlos en 0?</p>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, validar en 0',
+                cancelButtonText: 'Cancelar y revisar',
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#dc3545'
+            });
+
+            if (!confirmacionCeros.isConfirmed) {
+                return;
+            }
+        }
+
+        const totalPares = plan.length;
+        let procesados = 0;
+        let exitosos = 0;
+        let errores = 0;
+
+        validacionMasivaEnCurso = true;
+        const botonesMasivos = document.querySelectorAll('#btn-validar-todos-egresados, .btn-validacion-masiva');
+        botonesMasivos.forEach(b => b.disabled = true);
+
+        try {
+            abrirModalProgresoCircularEgresados(totalPares);
+            actualizarModalProgresoCircularEgresados(0, totalPares, 'Iniciando validación masiva...', `0 de ${totalPares} programas/modalidades`);
+
+            for (const item of plan) {
+                actualizarModalProgresoCircularEgresados(
+                    procesados,
+                    totalPares,
+                    `${item.programaNombre} — ${item.modalidadNombre}`,
+                    `Procesando ${procesados + 1} de ${totalPares}`
+                );
+
+                try {
+                    const response = await fetch('/egresados/finalizar_captura', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            periodo: periodoInput,
+                            programa: item.programaId,
+                            modalidad: item.modalidadId
+                        })
+                    });
+
+                    const resultado = await response.json();
+                    if (resultado.success) {
+                        exitosos++;
+                        resumen.push({
+                            programaNombre: item.programaNombre,
+                            modalidadNombre: item.modalidadNombre,
+                            ok: true,
+                            observacion: 'Completado'
+                        });
+                    } else {
+                        errores++;
+                        resumen.push({
+                            programaNombre: item.programaNombre,
+                            modalidadNombre: item.modalidadNombre,
+                            ok: false,
+                            observacion: resultado.warning || resultado.error || 'Error al validar'
+                        });
+                    }
+                } catch (errItem) {
+                    console.error(`Error validando ${item.programaNombre} (${item.modalidadNombre}):`, errItem);
+                    errores++;
+                    resumen.push({
+                        programaNombre: item.programaNombre,
+                        modalidadNombre: item.modalidadNombre,
+                        ok: false,
+                        observacion: errItem.message || 'Error de conexión'
+                    });
+                } finally {
+                    procesados++;
+                    actualizarModalProgresoCircularEgresados(
+                        procesados,
+                        totalPares,
+                        `${item.programaNombre} — ${item.modalidadNombre}`,
+                        `${procesados} de ${totalPares} procesados`
+                    );
+                }
+            }
+
+            cerrarModalProgresoCircularEgresados();
+
+            const efectividad = Math.round((exitosos / totalPares) * 100);
+            const filasHtml = resumen.map(r => `
+                <tr style="border-bottom: 1px solid #e9ecef;">
+                    <td style="padding: 8px 10px; text-align: left; font-weight: 500;">${r.programaNombre}</td>
+                    <td style="padding: 8px 10px; text-align: center;">${r.modalidadNombre}</td>
+                    <td style="padding: 8px 10px; text-align: center;">
+                        <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; background: ${r.ok ? '#d4edda' : '#f8d7da'}; color: ${r.ok ? '#155724' : '#721c24'};">
+                            ${r.ok ? '✓ Validado' : '✗ ' + r.observacion}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+
+            await Swal.fire({
+                title: 'Resumen de Validación Masiva - Egresados',
+                html: `
+                    <div style="margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-around; background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 20px; font-weight: bold; color: #750946;">${totalPares}</div>
+                                <div style="font-size: 11px; color: #666;">Total</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 20px; font-weight: bold; color: #28a745;">${exitosos}</div>
+                                <div style="font-size: 11px; color: #666;">Validados</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 20px; font-weight: bold; color: ${errores > 0 ? '#dc3545' : '#6c757d'};">${errores}</div>
+                                <div style="font-size: 11px; color: #666;">Errores</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 20px; font-weight: bold; color: #17a2b8;">${efectividad}%</div>
+                                <div style="font-size: 11px; color: #666;">Efectividad</div>
+                            </div>
+                        </div>
+                        <div style="max-height: 250px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                <thead>
+                                    <tr style="background: #750946; color: white;">
+                                        <th style="padding: 8px 10px; text-align: left;">Programa</th>
+                                        <th style="padding: 8px 10px; text-align: center;">Modalidad</th>
+                                        <th style="padding: 8px 10px; text-align: center;">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${filasHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `,
+                icon: errores === 0 ? 'success' : 'warning',
+                confirmButtonColor: '#750946',
+                confirmButtonText: 'Aceptar y Actualizar'
+            });
+
+            if (exitosos === totalPares) {
+                botonesMasivos.forEach(b => {
+                    b.style.display = 'none';
+                });
+            }
+
+            window.location.reload();
+
+        } catch (error) {
+            console.error('Error en validación masiva:', error);
+            cerrarModalProgresoCircularEgresados();
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error en validación masiva',
+                text: error.message || 'Ocurrió un error inesperado durante el proceso.',
+                confirmButtonColor: '#750946'
+            });
+        } finally {
+            validacionMasivaEnCurso = false;
+            botonesMasivos.forEach(b => b.disabled = false);
+        }
+    }
+
     /* ==============================================
        FUNCIONES DE INFORME (LÓGICA TITULADOS)
        ============================================== */
@@ -2985,20 +3347,23 @@
             return;
         }
 
-        const keysProcesadas = new Set();
+        // Conjunto de turnos específicos seleccionados para borrar: prog|mod|bol|gen|edad|turno
+        const turnosSeleccionadosParaBorrar = new Set();
         selected.forEach(cb => {
-            const progName = decodeURIComponent(cb.dataset.programa);
-            const modName = decodeURIComponent(cb.dataset.modalidad);
-            const bolName = decodeURIComponent(cb.dataset.boleta);
-            const genName = decodeURIComponent(cb.dataset.generacion);
-            const edadVal = decodeURIComponent(cb.dataset.edad);
-            const claveFila = `${progName}|${modName}|${bolName}|${genName}|${edadVal}`;
-            keysProcesadas.add(claveFila);
+            const progName = decodeURIComponent(cb.dataset.programa || '').trim();
+            const modName = decodeURIComponent(cb.dataset.modalidad || '').trim();
+            const bolName = decodeURIComponent(cb.dataset.boleta || '').trim();
+            const genName = decodeURIComponent(cb.dataset.generacion || '').trim();
+            const edadVal = decodeURIComponent(cb.dataset.edad || '').trim();
+            const turnoVal = decodeURIComponent(cb.dataset.turno || '').trim().toLowerCase();
+
+            const claveTurno = `${progName}|${modName}|${bolName}|${genName}|${edadVal}|${turnoVal}`;
+            turnosSeleccionadosParaBorrar.add(claveTurno);
         });
 
         Swal.fire({
             title: '⚠️ ¿Está seguro de eliminar los registros seleccionados?',
-            text: `Se establecerán a cero los valores de hombres y mujeres para los ${keysProcesadas.size} registros seleccionados en la base de datos.`,
+            text: `Se establecerán a cero los valores para los ${turnosSeleccionadosParaBorrar.size} registros seleccionados en la base de datos.`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
@@ -3008,29 +3373,65 @@
         }).then((result) => {
             if (result.isConfirmed) {
                 filasEgresados = [];
-                const keysAgregadas = new Set();
+                const gruposAgregados = new Set();
 
                 const selectPrograma = document.getElementById('programa');
                 const selectModalidad = document.getElementById('modalidad');
 
                 selected.forEach(cb => {
-                    const progName = decodeURIComponent(cb.dataset.programa);
-                    const modName = decodeURIComponent(cb.dataset.modalidad);
-                    const bolName = decodeURIComponent(cb.dataset.boleta);
-                    const genName = decodeURIComponent(cb.dataset.generacion);
-                    const edadVal = decodeURIComponent(cb.dataset.edad);
+                    const progName = decodeURIComponent(cb.dataset.programa || '').trim();
+                    const modName = decodeURIComponent(cb.dataset.modalidad || '').trim();
+                    const bolName = decodeURIComponent(cb.dataset.boleta || '').trim();
+                    const genName = decodeURIComponent(cb.dataset.generacion || '').trim();
+                    const edadVal = decodeURIComponent(cb.dataset.edad || '').trim();
 
-                    const claveFila = `${progName}|${modName}|${bolName}|${genName}|${edadVal}`;
-                    if (keysAgregadas.has(claveFila)) return;
-                    keysAgregadas.add(claveFila);
+                    const claveGrupo = `${progName}|${modName}|${bolName}|${genName}|${edadVal}`;
+                    if (gruposAgregados.has(claveGrupo)) return;
+                    gruposAgregados.add(claveGrupo);
 
                     const turnosUsar = obtenerTurnosParaProgramaModalidad(progName, modName);
                     turnosDisponibles = turnosUsar;
 
                     const turnosObj = {};
                     turnosUsar.forEach(turno => {
-                        const turnoId = turno.id !== undefined ? turno.id : (turno.nombre || turno);
-                        turnosObj[turnoId] = { hombres: 0, mujeres: 0 };
+                        const turnoNom = (turno.nombre || turno || '').trim();
+                        const turnoId = turno.id !== undefined ? turno.id : turnoNom;
+                        const claveTurno = `${progName}|${modName}|${bolName}|${genName}|${edadVal}|${turnoNom.toLowerCase()}`;
+
+                        if (turnosSeleccionadosParaBorrar.has(claveTurno)) {
+                            // Este turno FUE seleccionado para borrar -> poner a 0
+                            turnosObj[turnoId] = { hombres: 0, mujeres: 0 };
+                        } else {
+                            // Este turno NO fue seleccionado para borrar -> PRESERVAR su valor actual existente
+                            const regH = (datosFilas || []).find(d =>
+                                d &&
+                                (d.Nombre_Programa || '').trim() === progName &&
+                                (d.Modalidad || '').trim() === modName &&
+                                String(d.Boleta || '').trim() === String(bolName) &&
+                                (d.Generacion || '').trim() === genName &&
+                                (String(d.Grupo_Edad || d.Edad || '').trim() === edadVal) &&
+                                (d.Turno || '').trim().toLowerCase() === turnoNom.toLowerCase() &&
+                                (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
+                            );
+                            const regM = (datosFilas || []).find(d =>
+                                d &&
+                                (d.Nombre_Programa || '').trim() === progName &&
+                                (d.Modalidad || '').trim() === modName &&
+                                String(d.Boleta || '').trim() === String(bolName) &&
+                                (d.Generacion || '').trim() === genName &&
+                                (String(d.Grupo_Edad || d.Edad || '').trim() === edadVal) &&
+                                (d.Turno || '').trim().toLowerCase() === turnoNom.toLowerCase() &&
+                                (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
+                            );
+
+                            const cantH = regH ? (regH.Egresados !== undefined ? regH.Egresados : regH.Titulados) : 0;
+                            const cantM = regM ? (regM.Egresados !== undefined ? regM.Egresados : regM.Titulados) : 0;
+
+                            turnosObj[turnoId] = {
+                                hombres: parseInt(cantH) || 0,
+                                mujeres: parseInt(cantM) || 0
+                            };
+                        }
                     });
 
                     filasEgresados.push({
@@ -3054,7 +3455,7 @@
         });
     }
 
-    // EVENT DELEGATION FOR MULTI-SELECT CHECKBOXES (SINCRONIZA TODOS LOS TURNOS DE LA MISMA FILA)
+    // EVENT DELEGATION FOR MULTI-SELECT CHECKBOXES (SELECCIONAR TODAS / INDIVIDUAL)
     document.addEventListener('change', function(e) {
         if (e.target && e.target.id === 'seleccionar-todas-informe') {
             const checkboxes = document.querySelectorAll('.seleccionar-fila-informe');
@@ -3066,30 +3467,7 @@
                     }
                 }
             });
-        } else if (e.target && e.target.classList.contains('.seleccionar-fila-informe') || (e.target && e.target.classList && e.target.classList.contains('seleccionar-fila-informe'))) {
-            const cb = e.target;
-            const isChecked = cb.checked;
-
-            const prog = cb.dataset.programa;
-            const mod = cb.dataset.modalidad;
-            const bol = cb.dataset.boleta;
-            const gen = cb.dataset.generacion;
-            const edad = cb.dataset.edad;
-
-            // Sincronizar todas las filas del mismo grupo (programa, modalidad, boleta, generacion, edad) independientemente del turno
-            document.querySelectorAll('.seleccionar-fila-informe').forEach(other => {
-                if (other !== cb &&
-                    other.dataset.programa === prog &&
-                    other.dataset.modalidad === mod &&
-                    other.dataset.boleta === bol &&
-                    other.dataset.generacion === gen &&
-                    other.dataset.edad === edad) {
-                    if (other.checked !== isChecked) {
-                        other.checked = isChecked;
-                    }
-                }
-            });
-
+        } else if (e.target && (e.target.classList.contains('seleccionar-fila-informe') || (e.target.classList && e.target.classList.contains('seleccionar-fila-informe')))) {
             const selectAll = document.getElementById('seleccionar-todas-informe');
             if (selectAll) {
                 const visibleCheckboxes = Array.from(document.querySelectorAll('.seleccionar-fila-informe'))

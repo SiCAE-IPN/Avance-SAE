@@ -23,6 +23,7 @@ def get_titulados(
         cursor = connection.cursor()
 
         cursor.execute("""
+            SET NOCOUNT ON;
             EXEC [dbo].[SP_Consulta_Titulados_Unidad_Academica]
                 @UUnidad_Academica = ?,
                 @Pperiodo          = ?,
@@ -31,18 +32,13 @@ def get_titulados(
                 @HHost             = ?
         """, (unidad_academica, periodo, nivel, usuario, host))
 
-       
         rows = []
         while True:
-            try:
+            if cursor.description:
                 columns = [col[0] for col in cursor.description]
                 rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
                 if rows:
                     break
-            except TypeError:
-                
-                pass
-
             if not cursor.nextset():
                 break
 

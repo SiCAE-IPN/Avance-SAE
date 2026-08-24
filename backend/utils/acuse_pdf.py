@@ -2,62 +2,22 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from io import BytesIO
+from typing import Any, Dict, Optional
 
-from reportlab.lib.pagesizes import landscape
-from reportlab.lib.units import cm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfgen.canvas import Canvas
+import weasyprint
+from sqlalchemy.orm import Session
 
+from backend.core.templates import templates
+from backend.core.config_institucional import get_configuracion_institucional
+from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
 
 TEXTO_ACUSE_DEFAULT = (
-    'Con esta fecha, se notifica de la conclusión de la captura de la información requerida'
-    'a traves del "Sistema de Captura y Análisis de la Estadística (SICAE)",'
-    'para el Proceso de Estadística Básica Institucional, de la que se acusa de recibido con el número'
-    'de folio asignado en este documento. A partir de este momento, la Dirección de Información,'
+    'Con esta fecha, se notifica de la conclusión de la captura de la información requerida '
+    'a traves del "Sistema de Captura y Análisis de la Estadística (SICAE)", para el Proceso de '
+    'Estadística Básica Institucional, de la que se acusa de recibido con el número de folio '
+    'asignado en este documento. A partir de este momento, la Dirección de Información Institucional '
     'dará inicio a la revisión de su información.'
 )
-
-FONT_REGULAR = "NotoSans-Regular"
-FONT_BOLD = "NotoSans-Bold"
-_FONTS_REGISTERED = False
-
-
-def _get_font_candidates() -> list[tuple[Path, Path]]:
-    this_file = Path(__file__).resolve()
-    repo_root = this_file.parents[2]
-
-    candidates = [
-        (
-            repo_root / "frontend" / "static" / "fonts" / "NotoSans-Regular.ttf",
-            repo_root / "frontend" / "static" / "fonts" / "NotoSans-Bold.ttf",
-        ),
-        (
-            repo_root / "backend" / "assets" / "fonts" / "NotoSans-Regular.ttf",
-            repo_root / "backend" / "assets" / "fonts" / "NotoSans-Bold.ttf",
-        ),
-    ]
-    return candidates
-
-
-def _register_noto_fonts() -> None:
-    global _FONTS_REGISTERED
-    if _FONTS_REGISTERED:
-        return
-
-    for regular_path, bold_path in _get_font_candidates():
-        if regular_path.exists() and bold_path.exists():
-            pdfmetrics.registerFont(TTFont(FONT_REGULAR, str(regular_path)))
-            pdfmetrics.registerFont(TTFont(FONT_BOLD, str(bold_path)))
-            _FONTS_REGISTERED = True
-            return
-
-    expected = "frontend/static/fonts/NotoSans-Regular.ttf y frontend/static/fonts/NotoSans-Bold.ttf"
-    raise FileNotFoundError(
-        "No se encontraron las fuentes NotoSans obligatorias. "
-        f"Coloca los archivos en: {expected}."
-    )
 
 
 def _fecha_es_larga(dt: datetime) -> str:
@@ -78,34 +38,141 @@ def _fecha_es_larga(dt: datetime) -> str:
     return f"{dt.day} de {meses[dt.month - 1]} del {dt.year}"
 
 
-def _wrap_text_for_canvas(
-    canvas: Canvas,
-    text: str,
-    font_name: str,
-    font_size: int,
-    max_width: float,
-) -> list[str]:
-    words = text.split()
-    if not words:
-        return []
+def generar_oficio_conclusion_pdf_en_memoria(
+    *,
+    escuela: str,
+    sigla: str,
+    folio: str,
+    clave_ur: Optional[str] = None,
+    fecha_documento: Optional[datetime] = None,
+    fecha_evento: Optional[datetime] = None,
+    texto_cuerpo: Optional[str] = None,
+    db: Optional[Session] = None,
+    config_override: Optional[Dict[str, Any]] = None,
+) -> bytes:
+    """
+    Genera el Oficio Institucional Oficial de Conclusión de Captura (IPN / SEP)
+    en formato horizontal (Carta Landscape) usando WeasyPrint y la plantilla oficial.
+    """
+    now = fecha_documento or datetime.now()
+    cfg = get_configuracion_institucional()
+    if config_override:
+        cfg.update(config_override)
 
-    lines: list[str] = []
-    current_words: list[str] = []
+    # 1. Consultar clave_ur real y nombre oficial desde CatUnidadAcademica
+    clave_ur_final = (str(clave_ur).strip() if clave_ur else None)
+    nombre_oficial_ua = escuela
+    sigla_final = sigla
 
-    for word in words:
-        candidate = " ".join([*current_words, word])
-        if canvas.stringWidth(candidate, font_name, font_size) <= max_width:
-            current_words.append(word)
-            continue
+    if not clave_ur_final or not nombre_oficial_ua or not sigla_final:
+        local_db = db
+        should_close = False
+        if local_db is None:
+            try:
+                from backend.database.connection import SessionLocal
+                local_db = SessionLocal()
+                should_close = True
+            except Exception:
+                local_db = None
 
-        if current_words:
-            lines.append(" ".join(current_words))
-        current_words = [word]
+        if local_db is not None:
+            try:
+                busqueda_sigla = (sigla or "").strip()
+                busqueda_escuela = (escuela or "").strip()
+                
+                ua_db = local_db.query(CatUnidadAcademica).filter(
+                    (CatUnidadAcademica.Sigla.ilike(busqueda_sigla)) |
+                    (CatUnidadAcademica.Nombre.ilike(busqueda_escuela)) |
+                    (CatUnidadAcademica.Sigla.ilike(busqueda_escuela)) |
+                    (CatUnidadAcademica.Nombre.ilike(f"%{busqueda_sigla}%"))
+                ).first()
+                
+                if ua_db:
+                    if not clave_ur_final and ua_db.Clave:
+                        clave_ur_final = str(ua_db.Clave).strip()
+                    if ua_db.Nombre:
+                        nombre_oficial_ua = str(ua_db.Nombre).strip()
+                    if ua_db.Sigla:
+                        sigla_final = str(ua_db.Sigla).strip()
+            except Exception as e:
+                print(f"⚠️ Error al consultar CatUnidadAcademica en acuse_pdf: {e}")
+            finally:
+                if should_close and local_db:
+                    local_db.close()
 
-    if current_words:
-        lines.append(" ".join(current_words))
+    clave_ur_final = clave_ur_final or "O3A000"
 
-    return lines
+    # 2. Formatear nombre completo con siglas
+    if sigla_final and sigla_final.upper() not in nombre_oficial_ua.upper():
+        nombre_completo_ua = f"{nombre_oficial_ua} ({sigla_final})"
+    else:
+        nombre_completo_ua = nombre_oficial_ua
+
+    # 3. Rutas de imágenes
+    repo_root = Path(__file__).resolve().parents[2]
+    static_base = repo_root / "frontend" / "static"
+    logos_dir = static_base / "logos" / "institucional"
+
+    logo_sep_ipn_path = (logos_dir / cfg.get("logo_sep_ipn", "logo_sep_ipn.png")).as_uri()
+    heroina_header_path = (logos_dir / cfg.get("imagen_heroina_header", "heroina_bandera.png")).as_uri()
+    personaje_footer_path = (logos_dir / cfg.get("imagen_personaje_footer", "margarita_maza_2026.png")).as_uri()
+
+    # 4. Textos y fechas
+    fecha_larga = _fecha_es_larga(now)
+    hora_str = now.strftime("%H:%M:%S")
+    texto_oficial_final = texto_cuerpo or cfg.get("texto_oficial", TEXTO_ACUSE_DEFAULT)
+
+    contexto = {
+        "folio": folio,
+        "clave_ur": clave_ur_final,
+        "fecha_larga": fecha_larga,
+        "hora": hora_str,
+        "sigla_unidad": sigla_final,
+        "unidad_nombre": nombre_completo_ua,
+        "texto_oficial": texto_oficial_final,
+        "titulo_proceso": cfg.get("titulo_proceso", "PROCESO DE ESTADISTICA BASICA INSTITUCIONAL"),
+        "dependencias": cfg.get("dependencias_encabezado", []),
+        "aniversarios": cfg.get("aniversarios", []),
+        "pie_pagina": cfg.get("pie_pagina", {}),
+        "firmante": cfg.get("firmante", {}),
+        "logo_sep_ipn_url": logo_sep_ipn_path,
+        "heroina_header_url": heroina_header_path,
+        "personaje_footer_url": personaje_footer_path,
+    }
+
+    html_rendered = templates.get_template("oficio_conclusion_captura.html").render(contexto)
+
+    pdf_bytes = weasyprint.HTML(
+        string=html_rendered,
+        base_url=str(static_base)
+    ).write_pdf()
+
+    return pdf_bytes
+
+
+def generar_acuse_matricula_pdf_en_memoria(
+    *,
+    escuela: str,
+    sigla: str,
+    folio: str,
+    clave_ur: Optional[str] = None,
+    fecha_documento: Optional[datetime] = None,
+    fecha_evento: Optional[datetime] = None,
+    texto_cuerpo: Optional[str] = None,
+    db: Optional[Session] = None,
+    **kwargs,
+) -> bytes:
+    """Wrapper compatible para generar el acuse oficial de conclusión horizontal."""
+    return generar_oficio_conclusion_pdf_en_memoria(
+        escuela=escuela,
+        sigla=sigla,
+        folio=folio,
+        clave_ur=clave_ur,
+        fecha_documento=fecha_documento,
+        fecha_evento=fecha_evento,
+        texto_cuerpo=texto_cuerpo,
+        db=db,
+    )
 
 
 def generar_acuse_matricula_pdf(
@@ -114,147 +181,25 @@ def generar_acuse_matricula_pdf(
     sigla: str,
     folio: str,
     output_path: str | Path,
-    fecha_documento: datetime | None = None,
-    fecha_evento: datetime | None = None,
-    clave_ur: str = "O3A000",
-    texto_cuerpo: str = TEXTO_ACUSE_DEFAULT,
-    firmante: str = "MTRO. ORLANDO DAVID PARADA VICENTE",
-    cargo_firmante: str = "COORDINADOR GENERAL DE PLANEACION E INFORMACION INSTITUCIONAL",
-    lema: str = '"La Tecnica al Servicio de la Patria"',
+    clave_ur: Optional[str] = None,
+    fecha_documento: Optional[datetime] = None,
+    fecha_evento: Optional[datetime] = None,
+    texto_cuerpo: Optional[str] = None,
+    db: Optional[Session] = None,
+    **kwargs,
 ) -> Path:
-    """Genera un acuse en PDF con formato horizontal tipo oficio.
-
-    Esta funcion no consulta base de datos: recibe los datos ya resueltos por el modulo
-    que la invoque para mantenerla reutilizable.
-    """
-    _register_noto_fonts()
-
-    now = fecha_documento or datetime.now()
-    evento = fecha_evento or now
-
+    """Genera el oficio de conclusión y lo guarda en disco en output_path."""
+    pdf_bytes = generar_acuse_matricula_pdf_en_memoria(
+        escuela=escuela,
+        sigla=sigla,
+        folio=folio,
+        clave_ur=clave_ur,
+        fecha_documento=fecha_documento,
+        fecha_evento=fecha_evento,
+        texto_cuerpo=texto_cuerpo,
+        db=db,
+    )
     out_path = Path(output_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-
-    width, height = landscape((21.59 * cm, 27.94 * cm))
-    canvas = Canvas(str(out_path), pagesize=(width, height))
-
-    # Encabezado de fecha y hora
-    fecha_actual = _fecha_es_larga(now)
-    hora_actual = now.strftime("%H:%M:%S")
-
-    canvas.setFont(FONT_REGULAR, 11)
-    canvas.drawString(2 * cm, height - 2 * cm, f"Ciudad de Mexico, a {fecha_actual}")
-    canvas.drawString(2 * cm, height - 2.7 * cm, f"Hora: {hora_actual}")
-
-    # Datos de folio y clave
-    canvas.drawString(2 * cm, height - 3.8 * cm, f"Clave UR: {clave_ur}")
-    canvas.drawString(2 * cm, height - 4.5 * cm, f"Folio: {folio}")
-
-    # Destinatario
-    canvas.setFont(FONT_BOLD, 12)
-    canvas.drawString(2 * cm, height - 6 * cm, f"{escuela} ({sigla})")
-    canvas.drawString(2 * cm, height - 6.8 * cm, "INSTITUTO POLITECNICO NACIONAL")
-    canvas.drawString(2 * cm, height - 7.6 * cm, "PRESENTE")
-
-    # Titulo
-    canvas.setFont(FONT_BOLD, 13)
-    canvas.drawCentredString(width / 2, height - 9 * cm, "PROCESO DE ESTADISTICA BASICA INSTITUCIONAL")
-
-    # Cuerpo principal con ajuste de linea
-    canvas.setFont(FONT_REGULAR, 12)
-    max_text_width = width - (4 * cm)
-    body_lines = _wrap_text_for_canvas(canvas, texto_cuerpo, FONT_REGULAR, 12, max_text_width)
-
-    text_object = canvas.beginText(2 * cm, height - 10 * cm)
-    text_object.setLeading(16)
-    for line in body_lines:
-        text_object.textLine(line)
-    canvas.drawText(text_object)
-
-    # Pie institucional
-    canvas.setFont(FONT_BOLD, 12)
-    canvas.drawCentredString(width / 2, 4.5 * cm, lema)
-
-    canvas.line(width / 2 - 4 * cm, 3.2 * cm, width / 2 + 4 * cm, 3.2 * cm)
-
-    canvas.drawCentredString(width / 2, 2.5 * cm, firmante)
-    canvas.setFont(FONT_BOLD, 11)
-    canvas.drawCentredString(width / 2, 1.8 * cm, cargo_firmante)
-
-    # Metadatos de referencia para trazabilidad
-    canvas.setAuthor("SiCAE")
-    canvas.setTitle(f"Acuse de Matricula - {sigla}")
-    canvas.setSubject(f"Evento de captura/validacion del {evento.strftime('%d/%m/%Y %H:%M:%S')}")
-
-    canvas.save()
+    out_path.write_bytes(pdf_bytes)
     return out_path
-
-
-def generar_acuse_matricula_pdf_en_memoria(
-    *,
-    escuela: str,
-    sigla: str,
-    folio: str,
-    fecha_documento: datetime | None = None,
-    fecha_evento: datetime | None = None,
-    clave_ur: str = "O3A000",
-    texto_cuerpo: str = TEXTO_ACUSE_DEFAULT,
-    firmante: str = "MTRO. ORLANDO DAVID PARADA VICENTE",
-    cargo_firmante: str = "COORDINADOR GENERAL DE PLANEACION E INFORMACION INSTITUCIONAL",
-    lema: str = '"La Tecnica al Servicio de la Patria"',
-) -> bytes:
-    """Genera el acuse en memoria y devuelve el PDF en bytes (ideal para respuestas HTTP)."""
-    _register_noto_fonts()
-
-    buffer = BytesIO()
-    now = fecha_documento or datetime.now()
-    evento = fecha_evento or now
-
-    width, height = landscape((21.59 * cm, 27.94 * cm))
-    canvas = Canvas(buffer, pagesize=(width, height))
-
-    fecha_actual = _fecha_es_larga(now)
-    hora_actual = now.strftime("%H:%M:%S")
-
-    canvas.setFont(FONT_REGULAR, 11)
-    canvas.drawString(2 * cm, height - 2 * cm, f"Ciudad de Mexico, a {fecha_actual}")
-    canvas.drawString(2 * cm, height - 2.7 * cm, f"Hora: {hora_actual}")
-
-    canvas.drawString(2 * cm, height - 3.8 * cm, f"Clave UR: {clave_ur}")
-    canvas.drawString(2 * cm, height - 4.5 * cm, f"Folio: {folio}")
-
-    canvas.setFont(FONT_BOLD, 12)
-    canvas.drawString(2 * cm, height - 6 * cm, f"{escuela} ({sigla})")
-    canvas.drawString(2 * cm, height - 6.8 * cm, "INSTITUTO POLITECNICO NACIONAL")
-    canvas.drawString(2 * cm, height - 7.6 * cm, "PRESENTE")
-
-    canvas.setFont(FONT_BOLD, 13)
-    canvas.drawCentredString(width / 2, height - 9 * cm, "PROCESO DE ESTADISTICA BASICA INSTITUCIONAL")
-
-    canvas.setFont(FONT_REGULAR, 12)
-    max_text_width = width - (4 * cm)
-    body_lines = _wrap_text_for_canvas(canvas, texto_cuerpo, FONT_REGULAR, 12, max_text_width)
-
-    text_object = canvas.beginText(2 * cm, height - 10 * cm)
-    text_object.setLeading(16)
-    for line in body_lines:
-        text_object.textLine(line)
-    canvas.drawText(text_object)
-
-    canvas.setFont(FONT_BOLD, 12)
-    canvas.drawCentredString(width / 2, 4.5 * cm, lema)
-
-    canvas.line(width / 2 - 4 * cm, 3.2 * cm, width / 2 + 4 * cm, 3.2 * cm)
-
-    canvas.drawCentredString(width / 2, 2.5 * cm, firmante)
-    canvas.setFont(FONT_BOLD, 11)
-    canvas.drawCentredString(width / 2, 1.8 * cm, cargo_firmante)
-
-    canvas.setAuthor("SiCAE")
-    canvas.setTitle(f"Acuse de Matricula - {sigla}")
-    canvas.setSubject(f"Evento de captura/validacion del {evento.strftime('%d/%m/%Y %H:%M:%S')}")
-
-    canvas.save()
-    pdf_bytes = buffer.getvalue()
-    buffer.close()
-    return pdf_bytes

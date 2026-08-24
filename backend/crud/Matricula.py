@@ -151,16 +151,39 @@ def _extraer_nota_rechazo_de_resultset(rows: List[Any], columns: Optional[List[s
     return None
 
 
+import time
+
+# Cache en memoria para resultados del SP de Matricula
+# Estructura: cache_key -> (timestamp, (rows_list, columns, nota_rechazo))
+_MATRICULA_SP_CACHE: Dict[str, Tuple[float, Tuple[List[Dict[str, Any]], List[str], Optional[str]]]] = {}
+_MATRICULA_SP_CACHE_TTL = 180  # 3 minutos de validez
+
+
+def invalidate_matricula_sp_cache(unidad_sigla: Optional[str] = None, periodo: Optional[str] = None, nivel: Optional[str] = None):
+    """
+    Invalida el caché en memoria del SP de matrícula.
+    Si no se especifican filtros, limpia todo el caché.
+    """
+    global _MATRICULA_SP_CACHE
+    if unidad_sigla and periodo and nivel:
+        cache_key = f"{str(unidad_sigla).strip().lower()}|{str(periodo).strip()}|{str(nivel).strip().lower()}"
+        _MATRICULA_SP_CACHE.pop(cache_key, None)
+    else:
+        _MATRICULA_SP_CACHE.clear()
+
+
 def execute_sp_consulta_matricula(
     db: Session,
     unidad_sigla: str,
     periodo: str,
     nivel: str,
     usuario: str = 'sistema',
-    host: str = 'localhost'
+    host: str = 'localhost',
+    force_refresh: bool = False
 ) -> Tuple[List[Dict[str, Any]], List[str], Optional[str]]:
     """
     Ejecutar el SP SP_Consulta_Matricula_Unidad_Academica y devolver las filas normalizadas.
+    Usa caché en memoria (TTL 3 min) para acelerar drásticamente exportaciones a PDF y consultas consecutivas.
     
     Args:
         db: Sesión de base de datos
@@ -169,10 +192,20 @@ def execute_sp_consulta_matricula(
         nivel: Nivel educativo (ej: 'Posgrado', 'Licenciatura')
         usuario: Nombre del usuario que ejecuta la consulta
         host: Host desde donde se realiza la petición
+        force_refresh: Si es True, fuerza la consulta a la BD ignorando la caché
     
     Returns:
         Tuple[List[Dict], List[str], Optional[str]]: (filas como dicts, nombres de columnas, nota de rechazo)
     """
+    cache_key = f"{str(unidad_sigla).strip().lower()}|{str(periodo).strip()}|{str(nivel).strip().lower()}"
+    current_time = time.time()
+
+    if not force_refresh and cache_key in _MATRICULA_SP_CACHE:
+        cache_time, cached_result = _MATRICULA_SP_CACHE[cache_key]
+        if (current_time - cache_time) < _MATRICULA_SP_CACHE_TTL:
+            print(f"[matricula-sp] [CACHE] Retornando {len(cached_result[0])} registros desde CACHE en memoria para key='{cache_key}' (Exportacion ultrarrapida)")
+            return cached_result
+
     try:
         # Usar conexión raw para manejar múltiples result sets
         connection = db.connection()
@@ -191,7 +224,7 @@ def execute_sp_consulta_matricula(
             'unidad': unidad_sigla, 
             'periodo': periodo, 
             'nivel': nivel,
-            'usuario': usuario,
+            'usuario': usuario, 
             'host': host
         })
         
@@ -249,6 +282,8 @@ def execute_sp_consulta_matricula(
         except Exception as e:
             print(f"⚠️ No se pudo capturar segundo result set (Nota): {e}")
 
+        # Guardar en caché para respuesta instantánea al exportar PDF
+        _MATRICULA_SP_CACHE[cache_key] = (current_time, (rows_list, columns, nota_rechazo))
         return rows_list, columns, nota_rechazo
 
     except Exception as e:

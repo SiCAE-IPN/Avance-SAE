@@ -5,6 +5,7 @@ try:
 		TEXTO_ACUSE_DEFAULT,
 		generar_acuse_matricula_pdf,
 		generar_acuse_matricula_pdf_en_memoria,
+		generar_oficio_conclusion_pdf_en_memoria,
 	)
 
 	__all__.extend(
@@ -12,6 +13,7 @@ try:
 			"TEXTO_ACUSE_DEFAULT",
 			"generar_acuse_matricula_pdf",
 			"generar_acuse_matricula_pdf_en_memoria",
+			"generar_oficio_conclusion_pdf_en_memoria",
 		]
 	)
 except ModuleNotFoundError:

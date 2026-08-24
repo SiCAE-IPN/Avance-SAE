@@ -56,8 +56,8 @@ SEMESTRE_A_NUM = {
     'octavo': 8,
     'noveno': 9,
     'décimo': 10, 'decimo': 10,
-    'undécimo': 11, 'undecimo': 11, 'décimo primero': 11,
-    'duodécimo': 12, 'duodecimo': 12, 'décimo segundo': 12,
+    'undécimo': 11, 'undecimo': 11, 'décimo primero': 11, 'decimo primero': 11,
+    'duodécimo': 12, 'duodecimo': 12, 'décimo segundo': 12, 'decimo segundo': 12,
 }
 
 SEMAFORO_REQUERIDO = {4: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8}
@@ -88,6 +88,79 @@ def normalizar_sexo(sexo):
         return 'Mujer'
     return 'Otro'
 
+MAPA_APROVECHAMIENTO_CORTO = {
+    'aprobados': 'A',
+    'baja temporal': 'B. T.',
+    'baja definitiva': 'B. D.',
+    'deserción': 'D',
+    'desercion': 'D',
+    'reincorporados': 'R',
+    'reincorporado': 'R',
+    'reprobada 1 materia': 'R1',
+    'reprobadas 1 materia': 'R1',
+    'reprobadas 1': 'R1',
+    'reprobada 1': 'R1',
+    'reprobada 2 materias': 'R2',
+    'reprobadas 2 materias': 'R2',
+    'reprobadas 2': 'R2',
+    'reprobada 2': 'R2',
+    'reprobada 3 materias': 'R3',
+    'reprobadas 3 materias': 'R3',
+    'reprobadas 3': 'R3',
+    'reprobada 3': 'R3',
+    'reprobada 4 materias': 'R4',
+    'reprobadas 4 materias': 'R4',
+    'reprobadas 4': 'R4',
+    'reprobada 4': 'R4',
+    'reprobada 5 materias': 'R5',
+    'reprobadas 5 materias': 'R5',
+    'reprobadas 5': 'R5',
+    'reprobada 5': 'R5',
+    'reprobada 6 o más': 'R6',
+    'reprobadas 6 o más': 'R6',
+    'reprobadas 6 o mas': 'R6',
+    'reprobada 6 o mas': 'R6',
+    'reprobadas 6': 'R6',
+    'reprobada 6': 'R6',
+}
+
+LEYENDA_APROVECHAMIENTO_MAP = {
+    'A': 'Alumnos Aprobados',
+    'B. T.': 'Baja Temporal',
+    'B. D.': 'Baja Definitiva',
+    'D': 'Deserción',
+    'R': 'Reincorporados',
+    'R1': 'Reprobada 1 materia',
+    'R2': 'Reprobadas 2 materias',
+    'R3': 'Reprobadas 3 materias',
+    'R4': 'Reprobadas 4 materias',
+    'R5': 'Reprobadas 5 materias',
+    'R6': 'Reprobadas 6 o más materias',
+}
+
+def normalizar_tipo_aprovechamiento(apr_raw):
+    k = str(apr_raw or '').strip().lower()
+    return MAPA_APROVECHAMIENTO_CORTO.get(k, str(apr_raw or '').strip())
+
+def obtener_columnas_aprovechamiento_acotadas(rows):
+    tipos_en_datos = set()
+    for r in rows:
+        apr = r.get("Aprovechamiento")
+        if apr:
+            tipos_en_datos.add(normalizar_tipo_aprovechamiento(apr))
+    
+    orden_preferido = ['A', 'B. T.', 'B. D.', 'D', 'R', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6']
+    columnas = []
+    for t in orden_preferido:
+        if t in tipos_en_datos or not tipos_en_datos:
+            columnas.append(t)
+    for t in sorted(tipos_en_datos):
+        if t not in columnas:
+            columnas.append(t)
+    if not columnas:
+        columnas = ['A', 'B. T.', 'B. D.', 'D', 'R', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6']
+    return columnas
+
 def obtener_tipos_aprovechamiento(rows):
     tipos = set()
     for r in rows:
@@ -103,112 +176,112 @@ def obtener_tipos_aprovechamiento(rows):
 # ============================================================================
 
 def procesar_tabla_programa(rows):
-    tipos_aprov = obtener_tipos_aprovechamiento(rows)
+    columnas_tipos = obtener_columnas_aprovechamiento_acotadas(rows)
     programas = sorted({r.get("Nombre_Programa", "").strip() for r in rows if r.get("Nombre_Programa")})
+    
     suma = defaultdict(int)
     for r in rows:
         prog = r.get("Nombre_Programa", "").strip()
         if not prog:
             continue
-        apr = r.get("Aprovechamiento", "").strip()
+        apr = normalizar_tipo_aprovechamiento(r.get("Aprovechamiento", ""))
         sexo = normalizar_sexo(r.get("Sexo", ""))
         alumnos = int(r.get("alumnos") or 0)
         suma[(prog, apr, sexo)] += alumnos
 
     filas = []
-    for apr in tipos_aprov:
-        celdas = []
-        total_h_tipo = 0
-        total_m_tipo = 0
-        for prog in programas:
-            h = suma.get((prog, apr, 'Hombre'), 0)
-            m = suma.get((prog, apr, 'Mujer'), 0)
-            t = h + m
-            celdas.append({"h": h, "m": m, "t": t})
-            total_h_tipo += h
-            total_m_tipo += m
+    for prog in programas:
+        hombres = [suma.get((prog, apr, 'Hombre'), 0) for apr in columnas_tipos]
+        mujeres = [suma.get((prog, apr, 'Mujer'), 0) for apr in columnas_tipos]
+        subtotales = [h + m for h, m in zip(hombres, mujeres)]
         filas.append({
-            "tipo": apr,
-            "celdas": celdas,
-            "total_h": total_h_tipo,
-            "total_m": total_m_tipo,
-            "total_t": total_h_tipo + total_m_tipo,
+            "nombre": prog,
+            "hombres": hombres,
+            "total_h": sum(hombres),
+            "mujeres": mujeres,
+            "total_m": sum(mujeres),
+            "subtotales": subtotales,
+            "total_st": sum(subtotales),
         })
 
-    totales_por_columna = []
-    for idx_prog, prog in enumerate(programas):
-        h = sum(filas[idx_tipo]["celdas"][idx_prog]["h"] for idx_tipo in range(len(tipos_aprov)))
-        m = sum(filas[idx_tipo]["celdas"][idx_prog]["m"] for idx_tipo in range(len(tipos_aprov)))
-        totales_por_columna.append({"h": h, "m": m, "t": h + m})
+    totales_h_col = [sum(f["hombres"][idx] for f in filas) for idx in range(len(columnas_tipos))]
+    totales_m_col = [sum(f["mujeres"][idx] for f in filas) for idx in range(len(columnas_tipos))]
+    totales_general_col = [h + m for h, m in zip(totales_h_col, totales_m_col)]
 
-    total_general_h = sum(fila["total_h"] for fila in filas)
-    total_general_m = sum(fila["total_m"] for fila in filas)
+    total_gen_h = sum(totales_h_col)
+    total_gen_m = sum(totales_m_col)
+    total_gen_absoluto = total_gen_h + total_gen_m
+
+    leyenda = [{"sigla": col, "significado": LEYENDA_APROVECHAMIENTO_MAP.get(col, col)} for col in columnas_tipos]
 
     return {
-        "categorias": programas,
+        "columnas": columnas_tipos,
         "filas": filas,
-        "totales_por_columna": totales_por_columna,
-        "total_general_h": total_general_h,
-        "total_general_m": total_general_m,
-        "total_general_t": total_general_h + total_general_m,
+        "totales_h_col": totales_h_col,
+        "total_gen_h": total_gen_h,
+        "totales_m_col": totales_m_col,
+        "total_gen_m": total_gen_m,
+        "totales_general_col": totales_general_col,
+        "total_general_t": total_gen_absoluto,
+        "leyenda": leyenda,
     }
 
 def procesar_tabla_semestre(rows):
-    tipos_aprov = obtener_tipos_aprovechamiento(rows)
+    columnas_tipos = obtener_columnas_aprovechamiento_acotadas(rows)
     semestres_numeros = set()
     for r in rows:
         sem_num = semestre_texto_a_numero(r.get("Semestre"))
         if sem_num is not None and isinstance(sem_num, int):
             semestres_numeros.add(sem_num)
     semestres_ordenados = sorted(semestres_numeros)
-    categorias = [str(sem) for sem in semestres_ordenados]
+    if not semestres_ordenados:
+        semestres_ordenados = [1, 2, 3, 4, 5, 6]
 
     suma = defaultdict(int)
     for r in rows:
         sem_num = semestre_texto_a_numero(r.get("Semestre"))
         if sem_num is None:
             continue
-        apr = r.get("Aprovechamiento", "").strip()
+        apr = normalizar_tipo_aprovechamiento(r.get("Aprovechamiento", ""))
         sexo = normalizar_sexo(r.get("Sexo", ""))
         alumnos = int(r.get("alumnos") or 0)
         suma[(sem_num, apr, sexo)] += alumnos
 
     filas = []
-    for apr in tipos_aprov:
-        celdas = []
-        total_h_tipo = 0
-        total_m_tipo = 0
-        for sem in semestres_ordenados:
-            h = suma.get((sem, apr, 'Hombre'), 0)
-            m = suma.get((sem, apr, 'Mujer'), 0)
-            t = h + m
-            celdas.append({"h": h, "m": m, "t": t})
-            total_h_tipo += h
-            total_m_tipo += m
+    for sem in semestres_ordenados:
+        hombres = [suma.get((sem, apr, 'Hombre'), 0) for apr in columnas_tipos]
+        mujeres = [suma.get((sem, apr, 'Mujer'), 0) for apr in columnas_tipos]
+        subtotales = [h + m for h, m in zip(hombres, mujeres)]
         filas.append({
-            "tipo": apr,
-            "celdas": celdas,
-            "total_h": total_h_tipo,
-            "total_m": total_m_tipo,
-            "total_t": total_h_tipo + total_m_tipo,
+            "nombre": f"Semestre {sem}",
+            "hombres": hombres,
+            "total_h": sum(hombres),
+            "mujeres": mujeres,
+            "total_m": sum(mujeres),
+            "subtotales": subtotales,
+            "total_st": sum(subtotales),
         })
 
-    totales_por_columna = []
-    for idx_sem, sem in enumerate(semestres_ordenados):
-        h = sum(filas[idx_tipo]["celdas"][idx_sem]["h"] for idx_tipo in range(len(tipos_aprov)))
-        m = sum(filas[idx_tipo]["celdas"][idx_sem]["m"] for idx_tipo in range(len(tipos_aprov)))
-        totales_por_columna.append({"h": h, "m": m, "t": h + m})
+    totales_h_col = [sum(f["hombres"][idx] for f in filas) for idx in range(len(columnas_tipos))]
+    totales_m_col = [sum(f["mujeres"][idx] for f in filas) for idx in range(len(columnas_tipos))]
+    totales_general_col = [h + m for h, m in zip(totales_h_col, totales_m_col)]
 
-    total_general_h = sum(fila["total_h"] for fila in filas)
-    total_general_m = sum(fila["total_m"] for fila in filas)
+    total_gen_h = sum(totales_h_col)
+    total_gen_m = sum(totales_m_col)
+    total_gen_absoluto = total_gen_h + total_gen_m
+
+    leyenda = [{"sigla": col, "significado": LEYENDA_APROVECHAMIENTO_MAP.get(col, col)} for col in columnas_tipos]
 
     return {
-        "categorias": categorias,
+        "columnas": columnas_tipos,
         "filas": filas,
-        "totales_por_columna": totales_por_columna,
-        "total_general_h": total_general_h,
-        "total_general_m": total_general_m,
-        "total_general_t": total_general_h + total_general_m,
+        "totales_h_col": totales_h_col,
+        "total_gen_h": total_gen_h,
+        "totales_m_col": totales_m_col,
+        "total_gen_m": total_gen_m,
+        "totales_general_col": totales_general_col,
+        "total_general_t": total_gen_absoluto,
+        "leyenda": leyenda,
     }
 
 def procesar_tabla_modalidad(rows):
@@ -351,6 +424,7 @@ async def obtener_contexto_aprovechamiento(
     puede_validar = False
     usuario_ya_valido = False
     usuario_ya_rechazo = False
+    periodo_anterior_literal = None
 
     try:
         periodo_obj = db.query(CatPeriodo).filter(CatPeriodo.Periodo == periodo).first()
@@ -358,6 +432,7 @@ async def obtener_contexto_aprovechamiento(
 
         Periodoant = get_periodo_anterior_al_ultimo(db)
         Id_Periodo_anterior = Periodoant[0] if Periodoant else None
+        periodo_anterior_literal = Periodoant[1] if Periodoant else None
 
         nivel_obj = db.query(CatNivel).filter(CatNivel.Nivel == nivel).first()
         Id_Nivel = nivel_obj.Id_Nivel if nivel_obj else None
@@ -453,7 +528,8 @@ async def obtener_contexto_aprovechamiento(
     return {
         "request": request,
         "session": sess,
-        "periodo": periodo,
+        "periodo": periodo_anterior_literal or periodo,
+        "periodo_url": periodo,
         "nivel": nivel,
         "unidad": unidad,
         "nombre_ua": nombre_ua,
@@ -1384,11 +1460,11 @@ async def exportar_aprovechamiento_excel(
     # Hoja 1: Aprovechamiento
     ws_aprov = workbook.add_worksheet("Aprovechamiento")
     if rows_aprovechamiento:
-        headers = list(rows_aprovechamiento[0].keys())
-        for col, h in enumerate(headers):
+        headers_aprov = [k for k in rows_aprovechamiento[0].keys() if str(k).lower() not in ('id_semaforo', 'id_semaforo_actual')]
+        for col, h in enumerate(headers_aprov):
             ws_aprov.write(0, col, h)
         for row_idx, row in enumerate(rows_aprovechamiento, start=1):
-            for col_idx, key in enumerate(headers):
+            for col_idx, key in enumerate(headers_aprov):
                 ws_aprov.write(row_idx, col_idx, row.get(key, ''))
     else:
         ws_aprov.write(0, 0, "No hay datos de aprovechamiento para los filtros seleccionados")
@@ -1396,11 +1472,11 @@ async def exportar_aprovechamiento_excel(
     # Hoja 2: Inscritos
     ws_ins = workbook.add_worksheet("Inscritos")
     if rows_inscritos:
-        headers = list(rows_inscritos[0].keys())
-        for col, h in enumerate(headers):
+        headers_ins = [k for k in rows_inscritos[0].keys() if str(k).lower() not in ('id_semaforo', 'id_semaforo_actual')]
+        for col, h in enumerate(headers_ins):
             ws_ins.write(0, col, h)
         for row_idx, row in enumerate(rows_inscritos, start=1):
-            for col_idx, key in enumerate(headers):
+            for col_idx, key in enumerate(headers_ins):
                 ws_ins.write(row_idx, col_idx, row.get(key, ''))
     else:
         ws_ins.write(0, 0, "No hay datos de inscritos para los filtros seleccionados")

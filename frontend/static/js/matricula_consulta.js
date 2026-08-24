@@ -5050,48 +5050,73 @@ function updateInputsBySemestre(semestreNum) {
             cerrarModalProgresoCircular();
 
             const eficienciaSemestres = Math.round((semestresExitosos / totalSemestresPlan) * 100);
-            const paresTotales = resumen.length;
-            const paresCompletos = resumen.filter(r => r.semestresTotal > 0 && r.semestresError === 0 && r.semestresOk === r.semestresTotal).length;
 
-            const filasResumen = resumen.map(r => {
-                const estado = (r.semestresTotal > 0 && r.semestresError === 0 && r.semestresOk === r.semestresTotal)
-                    ? 'Completado'
-                    : (r.semestresOk > 0 ? 'Parcial' : 'Pendiente/Error');
+            const filasHtml = resumen.map(r => {
+                const esCompletado = (r.semestresTotal > 0 && r.semestresError === 0 && r.semestresOk === r.semestresTotal);
+                const esParcial = r.semestresOk > 0 && !esCompletado;
+                
+                let badgeHtml = '';
+                if (esCompletado) {
+                    badgeHtml = `<span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; background: #d4edda; color: #155724;">✓ Validado</span>`;
+                } else if (esParcial) {
+                    badgeHtml = `<span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; background: #fff3cd; color: #856404;">⚠️ Parcial (${r.semestresOk}/${r.semestresTotal})</span>`;
+                } else {
+                    const errorMsg = r.observaciones.length > 0 ? r.observaciones[0] : 'Error';
+                    badgeHtml = `<span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; background: #f8d7da; color: #721c24;">✗ ${errorMsg}</span>`;
+                }
 
-                const obs = r.observaciones.length > 0 ? r.observaciones.slice(0, 2).join('; ') : '-';
-                return `<tr>
-                    <td style="padding:6px;border-bottom:1px solid #eee;">${r.programaNombre}</td>
-                    <td style="padding:6px;border-bottom:1px solid #eee;">${r.modalidadNombre}</td>
-                    <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${r.semestresOk}/${r.semestresTotal}</td>
-                    <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${r.turnosOk}</td>
-                    <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${r.turnosError}</td>
-                    <td style="padding:6px;border-bottom:1px solid #eee;">${estado}</td>
-                    <td style="padding:6px;border-bottom:1px solid #eee;max-width:260px;">${obs}</td>
-                </tr>`;
+                return `
+                    <tr style="border-bottom: 1px solid #e9ecef;">
+                        <td style="padding: 8px 10px; text-align: left; font-weight: 500;">${r.programaNombre}</td>
+                        <td style="padding: 8px 10px; text-align: center;">${r.modalidadNombre}</td>
+                        <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #555;">${r.semestresOk} / ${r.semestresTotal}</td>
+                        <td style="padding: 8px 10px; text-align: center;">${badgeHtml}</td>
+                    </tr>
+                `;
             }).join('');
 
             await Swal.fire({
+                title: 'Resumen de Validación Masiva - Matrícula',
+                html: `
+                    <div style="margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-around; background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 20px; font-weight: bold; color: #750946;">${totalSemestresPlan}</div>
+                                <div style="font-size: 11px; color: #666;">Semestres</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 20px; font-weight: bold; color: #28a745;">${semestresExitosos}</div>
+                                <div style="font-size: 11px; color: #666;">Validados</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 20px; font-weight: bold; color: ${semestresConError > 0 ? '#dc3545' : '#6c757d'};">${semestresConError}</div>
+                                <div style="font-size: 11px; color: #666;">Errores</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 20px; font-weight: bold; color: #17a2b8;">${eficienciaSemestres}%</div>
+                                <div style="font-size: 11px; color: #666;">Efectividad</div>
+                            </div>
+                        </div>
+                        <div style="max-height: 250px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                <thead>
+                                    <tr style="background: #750946; color: white;">
+                                        <th style="padding: 8px 10px; text-align: left;">Programa</th>
+                                        <th style="padding: 8px 10px; text-align: center;">Modalidad</th>
+                                        <th style="padding: 8px 10px; text-align: center;">Semestres</th>
+                                        <th style="padding: 8px 10px; text-align: center;">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${filasHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `,
                 icon: semestresConError === 0 ? 'success' : 'warning',
-                title: 'Resumen de Validacion de Semestres',
-                html:
-                    `<div style="text-align:left;">` +
-                    `<p><strong>Semestres exitosos:</strong> ${semestresExitosos} / ${totalSemestresPlan} (${eficienciaSemestres}%)</p>` +
-                    `<p><strong>Turnos exitosos:</strong> ${turnosExitosos} | <strong>Turnos con error:</strong> ${turnosConError}</p>` +
-                    `<p><strong>Programas/modalidades completos:</strong> ${paresCompletos} / ${paresTotales}</p>` +
-                    `<div style="max-height:260px;overflow:auto;border:1px solid #ddd;border-radius:8px;">` +
-                    `<table style="width:100%;border-collapse:collapse;font-size:12px;">` +
-                    `<thead style="position:sticky;top:0;background:#f8f9fa;">` +
-                    `<tr>` +
-                    `<th style="padding:6px;text-align:left;">Programa</th>` +
-                    `<th style="padding:6px;text-align:left;">Modalidad</th>` +
-                    `<th style="padding:6px;text-align:center;">Semestres</th>` +
-                    `<th style="padding:6px;text-align:center;">Turnos OK</th>` +
-                    `<th style="padding:6px;text-align:center;">Turnos Error</th>` +
-                    `<th style="padding:6px;text-align:left;">Estado</th>` +
-                    `<th style="padding:6px;text-align:left;">Observaciones</th>` +
-                    `</tr></thead><tbody>${filasResumen}</tbody></table></div></div>`,
-                width: '980px',
-                confirmButtonText: 'Entendido'
+                confirmButtonColor: '#750946',
+                confirmButtonText: 'Aceptar y Actualizar'
             });
 
             actualizarColoresPestanas();

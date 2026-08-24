@@ -160,20 +160,50 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
     }
 
 
+# Cache en memoria para resultados del SP de Egresados
+# Estructura: cache_key -> (timestamp, (egresados_data, nota_rechazo))
+_EGRESADOS_SP_CACHE: Dict[str, Tuple[float, Tuple[List[Dict[str, Any]], Optional[str]]]] = {}
+_EGRESADOS_SP_CACHE_TTL = 180  # 3 minutos de validez
+
+
+def invalidate_egresados_sp_cache(unidad_sigla: Optional[str] = None, periodo_literal: Optional[str] = None, nivel_nombre: Optional[str] = None):
+    """
+    Invalida el caché en memoria del SP de egresados.
+    Si no se especifican filtros, limpia todo el caché.
+    """
+    global _EGRESADOS_SP_CACHE
+    if unidad_sigla and periodo_literal and nivel_nombre:
+        cache_key = f"{str(unidad_sigla).strip().lower()}|{str(periodo_literal).strip()}|{str(nivel_nombre).strip().lower()}"
+        _EGRESADOS_SP_CACHE.pop(cache_key, None)
+    else:
+        _EGRESADOS_SP_CACHE.clear()
+
+
 def execute_egresados_sp(
     db: Session,
     unidad_sigla: str,
     periodo_literal: str,
     nivel_nombre: str,
     usuario: str = 'sistema',
-    host: str = 'localhost'
+    host: str = 'localhost',
+    force_refresh: bool = False
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """
-    Ejecuta el SP_Consulta_Egresados_Unidad_Academica
+    Ejecuta el SP_Consulta_Egresados_Unidad_Academica con caché en memoria (TTL de 3 min)
+    para acelerar drásticamente exportaciones a PDF y consultas consecutivas.
     
     Returns:
         Tuple[List[Dict], Optional[str]]: (datos, nota_rechazo)
     """
+    cache_key = f"{str(unidad_sigla).strip().lower()}|{str(periodo_literal).strip()}|{str(nivel_nombre).strip().lower()}"
+    current_time = time.time()
+    
+    if not force_refresh and cache_key in _EGRESADOS_SP_CACHE:
+        cache_time, cached_result = _EGRESADOS_SP_CACHE[cache_key]
+        if (current_time - cache_time) < _EGRESADOS_SP_CACHE_TTL:
+            print(f"[egresados-sp] [CACHE] Retornando {len(cached_result[0])} registros desde CACHE en memoria para key='{cache_key}' (Exportacion ultrarrapida)")
+            return cached_result
+            
     try:
         # Log de parámetros que se enviarán al SP
         print(f"[egresados-sp] Ejecutando SP con parametros:")
@@ -221,6 +251,8 @@ def execute_egresados_sp(
         except Exception as e_nextset:
             print(f"[egresados-sp] No se pudo obtener segundo resultset (nota rechazo): {str(e_nextset)}")
         
+        # Almacenar en caché para responder inmediatamente al exportar PDF o navegar
+        _EGRESADOS_SP_CACHE[cache_key] = (current_time, (egresados_data, nota_rechazo))
         return egresados_data, nota_rechazo
         
     except Exception as e:
@@ -305,10 +337,12 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(validar_acuse
     # === VERIFICAR ACCESO BASADO EN SEMÁFORO (FORMATO 3 = EGRESADOS) ===
     # 1. PRIMERO: Obtener el periodo (aquí se definen periodo_default_id y literal)
     try:
-        periodo_id, periodo_literal = get_ultimo_periodo(db)
+        periodo_id, periodo_literal = get_periodo_activo(db)
+        if not periodo_id or not periodo_literal:
+            periodo_id, periodo_literal = get_ultimo_periodo(db)
         periodo_default_id = periodo_id
         periodo_default_literal = periodo_literal
-        print(f"📅 Periodo por defecto: {periodo_default_literal} (ID: {periodo_default_id})")
+        print(f"📅 Periodo activo por defecto: {periodo_default_literal} (ID: {periodo_default_id})")
         #periodo anterior al actual en string
         periodo_anterior_id, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
         print(f"📅 Periodo anterior: {periodo_anterior_literal} (ID: {periodo_anterior_id})")
@@ -409,10 +443,10 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(validar_acuse
             niveles_disponibles = [{"Id_Nivel": n.Id_Nivel, "Nivel": n.Nivel} for n in niveles_ua]
             print(f"👔 Niveles disponibles para UA {id_unidad_academica}: {[n['Nivel'] for n in niveles_disponibles]}")
     
-    # Roles 6-9: Cargar todo
+    # Roles 6-9: Cargar todo (todos los periodos en la BD, incluidos inactivos)
     elif es_rol_superior:
-        # Obtener todos los periodos
-        periodos = db.query(Periodo).filter(Periodo.Id_Estatus == 1).order_by(Periodo.Id_Periodo.desc()).all()
+        # Obtener todos los periodos disponibles en la BD
+        periodos = db.query(Periodo).order_by(Periodo.Id_Periodo.desc()).all()
         
         # Obtener todos los niveles activos
         niveles_db = db.query(Nivel).filter(Nivel.Id_Estatus == 1).all()
@@ -1069,42 +1103,43 @@ async def guardar_egresados(request: Request, sess=Depends(get_current_session),
                         for sexo_label, cantidad_raw in sexos_dict.items():
                             cantidad = _safe_int(cantidad_raw, 0)
                             
-                            if cantidad > 0:  # Solo crear fila si hay cantidad
-                                # Resolver Rama desde Programa
-                                nombre_rama_final = ''
-                                try:
-                                    prog_id = reg.get('programa')
-                                    if prog_id:
-                                        prog_obj = programas_dict.get(int(prog_id))
-                                        if prog_obj:
-                                            nombre_rama_final = ramas_dict.get(prog_obj.Id_Rama_Programa, '')
-                                except Exception:
-                                    pass
-                                
-                                # Convertir sexo_label a mayúsculas primeras letras
-                                sexo_final = 'Hombre' if sexo_label.lower() in ['hombre', 'hombres', 'h'] else 'Mujer'
-                                
-                                if idx < 3:
-                                    print(
-                                        f"   ✅ Creando fila: Turno={turno_nombre}({turno_id}) "
-                                        f"Sexo={sexo_final} Cantidad={cantidad}"
-                                    )
-                                
-                                objetos_a_guardar.append(Temp_Egresados(
-                                    Periodo=periodo_texto_temp,
-                                    Sigla=unidad_obj.Sigla,
-                                    Nombre_Programa=nombre_programa,
-                                    Nombre_Rama=nombre_rama_final,
-                                    Nivel=nivel_sp,
-                                    Modalidad=modalidad,
-                                    Grupo_Edad=grupo_edad,
-                                    Boleta=boleta,
-                                    Generacion=generacion,
-                                    Turno=turno_nombre,
-                                    Sexo=sexo_final,
-                                    Id_Semaforo=0,  # Frontend siempre comienza con semáforo = 0 (o Pendiente)
-                                    Egresados=cantidad
-                                ))
+                            # Resolver Rama desde Programa
+                            nombre_rama_final = ''
+                            try:
+                                prog_id = reg.get('programa')
+                                if prog_id and str(prog_id).isdigit():
+                                    prog_obj = programas_dict.get(int(prog_id))
+                                else:
+                                    prog_obj = next((p for p in programas_dict.values() if p.Nombre_Programa.strip().lower() == nombre_programa.strip().lower()), None)
+                                if prog_obj:
+                                    nombre_rama_final = ramas_dict.get(prog_obj.Id_Rama_Programa, '')
+                            except Exception:
+                                pass
+                            
+                            # Convertir sexo_label a mayúsculas primeras letras
+                            sexo_final = 'Hombre' if sexo_label.lower() in ['hombre', 'hombres', 'h'] else 'Mujer'
+                            
+                            if idx < 3:
+                                print(
+                                    f"   ✅ Creando fila: Turno={turno_nombre}({turno_id}) "
+                                    f"Sexo={sexo_final} Cantidad={cantidad}"
+                                )
+                            
+                            objetos_a_guardar.append(Temp_Egresados(
+                                Periodo=periodo_texto_temp,
+                                Sigla=unidad_obj.Sigla,
+                                Nombre_Programa=nombre_programa,
+                                Nombre_Rama=nombre_rama_final,
+                                Nivel=nivel_sp,
+                                Modalidad=modalidad,
+                                Grupo_Edad=grupo_edad,
+                                Boleta=boleta,
+                                Generacion=generacion,
+                                Turno=turno_nombre,
+                                Sexo=sexo_final,
+                                Id_Semaforo=0,  # Frontend siempre comienza con semáforo = 0 (o Pendiente)
+                                Egresados=cantidad
+                            ))
                 
                 else:
                     # ========================
@@ -1172,6 +1207,7 @@ async def guardar_egresados(request: Request, sess=Depends(get_current_session),
         if objetos_a_guardar:
             db.add_all(objetos_a_guardar)
             db.commit()
+            invalidate_egresados_sp_cache(unidad_obj.Sigla, periodo_texto_temp, None)
 
         count_temp_post = db.query(Temp_Egresados).filter(
             Temp_Egresados.Sigla == unidad_obj.Sigla,
@@ -1277,6 +1313,7 @@ async def validar_egresados(request: Request, sess=Depends(get_current_session),
         })
 
         db.commit()
+        invalidate_egresados_sp_cache()
 
         return {"success": True, "message": "Egresados validados correctamente"}
         
@@ -1367,6 +1404,7 @@ async def rechazar_egresados(request: Request, sess=Depends(get_current_session)
         })
 
         db.commit()
+        invalidate_egresados_sp_cache()
 
         return {"success": True, "message": "Egresados rechazados. Se notificará al capturista."}
         
@@ -1500,6 +1538,7 @@ async def guardar_avance_egresados(request: Request, sess=Depends(get_current_se
         })
         
         db.commit()
+        invalidate_egresados_sp_cache(unidad_sigla, periodo_sp, nivel)
         
         print(f"✅ SP ejecutado exitosamente - Avance guardado")
         
@@ -1791,6 +1830,7 @@ async def finalizar_captura_egresados(request: Request, sess=Depends(get_current
                 pass
 
             db.commit()
+            invalidate_egresados_sp_cache(unidad_sigla, periodo, nivel)
 
             # =========================================================================
             # NUEVA LÓGICA AUTOMÁTICA CORREGIDA: Periodo Activo ID - 1 (Egresados)
@@ -2865,6 +2905,7 @@ async def resumen_egresados_dinamico_view(
                 'total_t': totales['T']
             })
         filas_edad_turno = filas_edad_turno_simple
+        totales_tabla2['edades'] = edades_agrupadas
 
         # === Layout fijo de dos columnas: izq (Boleta+Edad), der (Programa+otras) ===
         col_left = ['Boleta', 'GrupoEdad']
@@ -2913,6 +2954,7 @@ async def resumen_egresados_dinamico_view(
             "nombre_ceget": nombre_ceget,
             "nombre_titular": nombre_titular,
             "estado_semaforo_actual": estado_semaforo if ('estado_semaforo' in locals() and estado_semaforo is not None) else 0,
+            "no_validado": (estado_semaforo is None or estado_semaforo < 9) if ('estado_semaforo' in locals() and estado_semaforo is not None) else True,
             "error_message": None,
             "exportando_pdf": exportando_pdf,
             "fecha_hoy": fecha_hoy,
@@ -2974,6 +3016,20 @@ async def exportar_acuse_egresados_pdf(
     renderizada en modo impresión (exportando_pdf=True), igual que se
     hace para el acuse de Matrícula.
     """
+    # Resolver sigla limpia de la unidad académica
+    ua_sigla = (unidad or sess.sigla_unidad_academica or '').strip()
+    if ua_sigla:
+        ua_obj = db.query(Unidad_Academica).filter(
+            (Unidad_Academica.Sigla == ua_sigla) | (Unidad_Academica.Nombre == ua_sigla)
+        ).first()
+        if ua_obj and ua_obj.Sigla:
+            ua_sigla = ua_obj.Sigla
+
+    # Resolver periodo limpio
+    periodo_str = (periodo or '').strip()
+    if not periodo_str:
+        _, periodo_str = get_ultimo_periodo(db)
+
     resp = await resumen_egresados_dinamico_view(
         request=request,
         periodo=periodo,
@@ -3006,16 +3062,103 @@ async def exportar_acuse_egresados_pdf(
         pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
             stylesheets=[
                 weasyprint.CSS(filename=str(ruta_css)),
-                weasyprint.CSS(string='@page { size: Letter; margin: 1cm }')
+                weasyprint.CSS(string='@page { size: Letter; margin: 0.9cm 1.2cm 2.9cm 1.2cm; }')
             ]
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
 
-    filename = f"acuse_egresados_{unidad}_{periodo}.pdf".replace(' ', '_')
+    unidad_limpia = str(ua_sigla).replace(' ', '_').strip()
+    periodo_limpio = str(periodo_str).replace('/', '_').replace(' ', '_').strip()
+    filename = f"acuse_egresados_{unidad_limpia}_{periodo_limpio}.pdf"
+    
     return Response(content=pdf_bytes, media_type='application/pdf', headers={
         'Content-Disposition': f'attachment; filename="{filename}"'
     })
+
+
+@router.get('/exportar-excel-egresados')
+async def exportar_egresados_excel(
+    request: Request,
+    periodo: str,
+    nivel: str,
+    unidad: str,
+    sess=Depends(validar_acuse),
+    db: Session = Depends(get_db)
+):
+    """
+    Exporta a Excel los datos de SP_Consulta_Egresados_Unidad_Academica.
+    Filtra ÚNICAMENTE aquellos registros que tengan en la columna de Egresados > 0 (omitiendo los '0').
+    """
+    import io
+    import xlsxwriter
+    from fastapi.responses import StreamingResponse
+
+    # Resolver sigla limpia de la unidad académica
+    ua_sigla = (unidad or sess.sigla_unidad_academica or '').strip()
+    if ua_sigla:
+        ua_obj = db.query(Unidad_Academica).filter(
+            (Unidad_Academica.Sigla == ua_sigla) | (Unidad_Academica.Nombre == ua_sigla)
+        ).first()
+        if ua_obj and ua_obj.Sigla:
+            ua_sigla = ua_obj.Sigla
+
+    # Resolver periodo limpio
+    periodo_str = (periodo or '').strip()
+    if not periodo_str:
+        _, periodo_str = get_ultimo_periodo(db)
+
+    host = get_request_host(request)
+    nombre_completo = " ".join(filter(None, [sess.nombre_usuario, sess.apellidoP_usuario, sess.apellidoM_usuario]))
+
+    egresados_data, _ = execute_egresados_sp(
+        db=db,
+        unidad_sigla=ua_sigla,
+        periodo_literal=periodo_str,
+        nivel_nombre=nivel,
+        usuario=nombre_completo or sess.usuario,
+        host=host
+    )
+
+    # Filtrar solo registros donde Egresados > 0
+    rows_filtradas = []
+    for row in egresados_data:
+        val = row.get('Egresados')
+        try:
+            num = int(float(val)) if val not in (None, '') else 0
+        except (ValueError, TypeError):
+            num = 0
+        if num > 0:
+            rows_filtradas.append(row)
+
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+    ws = workbook.add_worksheet("Egresados")
+
+    if rows_filtradas:
+        headers = [k for k in rows_filtradas[0].keys() if str(k).lower() not in ('id_semaforo', 'id_semaforo_actual')]
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#750946', 'font_color': '#FFFFFF'})
+        for col, h in enumerate(headers):
+            ws.write(0, col, h, header_format)
+        for row_idx, row in enumerate(rows_filtradas, start=1):
+            for col_idx, key in enumerate(headers):
+                ws.write(row_idx, col_idx, row.get(key, ''))
+    else:
+        ws.write(0, 0, "No hay datos de egresados mayores a 0 para los filtros seleccionados")
+
+    workbook.close()
+    output.seek(0)
+
+    unidad_limpia = str(ua_sigla).replace(' ', '_').strip()
+    periodo_limpio = str(periodo_str).replace('/', '_').replace(' ', '_').strip()
+    nivel_limpio = str(nivel).replace(' ', '_').strip()
+    filename = f"Egresados_{unidad_limpia}_{nivel_limpio}_{periodo_limpio}.xlsx"
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
 @router.post("/fijar-nivel-temporal")

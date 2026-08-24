@@ -182,8 +182,14 @@ def procesar_titulados(filas: list[dict]) -> dict:
     turno     : Dict[str, Dict[str, int]] = defaultdict(_nueva_tabla)
 
     for row in filas:
-        sexo      = row.get('Sexo', '')
-        cantidad  = int(row.get('Titulados', 0) or 0)
+        sexo = row.get('Sexo', '')
+        try:
+            cantidad = int(row.get('Titulados', 0) or 0)
+        except (ValueError, TypeError):
+            cantidad = 0
+
+        if cantidad <= 0:
+            continue
 
         grupos = [
             (programa,  row.get('Nombre_Programa', 'Sin Programa')),
@@ -195,8 +201,10 @@ def procesar_titulados(filas: list[dict]) -> dict:
         ]
 
         for tabla, clave in grupos:
-            if sexo == 'Hombre': tabla[clave]['H'] += cantidad
-            elif sexo == 'Mujer': tabla[clave]['M'] += cantidad
+            if sexo == 'Hombre':
+                tabla[clave]['H'] += cantidad
+            elif sexo == 'Mujer':
+                tabla[clave]['M'] += cantidad
            
             tabla[clave]['T'] = tabla[clave]['H'] + tabla[clave]['M']
 

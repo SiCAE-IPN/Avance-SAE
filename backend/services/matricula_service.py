@@ -4,6 +4,7 @@ from backend.crud.Matricula import (
     execute_sp_consulta_matricula,
     resolve_periodo_by_id_or_literal,
     get_unidad_and_nivel_info,
+    invalidate_matricula_sp_cache,
 )
 
 from sqlalchemy.orm import Session
@@ -299,6 +300,7 @@ def execute_sp_actualiza_matricula_por_unidad_academica(
         'nivel': nivel,
     })
     db.commit()
+    invalidate_matricula_sp_cache(unidad_sigla, periodo, nivel)
 
 
 def execute_sp_actualiza_matricula_por_semestre_au(
@@ -340,6 +342,7 @@ def execute_sp_actualiza_matricula_por_semestre_au(
         'nivel': nivel,
     })
     db.commit()
+    invalidate_matricula_sp_cache(unidad_sigla, periodo, nivel)
 
     # Intentar extraer el último result set con filas
     rows_list: List[Dict[str, Any]] = []
@@ -476,6 +479,7 @@ def execute_sp_finaliza_captura_matricula(
             'nivel': nivel,
         })
         db.commit()
+        invalidate_matricula_sp_cache(unidad_sigla, periodo, nivel)
         print(f"✅ SP_Finaliza_Captura_Matricula ejecutado exitosamente")
     except Exception as e:
         print(f"❌ Error al ejecutar SP_Finaliza_Captura_Matricula: {str(e)}")
@@ -552,6 +556,7 @@ def execute_sp_valida_matricula(
             )
 
         db.commit()
+        invalidate_matricula_sp_cache(unidad_sigla, periodo, nivel_literal)
         print(f"✅ SP_Valida_Matricula ejecutado exitosamente")
         return rows
     except Exception as e:
@@ -614,6 +619,7 @@ def execute_sp_rechaza_matricula(
             'nota': nota or '',
         })
         db.commit()
+        invalidate_matricula_sp_cache(unidad_sigla, periodo, nivel_literal)
         print(f"✅ SP_Rechaza_Matricula ejecutado exitosamente")
     except Exception as e:
         print(f"❌ Error al ejecutar SP_Rechaza_Matricula: {str(e)}")

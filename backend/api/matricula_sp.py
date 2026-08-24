@@ -55,6 +55,7 @@ from backend.utils.email import send_email, EmailSendError
 from backend.database.models.Temp_Matricula import Temp_Matricula
 from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo, get_periodo_anterior_al_ultimo
+from backend.crud.Matricula import invalidate_matricula_sp_cache
 
 from backend.services.envio_correo_service import notificar_rechazo_global, html_correo_acuse, obtener_correos_involucrados
 from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
@@ -1853,17 +1854,13 @@ async def guardar_captura_completa(request: Request, sess=Depends(get_current_se
                 # Insertar el nuevo registro con la matrícula y salones actuales
                 temp_matricula = Temp_Matricula(**filtered)
                 
-
-                #Descomentar en dado caso de querer guardar solo en Temp_Matrícula
-                #print(f"\n📊 DATOS A GUARDAR EN Temp_Matricula: {filtered}")
-                #input("⏸️  PAUSA - Presiona Enter para continuar...")
-                
                 db.add(temp_matricula)
 
                 registros_insertados += 1
                 print(f"Registro procesado (upsert lógico): {filtered}")
         
         db.commit()
+        invalidate_matricula_sp_cache(unidad_obj.Sigla if unidad_obj else None, periodo, nivel_obj.Nivel if nivel_obj else None)
         
         # Construir mensaje informativo
         mensaje_base = f"Matrícula procesada. {registros_insertados} registros guardados"
@@ -1925,6 +1922,7 @@ def guardar_progreso(datos: List[Dict[str, Any]], sess=Depends(get_current_sessi
             print(f"Registro procesado (merge) en guardar_progreso: {filtered}")
 
         db.commit()
+        invalidate_matricula_sp_cache()
         return {"message": "Progreso guardado exitosamente."}
     except Exception as e:
         db.rollback()
@@ -2936,11 +2934,16 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
                     estatus_entrega=estatus_entrega,
                 )
 
+                clave_ur_ua = str(getattr(unidad, "Clave", "") or "").strip()
                 pdf_bytes = generar_acuse_matricula_pdf_en_memoria(
                     escuela=str(getattr(unidad, "Nombre", "") or unidad_sigla),
                     sigla=unidad_sigla,
+                    clave_ur=clave_ur_ua or None,
                     folio=folio_acuse,
+                    titular_nombre=nombre_completo or "TITULAR DE LA UNIDAD ACADÉMICA",
+                    titular_cargo=f"DIRECTOR(A) / TITULAR DE {unidad_sigla.upper()}",
                     fecha_evento=datetime.now(),
+                    db=db,
                 )
 
                 acuse_guardado = save_acuse_pdf_for_user(
@@ -3491,8 +3494,13 @@ async def resumen_matricula_seleccion_view(request: Request, sess=Depends(valida
     if not periodo_activo_id:
         periodo_activo_id, periodo_activo_literal = get_ultimo_periodo(db)
 
-    # Obtener todos los periodos disponibles
-    periodos = db.query(Periodo).filter(Periodo.Id_Estatus == 1).order_by(Periodo.Id_Periodo.desc()).all()
+    # Obtener periodos según el rol:
+    # Roles 6-9 (y admin): Todos los periodos disponibles en la BD (incluso Id_Estatus == 0)
+    # Roles 4-5: Únicamente periodos activos (Id_Estatus == 1)
+    if es_rol_superior:
+        periodos = db.query(Periodo).order_by(Periodo.Id_Periodo.desc()).all()
+    else:
+        periodos = db.query(Periodo).filter(Periodo.Id_Estatus == 1).order_by(Periodo.Id_Periodo.desc()).all()
 
     # Obtener todas las unidades académicas con su nivel desde SemaforoUnidadAcademica
     from sqlalchemy import distinct
@@ -4508,16 +4516,85 @@ async def acuse_validacion_pdf(
         pdf_bytes = weasyprint.HTML(string=html_text, base_url=str(base_path)).write_pdf(
             stylesheets=[
                 weasyprint.CSS(filename=str(ruta_css)),
-                weasyprint.CSS(string='@page { size: Letter; margin: 1cm 1cm 3.5cm 1cm }')
+                weasyprint.CSS(string='@page { size: Letter; margin: 0.9cm 1.2cm 2.9cm 1.2cm; }')
             ]
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
 
-    filename = f"acuse_{unidad}_{periodo}.pdf".replace(' ', '_')
+    # Resolver sigla limpia de la unidad académica
+    ua_sigla = (unidad or sess.sigla_unidad_academica or '').strip()
+    if ua_sigla:
+        ua_obj = db.query(Unidad_Academica).filter(
+            (Unidad_Academica.Sigla == ua_sigla) | (Unidad_Academica.Nombre == ua_sigla)
+        ).first()
+        if ua_obj and ua_obj.Sigla:
+            ua_sigla = ua_obj.Sigla
+
+    # Resolver periodo limpio
+    periodo_str = (periodo or '').strip()
+    if not periodo_str:
+        _, periodo_str = get_ultimo_periodo(db)
+
+    unidad_limpia = str(ua_sigla).replace(' ', '_').strip()
+    periodo_limpio = str(periodo_str).replace('/', '_').replace(' ', '_').strip()
+    filename = f"acuse_matricula_{unidad_limpia}_{periodo_limpio}.pdf"
     return Response(content=pdf_bytes, media_type='application/pdf', headers={
         'Content-Disposition': f'attachment; filename="{filename}"'
     })
+
+@router.get('/exportar-excel-matricula')
+async def exportar_matricula_excel(
+    request: Request,
+    periodo: str,
+    nivel: str,
+    unidad: str,
+    sess=Depends(validar_acuse),
+    db: Session = Depends(get_db)
+):
+    """
+    Exporta a Excel los datos de SP_Consulta_Matricula_Unidad_Academica.
+    """
+    import io
+    import xlsxwriter
+    from fastapi.responses import StreamingResponse
+    from backend.crud.Matricula import execute_sp_consulta_matricula
+
+    usuario_login = sess.usuario
+    host = request.client.host
+
+    rows, columns, _ = execute_sp_consulta_matricula(
+        db, unidad, periodo, nivel, usuario_login, host
+    )
+
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+    ws = workbook.add_worksheet("Matricula")
+
+    if rows:
+        headers = [k for k in rows[0].keys() if str(k).lower() not in ('id_semaforo', 'id_semaforo_actual')]
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#750946', 'font_color': '#FFFFFF'})
+        for col, h in enumerate(headers):
+            ws.write(0, col, h, header_format)
+        for row_idx, row in enumerate(rows, start=1):
+            for col_idx, key in enumerate(headers):
+                ws.write(row_idx, col_idx, row.get(key, ''))
+    else:
+        ws.write(0, 0, "No hay datos de matrícula para los filtros seleccionados")
+
+    workbook.close()
+    output.seek(0)
+
+    ua_limpia = str(unidad).replace(' ', '_').strip()
+    periodo_limpio = str(periodo).replace('/', '_').replace(' ', '_').strip()
+    nivel_limpio = str(nivel).replace(' ', '_').strip()
+    filename = f"Matricula_{ua_limpia}_{nivel_limpio}_{periodo_limpio}.xlsx"
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 @router.post("/fijar-nivel-temporal")
 async def fijar_nivel_temporal(

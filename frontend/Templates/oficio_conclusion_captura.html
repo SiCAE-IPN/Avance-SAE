@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Acuse de Conclusión de Captura - {{ sigla_unidad }}</title>
+    <style>
+        @font-face {
+            font-family: 'Noto Sans';
+            src: url('../fonts/NotoSans-Regular.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Noto Sans';
+            src: url('../fonts/NotoSans-Bold.ttf') format('truetype');
+            font-weight: bold;
+            font-style: normal;
+        }
+
+        @page {
+            size: letter;
+            margin: 1.2cm 2.0cm 2.2cm 2.0cm;
+            @bottom-left { content: none; }
+            @bottom-right { content: none; }
+        }
+
+        *, *:before, *:after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans', Arial, Helvetica, sans-serif;
+            font-size: 11pt;
+            color: #000000;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+        }
+
+        .contenedor-oficio {
+            width: 100%;
+            position: relative;
+        }
+
+        /* === ENCABEZADO SUPERIOR === */
+        .encabezado-tabla {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+        }
+
+        .encabezado-tabla td {
+            padding: 0;
+            vertical-align: top;
+            border: none;
+        }
+
+        .logo-principal {
+            height: 48px;
+            width: auto;
+            display: block;
+        }
+
+        .heroina-header {
+            height: 64px;
+            width: auto;
+            display: block;
+            margin-left: auto;
+        }
+
+        /* === ANIVERSARIOS (DERECHA) === */
+        .seccion-aniversarios {
+            text-align: right;
+            margin-bottom: 22px;
+        }
+
+        .aniversarios {
+            font-size: 8pt;
+            color: #222222;
+            line-height: 1.25;
+            font-weight: 500;
+        }
+
+        /* === METADATOS Y DESTINATARIO (IZQUIERDA) === */
+        .metadatos-bloque {
+            font-size: 11pt;
+            line-height: 1.4;
+            margin-bottom: 20px;
+        }
+
+        .item-meta {
+            margin-bottom: 3px;
+        }
+
+        .bloque-clave-folio {
+            margin-top: 14px;
+            margin-bottom: 20px;
+        }
+
+        .destinatario {
+            margin-top: 20px;
+            margin-bottom: 26px;
+            font-size: 11pt;
+            line-height: 1.4;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* === TÍTULO CENTRADO === */
+        .titulo-proceso {
+            text-align: center;
+            font-size: 12pt;
+            font-weight: bold;
+            color: #000000;
+            margin-top: 22px;
+            margin-bottom: 22px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* === CUERPO DEL OFICIO === */
+        .cuerpo-oficio {
+            text-align: justify;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #000000;
+            margin-bottom: 35px;
+        }
+
+        /* === SECCIÓN DE FIRMA CENTRADA === */
+        .seccion-firma {
+            text-align: center;
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+
+        .lema-institucional {
+            font-weight: bold;
+            font-size: 11pt;
+            color: #000000;
+            margin-bottom: 35px;
+        }
+
+        .linea-firma {
+            width: 320px;
+            border-bottom: 1.2px solid #000000;
+            margin: 0 auto 8px auto;
+        }
+
+        .firmante-nombre {
+            font-weight: bold;
+            font-size: 11pt;
+            color: #000000;
+            text-transform: uppercase;
+        }
+
+        .firmante-cargo {
+            font-weight: bold;
+            font-size: 10pt;
+            color: #000000;
+            margin-top: 3px;
+            text-transform: uppercase;
+        }
+
+        /* === PIE DE PÁGINA INSTITUCIONAL === */
+        .pie-pagina-contenedor {
+            position: fixed;
+            bottom: -1.2cm;
+            left: 0;
+            right: 0;
+            width: 100%;
+        }
+
+        .pie-pagina-tabla {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .pie-pagina-tabla td {
+            padding: 0;
+            vertical-align: middle;
+            border: none;
+        }
+
+        .imagen-personaje-footer {
+            height: 52px;
+            width: auto;
+            display: block;
+        }
+
+        .barra-contacto-col {
+            padding-left: 14px !important;
+            vertical-align: middle !important;
+        }
+
+        .linea-guinda {
+            border-top: 3.5px solid #750946;
+            margin-bottom: 4px;
+            width: 100%;
+        }
+
+        .datos-contacto-footer {
+            font-size: 7pt;
+            color: #333333;
+            line-height: 1.25;
+            text-align: justify;
+        }
+    </style>
+</head>
+<body>
+
+<div class="contenedor-oficio">
+
+    <!-- 1. ENCABEZADO: LOGOS SEP/IPN (IZQ) Y HEROÍNA CON BANDERA (DER) -->
+    <table class="encabezado-tabla">
+        <tr>
+            <td style="width: 65%;">
+                <img src="{{ logo_sep_ipn_url }}" alt="Educación e IPN" class="logo-principal">
+            </td>
+            <td style="width: 35%; text-align: right;">
+                <img src="{{ heroina_header_url }}" alt="Heroína Nacional" class="heroina-header">
+            </td>
+        </tr>
+    </table>
+
+    <!-- 2. ANIVERSARIOS CONMEMORATIVOS A LA DERECHA -->
+    <div class="seccion-aniversarios">
+        <div class="aniversarios">
+            {% for aniv in aniversarios %}
+                <div>{{ aniv }}</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 3. METADATOS A LA IZQUIERDA -->
+    <div class="metadatos-bloque">
+        <div class="item-meta">Ciudad de Mexico, a {{ fecha_larga }}</div>
+        <div class="item-meta">Hora: {{ hora }}</div>
+        
+        <div class="bloque-clave-folio">
+            <div class="item-meta">Clave UR: {{ clave_ur }}</div>
+            <div class="item-meta">Folio: {{ folio }}</div>
+        </div>
+    </div>
+
+    <!-- 4. DESTINATARIO -->
+    <div class="destinatario">
+        <div>{{ unidad_nombre }}</div>
+        <div>INSTITUTO POLITECNICO NACIONAL</div>
+        <div>PRESENTE</div>
+    </div>
+
+    <!-- 5. TÍTULO CENTRADO -->
+    <div class="titulo-proceso">
+        {{ titulo_proceso }}
+    </div>
+
+    <!-- 6. CUERPO DEL OFICIO -->
+    <div class="cuerpo-oficio">
+        {{ texto_oficial }}
+    </div>
+
+    <!-- 7. ATENTAMENTE Y FIRMA CENTRADA -->
+    <div class="seccion-firma">
+        <div class="lema-institucional">{{ firmante.lema }}</div>
+        
+        <div class="linea-firma"></div>
+        <div class="firmante-nombre">{{ firmante.nombre }}</div>
+        <div class="firmante-cargo">{{ firmante.cargo }}</div>
+    </div>
+
+    <!-- 8. PIE DE PÁGINA INSTITUCIONAL -->
+    <div class="pie-pagina-contenedor">
+        <table class="pie-pagina-tabla">
+            <tr>
+                <td style="width: 130px;">
+                    <img src="{{ personaje_footer_url }}" alt="Año Conmemorativo" class="imagen-personaje-footer">
+                </td>
+                <td class="barra-contacto-col">
+                    <div class="linea-guinda"></div>
+                    <div class="datos-contacto-footer">
+                        {{ pie_pagina.texto_oficial }}
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+</div>
+
+</body>
+</html>
