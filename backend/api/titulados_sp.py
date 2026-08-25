@@ -30,7 +30,12 @@ from pydantic import BaseModel
 from typing import List, Optional
 from backend.utils.request import get_request_host
 from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
-from backend.services.envio_correo_service import notificar_rechazo_global, obtener_correos_involucrados
+from backend.services.envio_correo_service import (
+    notificar_rechazo_global,
+    obtener_correos_involucrados,
+    enviar_correo_acuse_titular,
+    verificar_todos_modulos_validados_titular,
+)
 from backend.core.auth import VerificarAccesoAcuse
 validar_acuse = VerificarAccesoAcuse()
 from backend.core.security_logger import registrar_bloqueo_seguridad
@@ -976,6 +981,7 @@ async def validar_titulados(request: Request, sess=Depends(get_current_session),
         print(f"{'='*60}\n")
 
         sql = text("""
+            SET NOCOUNT ON;
             EXEC [dbo].[SP_Valida_Titulados]
                 @PPeriodo = :periodo,
                 @UUnidad_Academica = :ua,
@@ -995,18 +1001,76 @@ async def validar_titulados(request: Request, sess=Depends(get_current_session),
             'nota': nota_sp,
         })
 
+        try:
+            sp_rows = [dict(r) for r in result.mappings().all()]
+        except Exception:
+            sp_rows = []
+
         db.commit()
         print("✅ [DB] Commit ejecutado de forma exitosa.")
 
-        return {"success": True, "message": "Titulados validados correctamente"}
-        
+        # Enviar correo de acuse cuando el Titular (id_rol=5) valida Y todos los módulos de la UA ya están en semáforo >= 5
+        acuse_info = None
+        correo_acuse_enviado = False
+        acuse_error = None
+        correo_acuse_error = None
+
+        if id_rol == 5:
+            ua_obj = db.query(Unidad_Academica).filter(
+                (Unidad_Academica.Sigla == unidad_in) | (Unidad_Academica.Nombre == unidad_in)
+            ).first()
+            id_ua = int(ua_obj.Id_Unidad_Academica) if ua_obj else int(getattr(sess, 'id_unidad_academica', 0) or 0)
+            id_nivel_sess = int(getattr(sess, 'id_nivel', 0) or 0)
+
+            todos_listos = bool(sp_rows) or verificar_todos_modulos_validados_titular(
+                db=db, id_unidad=id_ua, id_nivel=id_nivel_sess
+            )
+
+            if todos_listos:
+                try:
+                    estatus_entrega = ""
+                    if sp_rows:
+                        first_row = sp_rows[0]
+                        for k, v in first_row.items():
+                            if v and "extempor" in str(v).lower():
+                                estatus_entrega = "Extemporaneo"
+                                break
+                            if k in ("EEntrega", "@EEntrega") and v:
+                                estatus_entrega = str(v)
+
+                    acuse_info, correo_acuse_enviado, acuse_error, correo_acuse_error = enviar_correo_acuse_titular(
+                        db=db,
+                        id_usuario=int(sess.id_usuario),
+                        usuario_login=usuario_sp,
+                        nombre_completo=str(sess.nombre_completo or usuario_sp),
+                        unidad_sigla=unidad_in,
+                        unidad_nombre=str(getattr(ua_obj, 'Nombre', '') or unidad_in),
+                        clave_ur=str(getattr(ua_obj, 'Clave', '') or ''),
+                        periodo_literal=periodo_literal,
+                        estatus_entrega=estatus_entrega,
+                    )
+                except Exception as _e:
+                    acuse_error = str(_e)
+                    print(f"❌ Error inesperado al generar acuse titulados: {_e}")
+            else:
+                print(f"ℹ️ Titulados validados por Titular. Aún no se genera acuse porque faltan módulos por validar en la UA ({unidad_in}).")
+
+        return {
+            "success": True,
+            "message": "Titulados validados correctamente",
+            "correo_acuse_enviado": correo_acuse_enviado,
+            "acuse": acuse_info,
+            "acuse_error": acuse_error,
+            "correo_acuse_error": correo_acuse_error,
+        }
+
     except Exception as e:
         db.rollback()
         print(f"❌ Error crítico al validar Titulados: {str(e)}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 
 @router.post('/rechazar')
 async def rechazar_titulados(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):

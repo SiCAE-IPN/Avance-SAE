@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <title>Acuse de Conclusión de Captura - {{ sigla_unidad }}</title>
@@ -21,11 +22,19 @@
         @page {
             size: letter;
             margin: 1.2cm 2.0cm 2.2cm 2.0cm;
-            @bottom-left { content: none; }
-            @bottom-right { content: none; }
+
+            @bottom-left {
+                content: none;
+            }
+
+            @bottom-right {
+                content: none;
+            }
         }
 
-        *, *:before, *:after {
+        *,
+        *:before,
+        *:after {
             box-sizing: border-box;
         }
 
@@ -209,86 +218,94 @@
         }
     </style>
 </head>
+
 <body>
 
-<div class="contenedor-oficio">
+    <div class="contenedor-oficio">
 
-    <!-- 1. ENCABEZADO: LOGOS SEP/IPN (IZQ) Y HEROÍNA CON BANDERA (DER) -->
-    <table class="encabezado-tabla">
-        <tr>
-            <td style="width: 65%;">
-                <img src="{{ logo_sep_ipn_url }}" alt="Educación e IPN" class="logo-principal">
-            </td>
-            <td style="width: 35%; text-align: right;">
-                <img src="{{ heroina_header_url }}" alt="Heroína Nacional" class="heroina-header">
-            </td>
-        </tr>
-    </table>
-
-    <!-- 2. ANIVERSARIOS CONMEMORATIVOS A LA DERECHA -->
-    <div class="seccion-aniversarios">
-        <div class="aniversarios">
-            {% for aniv in aniversarios %}
-                <div>{{ aniv }}</div>
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- 3. METADATOS A LA IZQUIERDA -->
-    <div class="metadatos-bloque">
-        <div class="item-meta">Ciudad de Mexico, a {{ fecha_larga }}</div>
-        <div class="item-meta">Hora: {{ hora }}</div>
-        
-        <div class="bloque-clave-folio">
-            <div class="item-meta">Clave UR: {{ clave_ur }}</div>
-            <div class="item-meta">Folio: {{ folio }}</div>
-        </div>
-    </div>
-
-    <!-- 4. DESTINATARIO -->
-    <div class="destinatario">
-        <div>{{ unidad_nombre }}</div>
-        <div>INSTITUTO POLITECNICO NACIONAL</div>
-        <div>PRESENTE</div>
-    </div>
-
-    <!-- 5. TÍTULO CENTRADO -->
-    <div class="titulo-proceso">
-        {{ titulo_proceso }}
-    </div>
-
-    <!-- 6. CUERPO DEL OFICIO -->
-    <div class="cuerpo-oficio">
-        {{ texto_oficial }}
-    </div>
-
-    <!-- 7. ATENTAMENTE Y FIRMA CENTRADA -->
-    <div class="seccion-firma">
-        <div class="lema-institucional">{{ firmante.lema }}</div>
-        
-        <div class="linea-firma"></div>
-        <div class="firmante-nombre">{{ firmante.nombre }}</div>
-        <div class="firmante-cargo">{{ firmante.cargo }}</div>
-    </div>
-
-    <!-- 8. PIE DE PÁGINA INSTITUCIONAL -->
-    <div class="pie-pagina-contenedor">
-        <table class="pie-pagina-tabla">
+        <!-- 1. ENCABEZADO: LOGOS SEP/IPN (IZQ) Y HEROÍNA CON BANDERA (DER) -->
+        <table class="encabezado-tabla">
             <tr>
-                <td style="width: 130px;">
-                    <img src="{{ personaje_footer_url }}" alt="Año Conmemorativo" class="imagen-personaje-footer">
+                <td style="width: 65%;">
+                    <img src="{{ logo_sep_ipn_url }}" alt="Educación e IPN" class="logo-principal">
                 </td>
-                <td class="barra-contacto-col">
-                    <div class="linea-guinda"></div>
-                    <div class="datos-contacto-footer">
-                        {{ pie_pagina.texto_oficial }}
-                    </div>
+                <td style="width: 35%; text-align: right;">
+                    <img src="{{ heroina_header_url }}" alt="Heroína Nacional" class="heroina-header">
                 </td>
             </tr>
         </table>
+
+        <!-- 2. ANIVERSARIOS CONMEMORATIVOS A LA DERECHA -->
+        <div class="seccion-aniversarios">
+            <div class="aniversarios">
+                {% for aniv in aniversarios %}
+                <div>{{ aniv }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 3. METADATOS A LA IZQUIERDA -->
+        <div class="metadatos-bloque">
+            <div class="item-meta">Ciudad de Mexico, a {{ fecha_larga }}</div>
+            <div class="item-meta">Hora: {{ hora }}</div>
+
+            <div class="bloque-clave-folio">
+                <div class="item-meta">Clave UR: {{ clave_ur }}</div>
+                <div class="item-meta">Folio: {{ folio }}</div>
+                {% if es_extemporaneo %}
+                <div class="item-meta"
+                    style="color: #cc0000; font-weight: bold; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    EXTEMPORÁNEO
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 4. DESTINATARIO -->
+        <div class="destinatario">
+            <div>{{ unidad_nombre }}</div>
+            <div>INSTITUTO POLITECNICO NACIONAL</div>
+            <div>PRESENTE</div>
+        </div>
+
+        <!-- 5. TÍTULO CENTRADO -->
+        <div class="titulo-proceso">
+            {{ titulo_proceso }}
+        </div>
+
+        <!-- 6. CUERPO DEL OFICIO -->
+        <div class="cuerpo-oficio">
+            {{ texto_oficial }}
+        </div>
+
+        <!-- 7. ATENTAMENTE Y FIRMA CENTRADA -->
+        <div class="seccion-firma">
+            <div class="lema-institucional">{{ firmante.lema }}</div>
+
+            <div class="linea-firma"></div>
+            <div class="firmante-nombre">{{ firmante.nombre }}</div>
+            <div class="firmante-cargo">{{ firmante.cargo }}</div>
+        </div>
+
+        <!-- 8. PIE DE PÁGINA INSTITUCIONAL -->
+        <div class="pie-pagina-contenedor">
+            <table class="pie-pagina-tabla">
+                <tr>
+                    <td style="width: 130px;">
+                        <img src="{{ personaje_footer_url }}" alt="Año Conmemorativo" class="imagen-personaje-footer">
+                    </td>
+                    <td class="barra-contacto-col">
+                        <div class="linea-guinda"></div>
+                        <div class="datos-contacto-footer">
+                            {{ pie_pagina.texto_oficial }}
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
     </div>
 
-</div>
-
 </body>
+
 </html>

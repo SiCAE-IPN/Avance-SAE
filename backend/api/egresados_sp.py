@@ -39,6 +39,12 @@ from backend.core.auth import VerificarAccesoAcuse
 from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 from backend.core.session_store import SessionData,session_store
 from backend.database.models.Usuario import Usuario
+from backend.services.envio_correo_service import (
+    notificar_rechazo_global,
+    obtener_correos_involucrados,
+    enviar_correo_acuse_titular,
+    verificar_todos_modulos_validados_titular,
+)
 
 
 router = APIRouter()
@@ -1294,6 +1300,7 @@ async def validar_egresados(request: Request, sess=Depends(get_current_session),
         print(f"{'='*60}\n")
 
         sql = text("""
+            SET NOCOUNT ON;
             EXEC [dbo].[SP_Valida_Egresados]
                 @PPeriodo = :periodo,
                 @UUnidad_Academica = :ua,
@@ -1303,7 +1310,7 @@ async def validar_egresados(request: Request, sess=Depends(get_current_session),
                 @NNota = :nota
         """)
 
-        db.execute(sql, {
+        result = db.execute(sql, {
             'periodo': periodo_literal,
             'ua': unidad_sigla,
             'nivel': nivel_literal,
@@ -1312,11 +1319,69 @@ async def validar_egresados(request: Request, sess=Depends(get_current_session),
             'nota': nota_sp,
         })
 
+        try:
+            sp_rows = [dict(r) for r in result.mappings().all()]
+        except Exception:
+            sp_rows = []
+
         db.commit()
         invalidate_egresados_sp_cache()
 
-        return {"success": True, "message": "Egresados validados correctamente"}
-        
+        # Enviar correo de acuse cuando el Titular (id_rol=5) valida Y todos los módulos de la UA ya están en semáforo >= 5
+        acuse_info = None
+        correo_acuse_enviado = False
+        acuse_error = None
+        correo_acuse_error = None
+
+        if id_rol == 5:
+            ua_obj = db.query(Unidad_Academica).filter(
+                Unidad_Academica.Id_Unidad_Academica == int(sess.id_unidad_academica)
+            ).first()
+            id_ua = int(sess.id_unidad_academica)
+            id_nivel_sess = int(getattr(sess, 'id_nivel', 0) or 0)
+
+            todos_listos = bool(sp_rows) or verificar_todos_modulos_validados_titular(
+                db=db, id_unidad=id_ua, id_nivel=id_nivel_sess
+            )
+
+            if todos_listos:
+                try:
+                    estatus_entrega = ""
+                    if sp_rows:
+                        first_row = sp_rows[0]
+                        for k, v in first_row.items():
+                            if v and "extempor" in str(v).lower():
+                                estatus_entrega = "Extemporaneo"
+                                break
+                            if k in ("EEntrega", "@EEntrega") and v:
+                                estatus_entrega = str(v)
+
+                    acuse_info, correo_acuse_enviado, acuse_error, correo_acuse_error = enviar_correo_acuse_titular(
+                        db=db,
+                        id_usuario=int(sess.id_usuario),
+                        usuario_login=usuario_sp,
+                        nombre_completo=str(sess.nombre_completo or usuario_sp),
+                        unidad_sigla=unidad_sigla,
+                        unidad_nombre=str(getattr(ua_obj, 'Nombre', '') or unidad_sigla),
+                        clave_ur=str(getattr(ua_obj, 'Clave', '') or ''),
+                        periodo_literal=periodo_literal,
+                        estatus_entrega=estatus_entrega,
+                    )
+                except Exception as _e:
+                    acuse_error = str(_e)
+                    print(f"❌ Error inesperado al generar acuse egresados: {_e}")
+            else:
+                print(f"ℹ️ Egresados validados por Titular. Aún no se genera acuse porque faltan módulos por validar en la UA ({unidad_sigla}).")
+
+        return {
+            "success": True,
+            "message": "Egresados validados correctamente",
+            "correo_acuse_enviado": correo_acuse_enviado,
+            "acuse": acuse_info,
+            "acuse_error": acuse_error,
+            "correo_acuse_error": correo_acuse_error,
+        }
+
     except Exception as e:
         db.rollback()
         print(f"❌ Error al validar egresados: {str(e)}")

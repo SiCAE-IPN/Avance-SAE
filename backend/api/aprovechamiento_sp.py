@@ -29,7 +29,13 @@ from backend.database.models.Usuario import Usuario
 from backend.services.nivel_service import get_niveles_by_unidad_academica
 from backend.core.auth import VerificarAccesoAcuse, get_current_session
 from backend.utils.request import get_request_host
-from backend.services.envio_correo_service import notificar_rechazo_global, html_correo_acuse, obtener_correos_involucrados
+from backend.services.envio_correo_service import (
+    notificar_rechazo_global,
+    html_correo_acuse,
+    obtener_correos_involucrados,
+    enviar_correo_acuse_titular,
+    verificar_todos_modulos_validados_titular,
+)
 from datetime import datetime
 from backend.core.auth import VerificarAccesoAcuse
 
@@ -1325,7 +1331,7 @@ async def exportar_aprovechamiento_pdf(
 async def validar_aprovechamiento(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
     try:
         body = await request.json()
-        periodo = body.get("periodo", "")
+        _, periodo = get_periodo_activo(db) 
         unidad = body.get("unidad_academica", "")
         nivel = body.get("nivel", "")
         nombre_usuario = getattr(sess, 'usuario', '') or ''
@@ -1333,9 +1339,11 @@ async def validar_aprovechamiento(request: Request, sess=Depends(get_current_ses
         host = request.client.host
         nota = body.get("nota", "Validación de aprovechamiento")
         semaforo_siguiente = SEMAFORO_SIGUIENTE.get(id_rol)
+
+        print("Periodo Enviado al SP: " + periodo)
         if not semaforo_siguiente:
             return {"success": False, "error": "Rol no autorizado para validar."}
-        db.execute(
+        result = db.execute(
             text("""
                 SET NOCOUNT ON;
                 EXEC [dbo].[SP_Valida_Aprovechamiento]
@@ -1348,8 +1356,71 @@ async def validar_aprovechamiento(request: Request, sess=Depends(get_current_ses
             """),
             {"periodo": periodo, "unidad": unidad, "nivel": nivel, "usuario": nombre_usuario, "host": host, "nota": nota}
         )
+
+        try:
+            sp_rows = [dict(r) for r in result.mappings().all()]
+        except Exception:
+            sp_rows = []
+
         db.commit()
-        return {"success": True, "mensaje": f"Aprovechamiento validado correctamente para {unidad} - {periodo}."}
+
+        # Enviar correo de acuse cuando el Titular (id_rol=5) valida Y todos los módulos de la UA ya están en semáforo >= 5
+        acuse_info = None
+        correo_acuse_enviado = False
+        acuse_error = None
+        correo_acuse_error = None
+
+        if id_rol == 5:
+            ua_obj = db.query(CatUnidadAcademica).filter(
+                (CatUnidadAcademica.Sigla == unidad) | (CatUnidadAcademica.Nombre == unidad)
+            ).first()
+            id_ua = int(ua_obj.Id_Unidad_Academica) if ua_obj else int(getattr(sess, 'id_unidad_academica', 0) or 0)
+            id_nivel_sess = int(getattr(sess, 'id_nivel', 0) or 0)
+
+            # Verificar si todos los módulos de la UA ya están en semáforo >= 5
+            todos_listos = bool(sp_rows) or verificar_todos_modulos_validados_titular(
+                db=db, id_unidad=id_ua, id_nivel=id_nivel_sess
+            )
+
+            if todos_listos:
+                try:
+                    estatus_entrega = ""
+                    if sp_rows:
+                        first_row = sp_rows[0]
+                        for k, v in first_row.items():
+                            if v and "extempor" in str(v).lower():
+                                estatus_entrega = "Extemporaneo"
+                                break
+                            if k in ("EEntrega", "@EEntrega") and v:
+                                estatus_entrega = str(v)
+
+                    id_usuario_sess = int(getattr(sess, 'id_usuario', 0) or 0)
+                    nombre_completo_sess = str(getattr(sess, 'nombre_completo', '') or nombre_usuario)
+                    acuse_info, correo_acuse_enviado, acuse_error, correo_acuse_error = enviar_correo_acuse_titular(
+                        db=db,
+                        id_usuario=id_usuario_sess,
+                        usuario_login=nombre_usuario,
+                        nombre_completo=nombre_completo_sess,
+                        unidad_sigla=unidad,
+                        unidad_nombre=str(getattr(ua_obj, 'Nombre', '') or unidad),
+                        clave_ur=str(getattr(ua_obj, 'Clave', '') or ''),
+                        periodo_literal=periodo,
+                        estatus_entrega=estatus_entrega,
+                    )
+                except Exception as _e:
+                    acuse_error = str(_e)
+                    print(f"❌ Error inesperado al generar acuse aprovechamiento: {_e}")
+            else:
+                print(f"ℹ️ Aprovechamiento validado por Titular. Aún no se genera acuse porque faltan módulos por validar en la UA ({unidad}).")
+
+        return {
+            "success": True,
+            "mensaje": f"Aprovechamiento validado correctamente para {unidad} - {periodo}.",
+            "correo_acuse_enviado": correo_acuse_enviado,
+            "acuse": acuse_info,
+            "acuse_error": acuse_error,
+            "correo_acuse_error": correo_acuse_error,
+        }
     except Exception as e:
         import traceback
         db.rollback()

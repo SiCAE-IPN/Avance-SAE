@@ -47,6 +47,7 @@ def generar_oficio_conclusion_pdf_en_memoria(
     fecha_documento: Optional[datetime] = None,
     fecha_evento: Optional[datetime] = None,
     texto_cuerpo: Optional[str] = None,
+    estatus_entrega: Optional[str] = None,
     db: Optional[Session] = None,
     config_override: Optional[Dict[str, Any]] = None,
 ) -> bytes:
@@ -122,6 +123,11 @@ def generar_oficio_conclusion_pdf_en_memoria(
     hora_str = now.strftime("%H:%M:%S")
     texto_oficial_final = texto_cuerpo or cfg.get("texto_oficial", TEXTO_ACUSE_DEFAULT)
 
+    # Detectar si es entrega extemporánea
+    es_extemporaneo = bool(
+        estatus_entrega and "extempor" in str(estatus_entrega).strip().lower()
+    )
+
     contexto = {
         "folio": folio,
         "clave_ur": clave_ur_final,
@@ -138,6 +144,7 @@ def generar_oficio_conclusion_pdf_en_memoria(
         "logo_sep_ipn_url": logo_sep_ipn_path,
         "heroina_header_url": heroina_header_path,
         "personaje_footer_url": personaje_footer_path,
+        "es_extemporaneo": es_extemporaneo,
     }
 
     html_rendered = templates.get_template("oficio_conclusion_captura.html").render(contexto)
@@ -159,6 +166,7 @@ def generar_acuse_matricula_pdf_en_memoria(
     fecha_documento: Optional[datetime] = None,
     fecha_evento: Optional[datetime] = None,
     texto_cuerpo: Optional[str] = None,
+    estatus_entrega: Optional[str] = None,
     db: Optional[Session] = None,
     **kwargs,
 ) -> bytes:
@@ -171,6 +179,7 @@ def generar_acuse_matricula_pdf_en_memoria(
         fecha_documento=fecha_documento,
         fecha_evento=fecha_evento,
         texto_cuerpo=texto_cuerpo,
+        estatus_entrega=estatus_entrega,
         db=db,
     )
 

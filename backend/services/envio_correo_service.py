@@ -1,5 +1,6 @@
 from backend.utils.email import EmailSendError, send_email
-from typing import Dict, Union
+from typing import Dict, Optional, Tuple, Union
+from datetime import datetime
 from sqlalchemy.orm import Session
 from backend.database.models.Usuario import Usuario
 from backend.database.models.FormatoUsuario import Usuario as Formato_Usuario
@@ -158,3 +159,183 @@ def html_correo_acuse( nombre_completo: str, periodo_activo: str,periodo_anterio
     </body>
     </html>
     """
+
+
+def enviar_correo_acuse_titular(
+    *,
+    db: Session,
+    id_usuario: int,
+    usuario_login: str,
+    nombre_completo: str,
+    unidad_sigla: str,
+    unidad_nombre: str,
+    clave_ur: Optional[str],
+    periodo_literal: str,
+    estatus_entrega: str = "",
+) -> Tuple[Optional[dict], bool, Optional[str], Optional[str]]:
+    """
+    Genera el PDF de acuse, lo guarda en disco y envía el correo al titular.
+
+    Retorna:
+        (acuse_info, correo_enviado, acuse_error, correo_error)
+        - acuse_info: dict con folio/file_name/download_url, o None si falló
+        - correo_enviado: True si el correo fue enviado exitosamente
+        - acuse_error: mensaje de error al generar/guardar PDF, o None
+        - correo_error: mensaje de error al enviar correo, o None
+    """
+    from backend.services.acuse_service import build_folio_acuse, save_acuse_pdf_for_user
+    from backend.utils.acuse_pdf import generar_acuse_matricula_pdf_en_memoria
+    from backend.services.periodo_service import get_periodo_anterior_al_ultimo
+    from backend.database.models.CatPeriodo import CatPeriodo
+
+    acuse_info = None
+    correo_enviado = False
+    acuse_error = None
+    correo_error = None
+
+    try:
+        # Si no viene indicado como extemporaneo, verificar contra CatPeriodo.Fecha_Final_Periodo
+        if not estatus_entrega or "extempor" not in str(estatus_entrega).lower():
+            try:
+                per_db = db.query(CatPeriodo).filter(CatPeriodo.Periodo == periodo_literal).first()
+                if per_db and per_db.Fecha_Final_Periodo:
+                    fecha_fin = per_db.Fecha_Final_Periodo
+                    fecha_fin_date = fecha_fin.date() if hasattr(fecha_fin, "date") else fecha_fin
+                    if fecha_fin_date < datetime.now().date():
+                        estatus_entrega = "Extemporaneo"
+            except Exception as _e_per:
+                print(f"ℹ️ No se pudo evaluar Fecha_Final_Periodo: {_e_per}")
+
+        folio_acuse = build_folio_acuse(
+            periodo_literal=periodo_literal,
+            unidad_sigla=unidad_sigla,
+            estatus_entrega=estatus_entrega,
+        )
+
+        pdf_bytes = generar_acuse_matricula_pdf_en_memoria(
+            escuela=unidad_nombre or unidad_sigla,
+            sigla=unidad_sigla,
+            folio=folio_acuse,
+            clave_ur=clave_ur or None,
+            fecha_evento=datetime.now(),
+            estatus_entrega=estatus_entrega,
+            db=db,
+        )
+
+        acuse_guardado = save_acuse_pdf_for_user(
+            usuario_login=usuario_login,
+            folio=folio_acuse,
+            periodo_literal=periodo_literal,
+            unidad_sigla=unidad_sigla,
+            pdf_bytes=pdf_bytes,
+        )
+        acuse_info = {
+            "folio": acuse_guardado.folio,
+            "file_name": acuse_guardado.file_name,
+            "download_url": acuse_guardado.relative_url,
+        }
+        print(f"📄 Acuse PDF generado -> folio={folio_acuse}, archivo={acuse_guardado.file_name}")
+
+        # Obtener periodo anterior para el cuerpo del correo
+        _, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
+        periodo_anterior_literal = periodo_anterior_literal or "N/A"
+
+        usuario_db = db.query(Usuario).filter(Usuario.Id_Usuario == id_usuario).first()
+        correo_destino = str(usuario_db.Email or "").strip() if usuario_db else ""
+
+        if correo_destino:
+            try:
+                send_email(
+                    to_email=correo_destino,
+                    subject="Conclusión de Captura de Información - SiCAE",
+                    html_body=html_correo_acuse(
+                        nombre_completo=nombre_completo,
+                        periodo_activo=periodo_literal,
+                        periodo_anterior=periodo_anterior_literal,
+                        unidad_sigla=unidad_sigla,
+                        folio=folio_acuse,
+                    ),
+                    attachments=[
+                        {
+                            "filename": acuse_guardado.file_name,
+                            "content": pdf_bytes,
+                            "mime_type": "application/pdf",
+                        }
+                    ],
+                )
+                correo_enviado = True
+                print(f"📧 Acuse enviado por correo -> destino={correo_destino}, archivo={acuse_guardado.file_name}")
+            except EmailSendError as e_mail:
+                correo_error = str(e_mail)
+                print(f"❌ Fallo envío de correo de acuse -> destino={correo_destino}, error={correo_error}")
+        else:
+            print(f"⚠️ No se envió correo de acuse: usuario sin email registrado. usuario={usuario_login}")
+
+    except Exception as e_acuse:
+        acuse_error = str(e_acuse)
+        print(
+            f"❌ Error al generar/guardar acuse PDF -> "
+            f"periodo={periodo_literal}, unidad={unidad_sigla}, usuario={usuario_login}, error={acuse_error}"
+        )
+
+    return acuse_info, correo_enviado, acuse_error, correo_error
+
+
+def verificar_todos_modulos_validados_titular(
+    db: Session,
+    id_unidad: int,
+    id_nivel: Optional[int] = None,
+) -> bool:
+    """
+    Verifica si los 4 formatos (Matrícula, Aprovechamiento, Egresados, Titulados)
+    de la Unidad Académica ya tienen un semáforo >= 5 (Validado por el Titular).
+    """
+    from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo
+    from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcademica
+
+    try:
+        id_periodo_activo, p_act = get_periodo_activo(db)
+        id_periodo_anterior, p_ant = get_periodo_anterior_al_ultimo(db)
+
+        # Mapa de formato -> periodo_id correspondiente
+        # Formato 1 (Matrícula) usa Periodo Activo
+        # Formatos 2 (Aprovechamiento), 3 (Egresados), 4 (Titulados) usan Periodo Anterior
+        formatos_esperados = {
+            1: (id_periodo_activo, p_act, "Matrícula"),
+            2: (id_periodo_anterior, p_ant, "Aprovechamiento"),
+            3: (id_periodo_anterior, p_ant, "Egresados"),
+            4: (id_periodo_anterior, p_ant, "Titulados"),
+        }
+
+        print(f"\n🔍 [Verificación de Módulos para Acuse] UA ID: {id_unidad}")
+        formatos_incompletos = []
+
+        for id_fmt, (id_per, p_lit, fmt_nombre) in formatos_esperados.items():
+            query = db.query(SemaforoUnidadAcademica).filter(
+                SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad,
+                SemaforoUnidadAcademica.Id_Periodo == id_per,
+                SemaforoUnidadAcademica.Id_Formato == id_fmt,
+            )
+            if id_nivel and id_nivel > 0:
+                row = query.filter(SemaforoUnidadAcademica.Id_Nivel == id_nivel).first() or query.first()
+            else:
+                row = query.first()
+
+            sem_val = int(row.Id_Semaforo or 0) if row else 0
+            print(f"   • {fmt_nombre} (Fmt {id_fmt}, P: {p_lit}): Semáforo = {sem_val}")
+
+            # Se considera validado por Titular si el semáforo es >= 5
+            if sem_val < 5:
+                formatos_incompletos.append(fmt_nombre)
+
+        if not formatos_incompletos:
+            print("✅ TODOS los módulos de la UA están validados por el Titular (Semáforos >= 5). ¡Listo para enviar acuse!")
+            return True
+        else:
+            print(f"⏳ Módulos pendientes de validación por Titular: {', '.join(formatos_incompletos)}")
+            return False
+
+    except Exception as e:
+        print(f"❌ Error verificando semáforos de la UA: {e}")
+        return False
+

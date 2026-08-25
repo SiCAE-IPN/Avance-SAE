@@ -57,7 +57,12 @@ from backend.database.models.CatRoles import CatRoles
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo, get_periodo_anterior_al_ultimo
 from backend.crud.Matricula import invalidate_matricula_sp_cache
 
-from backend.services.envio_correo_service import notificar_rechazo_global, html_correo_acuse, obtener_correos_involucrados
+from backend.services.envio_correo_service import (
+    notificar_rechazo_global,
+    html_correo_acuse,
+    obtener_correos_involucrados,
+    verificar_todos_modulos_validados_titular,
+)
 from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 from backend.core.session_store import SessionData,session_store
 
@@ -2923,11 +2928,27 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
         correo_acuse_error = None
         acuse_error = None
 
-        # "En dado caso": solo generar acuse si el SP devolvio filas de acuse.
-        if sp_rows:
+        # Generar y enviar acuse si el SP devolvió filas o si todos los módulos de la UA ya están en semáforo >= 5
+        todos_listos = bool(sp_rows) or (
+            id_rol == 5 and verificar_todos_modulos_validados_titular(db=db, id_unidad=id_unidad_objetivo, id_nivel=id_nivel_objetivo)
+        )
+
+        if todos_listos:
             try:
-                first_row = sp_rows[0]
+                first_row = sp_rows[0] if sp_rows else {}
                 estatus_entrega = str(first_row.get("EEntrega") or first_row.get("Estatus") or "")
+                # Si no viene en el SP, verificar fecha final
+                if not estatus_entrega or "extempor" not in estatus_entrega.lower():
+                    try:
+                        from backend.database.models.CatPeriodo import CatPeriodo
+                        per_db = db.query(CatPeriodo).filter(CatPeriodo.Periodo == periodo_literal).first()
+                        if per_db and per_db.Fecha_Final_Periodo:
+                            fecha_fin = per_db.Fecha_Final_Periodo
+                            fecha_fin_date = fecha_fin.date() if hasattr(fecha_fin, "date") else fecha_fin
+                            if fecha_fin_date < datetime.now().date():
+                                estatus_entrega = "Extemporaneo"
+                    except Exception as _e_per:
+                        pass
                 folio_acuse = build_folio_acuse(
                     periodo_literal=periodo_literal,
                     unidad_sigla=unidad_sigla,
@@ -2943,6 +2964,7 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
                     titular_nombre=nombre_completo or "TITULAR DE LA UNIDAD ACADÉMICA",
                     titular_cargo=f"DIRECTOR(A) / TITULAR DE {unidad_sigla.upper()}",
                     fecha_evento=datetime.now(),
+                    estatus_entrega=estatus_entrega,
                     db=db,
                 )
 
