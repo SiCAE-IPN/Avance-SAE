@@ -139,10 +139,19 @@
 {% block content %}
 
 {% if not exportando_pdf %}
-<div class="barra-navegacion-superior no-print" style="display: flex; justify-content: flex-end; margin-bottom: 15px; max-width: 8.5in; margin-left: auto; margin-right: auto;">
-    <a href="/matricula/resumen-seleccion" class="btn-volver" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 6px; font-weight: 600; background: #750946; color: white; border: none; cursor: pointer;">
-        ← Regresar
-    </a>
+<div class="header-usuarios no-print">
+    <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario or session.nombre_completo }}</strong>
+        {% if periodo_anterior_literal or periodo_default_literal or periodo %}
+            &nbsp;|&nbsp; Periodo: <strong>{{ periodo_anterior_literal or periodo_default_literal or periodo }}</strong>
+        {% endif %}
+        {% if session.sigla_unidad_academica or sigla_unidad_academica or unidad_academica or unidad %}
+            &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or sigla_unidad_academica or unidad_academica or unidad }}</strong>
+        {% endif %}
+        {% if nombre_rol or session.nombre_rol %}
+            &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
+        {% endif %}
+    </div>
+    <a href="/matricula/resumen-seleccion" class="btn-volver">Regresar</a>
 </div>
 {% endif %}
 

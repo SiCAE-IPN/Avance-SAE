@@ -1,6 +1,43 @@
 /* ===============================================
    ESTILOS PARA matricula_acuse_nuevo.html (migrados desde inline <style>)
    =============================================== */
+
+/* === HEADER DE INFORMACIÓN DE USUARIO (igual al de resumen-seleccion) === */
+.header-usuarios {
+    background: linear-gradient(135deg, #ffffff, #750946);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 8px rgba(139, 38, 53, 0.3);
+}
+
+.bienvenido {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.btn-volver {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.btn-volver:hover {
+    background: rgba(255, 255, 255, 0.35);
+    transform: translateY(-1px);
+}
+
 /* ESTILOS GENERALES - TAMAÑO CARTA (8.5" x 11") */
 body {
     background-color: #f0f0f0;
