@@ -541,25 +541,28 @@ async def acuse_titulados_view(
 ):
     
     try:
-       
-        id_p_actual, periodo_actual = get_periodo_activo(db)
+        id_periodo_req = db.query(Periodo.Id_Periodo).filter(Periodo.Periodo == periodo).scalar()
 
-        if periodo is None:
+        if not id_periodo_req:
             return JSONResponse(
-                content={"status": "error", "message": "No se encontró un periodo activo."}, 
+                content={"status": "error", "message": "No se encontró el periodo especificado."}, 
                 status_code=404
             )
     
     except Exception as e:
-        print(f"Error al obtener periodo activo: {str(e)}")
-        return JSONResponse(content={"status": "error", "message": f"Error al obtener periodo activo: {str(e)}"}, status_code=500)
+        print(f"Error al obtener periodo: {str(e)}")
+        return JSONResponse(content={"status": "error", "message": f"Error al obtener periodo: {str(e)}"}, status_code=500)
 
     
-    print(f"Generando acuse para Unidad: {unidad}, Periodo: {periodo_actual}, Nivel: {nivel}, Usuario: {sess.usuario}, Host: {host}")
+    print(f"Generando acuse para Unidad: {unidad}, Periodo: {periodo}, Nivel: {nivel}, Usuario: {sess.usuario}, Host: {host}")
 
 
 
-    contexto_sp, filas = obtener_titulados(db, unidad, periodo_actual, nivel, sess.usuario, host)
+    # El SP requiere siempre el periodo actual para funcionar correctamente
+    id_p_actual, periodo_actual = get_periodo_activo(db)
+    periodo_sp = periodo_actual or periodo
+
+    contexto_sp, filas = obtener_titulados(db, unidad, periodo_sp, nivel, sess.usuario, host)
     
 
     #print (f"Contexto SP: {contexto_sp}")
@@ -602,15 +605,14 @@ async def acuse_titulados_view(
             nombre_ceget = nombre_completo
         elif u.Id_Rol == 5:
             nombre_titular = nombre_completo
-    periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
-    print("EK* id:",periodo_anterior_id)
+    print("EK* id:", id_periodo_req)
     
     id_nivel = db.query(Nivel.Id_Nivel).filter(Nivel.Nivel == nivel).scalar()
 
     print("Nivle: ", id_nivel)
     
     semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
-        SemaforoUnidadAcademica.Id_Periodo == periodo_anterior_id,
+        SemaforoUnidadAcademica.Id_Periodo == id_periodo_req,
         SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
         SemaforoUnidadAcademica.Id_Formato == 4,
         SemaforoUnidadAcademica.Id_Nivel == id_nivel
@@ -696,8 +698,8 @@ async def acuse_titulados_view(
 
     return templates.TemplateResponse("titulados_acuse.html", {
         "request"       : request,
-        "periodo"       : contexto_sp.get("Periodo"),
-        "unidad"        : contexto_sp.get("Sigla"),
+        "periodo"       : contexto_sp.get("Periodo") or periodo,
+        "unidad"        : contexto_sp.get("Sigla") or unidad,
         "nivel"         : nivel,
         "exportando_pdf": exportando_pdf,
         "fecha_hoy"     : fecha_hoy,

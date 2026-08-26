@@ -3,320 +3,353 @@
 {% block title %}Captura de Egresados{% endblock %}
 
 {% block styles %}
-    <!-- SweetAlert2 (overlay de carga al consultar resumen) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<!-- SweetAlert2 (overlay de carga al consultar resumen) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <link rel="stylesheet" href="/static/css/components/header.css">
-    <link rel="stylesheet" href="/static/css/components/tables.css">
-    <link rel="stylesheet" href="/static/css/components/matricula_consulta.css">
-    <link rel="stylesheet" href="/static/css/panel-rechazo.css">
-    <link rel="stylesheet" href="/static/css/components/botones_validacion.css">
-    <style>
-        /* Ocultar el submenu de categorias que viene de base.html en esta vista */
-        .submenu-categorias-box { display: none !important; }
-        
-        {% if rechazo_info %}
-        #banner-rechazo {
-            position: relative !important;
-            top: auto !important;
-            left: auto !important;
-            right: auto !important;
-            margin: 0 0 20px 0 !important;
-            box-sizing: border-box; /* Asegura que el padding no lo ensanche */
-            width: 100%;
-        }
-        {% endif %}
-        /* === OVERLAY DE CARGA === */
-        #overlay-carga-sp {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            backdrop-filter: blur(3px);
-        }
-        #overlay-carga-sp.activo {
-            display: flex;
-        }
-        .contenedor-spinner {
-            background: white;
-            padding: 40px;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            text-align: center;
-            min-width: 300px;
-        }
-        .spinner-sp {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #750946;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin-sp 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-        @keyframes spin-sp {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .texto-carga-sp {
-            font-size: 18px;
-            font-weight: 600;
-            color: #750946;
-            margin-bottom: 10px;
-        }
-        .subtexto-carga-sp {
-            font-size: 14px;
-            color: #636569;
-        }
-        /* === FIN OVERLAY DE CARGA === */
-        
-        /* === PANEL DE FILTROS SUPERIORES (ROLES 4-9) === */
-        .panel-filtros-superiores {
-            background: linear-gradient(135deg, #750946 0%, #8b1155 100%);
-            padding: 30px;
-            border-radius: 16px;
-            margin: 20px 0;
-            box-shadow: 0 8px 32px rgba(110, 3, 67, 0.3);
-        }
-        
-        .panel-header h3 {
-            color: white;
-            margin: 0 0 8px 0;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        
-        .panel-header p {
-            margin: 0;
-            opacity: 0.95;
-            font-size: 14px;
-            color: white;
-        }
-        
-        .filtros-superiores-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr 300px;
-            gap: 20px;
-            margin-top: 20px;
-            align-items: end;
-        }
-        
-        .filtro-superior-item label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: white;
-            font-size: 14px;
-        }
-        
-        .filtro-superior-item select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
-            font-size: 14px;
-            background: white;
-            color: #333;
-            transition: all 0.3s ease;
-        }
-        
-        .filtro-superior-item select:focus {
-            outline: none;
-            border-color: #ffd700;
-            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3);
-        }
-        
-        .btn-consultar-superior {
-            width: 100%;
-            padding: 14px 24px;
-            background: linear-gradient(135deg, #4da5ec, #4da5ec);
-            color: #ffffff;
-            border: 2px solid #ffffff;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        
-        .btn-consultar-superior:hover:not(:disabled) {
-            background: linear-gradient(135deg, #3a8ed3, #3a8ed3);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        }
-        
-        .btn-consultar-superior:disabled {
-            background: #999;
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-        
-        .btn-icon {
-            font-size: 18px;
-        }
-        
-        .mensaje-carga {
-            text-align: center;
-            padding: 20px;
-            background: rgba(255,255,255,0.9);
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-        
-        .spinner {
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top-color: #750946;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        /* === FIN PANEL DE FILTROS SUPERIORES === */
+<link rel="stylesheet" href="/static/css/components/header.css">
+<link rel="stylesheet" href="/static/css/components/tables.css">
+<link rel="stylesheet" href="/static/css/components/matricula_consulta.css">
+<link rel="stylesheet" href="/static/css/panel-rechazo.css">
+<link rel="stylesheet" href="/static/css/components/botones_validacion.css">
+<style>
+    /* Ocultar el submenu de categorias que viene de base.html en esta vista */
+    .submenu-categorias-box {
+        display: none !important;
+    }
 
-        /* === BANNER DE SELECCIÓN (ESTILO MATRÍCULA) === */
-        .banner-seleccion-egresados {
-            display: none;
-            margin: 18px 0 6px 0;
-            text-align: center;
-            background-color: #750946;
-            color: #ffffff;
-            overflow: hidden;
-        }
-        .banner-seleccion-egresados.visible {
-            display: block;
-        }
-        .banner-seleccion-egresados h3 {
-            color: #ffffff;
-            font-weight: 600;
-            margin: 0;
-            padding: 10px 16px;
-            font-size: 30px;
-            line-height: 1.2;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            box-sizing: border-box;
-        }
-        .banner-seleccion-egresados .header-programa,
-        .banner-seleccion-egresados .header-modalidad {
-            white-space: nowrap;
-        }
-        .banner-seleccion-egresados .header-separador {
-            font-size: 0.7em;
-            opacity: 0.9;
+        {
+        % if rechazo_info %
+    }
+
+    #banner-rechazo {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        margin: 0 0 20px 0 !important;
+        box-sizing: border-box;
+        /* Asegura que el padding no lo ensanche */
+        width: 100%;
+    }
+
+        {
+        % endif %
+    }
+
+    /* === OVERLAY DE CARGA === */
+    #overlay-carga-sp {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        backdrop-filter: blur(3px);
+    }
+
+    #overlay-carga-sp.activo {
+        display: flex;
+    }
+
+    .contenedor-spinner {
+        background: white;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        min-width: 300px;
+    }
+
+    .spinner-sp {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #750946;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin-sp 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+
+    @keyframes spin-sp {
+        0% {
+            transform: rotate(0deg);
         }
 
-        .tabla-header-egresados {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 8px;
-            padding: 10px 14px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            flex-wrap: wrap;
+        100% {
+            transform: rotate(360deg);
         }
+    }
 
-        .pestana-semaforo {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 19px;
-            border-radius: 999px;
-            border: 2px solid #ccc;
-            background-color: #f9f9f9;
-            font-weight: bold;
-            font-size: 1.1rem;
-            line-height: 1.2;
-            color: #555;
-            transition: all 0.3s ease;
-        }
+    .texto-carga-sp {
+        font-size: 18px;
+        font-weight: 600;
+        color: #750946;
+        margin-bottom: 10px;
+    }
 
-        .pestana-semaforo .semaforo-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background-color: #ccc;
-            flex-shrink: 0;
-            transition: all 0.3s ease;
-        }
+    .subtexto-carga-sp {
+        font-size: 14px;
+        color: #636569;
+    }
 
-        /* Rojo - No Capturado */
-        .pestana-semaforo.semaforo-rojo {
-            border-color: #c0392b !important;
-            color: #c0392b !important;
-            background-color: #fdf0ef !important;
-        }
-        .pestana-semaforo .semaforo-dot.semaforo-rojo {
-            background-color: #c0392b !important;
-            box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.25);
-        }
+    /* === FIN OVERLAY DE CARGA === */
 
-        /* Amarillo - En Proceso */
-        .pestana-semaforo.semaforo-amarillo {
-            border-color: #c9a800 !important;
-            color: #7a6200 !important;
-            background-color: #fffde7 !important;
-        }
-        .pestana-semaforo .semaforo-dot.semaforo-amarillo {
-            background-color: #e6c200 !important;
-            box-shadow: 0 0 0 2px rgba(230, 194, 0, 0.25);
-        }
+    /* === PANEL DE FILTROS SUPERIORES (ROLES 4-9) === */
+    .panel-filtros-superiores {
+        background: linear-gradient(135deg, #750946 0%, #8b1155 100%);
+        padding: 30px;
+        border-radius: 16px;
+        margin: 20px 0;
+        box-shadow: 0 8px 32px rgba(110, 3, 67, 0.3);
+    }
 
-        /* Verde - Captura Finalizada */
-        .pestana-semaforo.semaforo-verde {
-            border-color: #27ae60 !important;
-            color: #1e8449 !important;
-            background-color: #eafaf1 !important;
-        }
-        .pestana-semaforo .semaforo-dot.semaforo-verde {
-            background-color: #27ae60 !important;
-            box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.25);
-        }
+    .panel-header h3 {
+        color: white;
+        margin: 0 0 8px 0;
+        font-size: 22px;
+        font-weight: 700;
+    }
 
-        .tabla-egresados-scroll {
-            overflow-x: auto;
-        }
+    .panel-header p {
+        margin: 0;
+        opacity: 0.95;
+        font-size: 14px;
+        color: white;
+    }
 
-        #tabla-egresados-main {
-            width: 100%;
-            border-collapse: separate;
-            table-layout: fixed;
-        }
+    .filtros-superiores-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 300px;
+        gap: 20px;
+        margin-top: 20px;
+        align-items: end;
+    }
 
-        #tabla-egresados-main thead,
-        #tabla-egresados-main tbody tr {
-            display: table;
-            width: 100%;
-            table-layout: fixed;
-        }
+    .filtro-superior-item label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: white;
+        font-size: 14px;
+    }
 
-        #tabla-egresados-main tbody {
-            display: block;
-            max-height: none;
-            overflow-y: visible;
-            overflow-x: hidden;
+    .filtro-superior-item select {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 8px;
+        font-size: 14px;
+        background: white;
+        color: #333;
+        transition: all 0.3s ease;
+    }
+
+    .filtro-superior-item select:focus {
+        outline: none;
+        border-color: #ffd700;
+        box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3);
+    }
+
+    .btn-consultar-superior {
+        width: 100%;
+        padding: 14px 24px;
+        background: linear-gradient(135deg, #4da5ec, #4da5ec);
+        color: #ffffff;
+        border: 2px solid #ffffff;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn-consultar-superior:hover:not(:disabled) {
+        background: linear-gradient(135deg, #3a8ed3, #3a8ed3);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-consultar-superior:disabled {
+        background: #999;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .btn-icon {
+        font-size: 18px;
+    }
+
+    .mensaje-carga {
+        text-align: center;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 8px;
+        margin-top: 20px;
+    }
+
+    .spinner {
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #750946;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
         }
-        /* === FIN BANNER DE SELECCIÓN === */
-    </style>
+    }
+
+    /* === FIN PANEL DE FILTROS SUPERIORES === */
+
+    /* === BANNER DE SELECCIÓN (ESTILO MATRÍCULA) === */
+    .banner-seleccion-egresados {
+        display: none;
+        margin: 18px 0 6px 0;
+        text-align: center;
+        background-color: #750946;
+        color: #ffffff;
+        overflow: hidden;
+    }
+
+    .banner-seleccion-egresados.visible {
+        display: block;
+    }
+
+    .banner-seleccion-egresados h3 {
+        color: #ffffff;
+        font-weight: 600;
+        margin: 0;
+        padding: 10px 16px;
+        font-size: 30px;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        box-sizing: border-box;
+    }
+
+    .banner-seleccion-egresados .header-programa,
+    .banner-seleccion-egresados .header-modalidad {
+        white-space: nowrap;
+    }
+
+    .banner-seleccion-egresados .header-separador {
+        font-size: 0.7em;
+        opacity: 0.9;
+    }
+
+    .tabla-header-egresados {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+        padding: 10px 14px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        flex-wrap: wrap;
+    }
+
+    .pestana-semaforo {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 19px;
+        border-radius: 999px;
+        border: 2px solid #ccc;
+        background-color: #f9f9f9;
+        font-weight: bold;
+        font-size: 1.1rem;
+        line-height: 1.2;
+        color: #555;
+        transition: all 0.3s ease;
+    }
+
+    .pestana-semaforo .semaforo-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #ccc;
+        flex-shrink: 0;
+        transition: all 0.3s ease;
+    }
+
+    /* Rojo - No Capturado */
+    .pestana-semaforo.semaforo-rojo {
+        border-color: #c0392b !important;
+        color: #c0392b !important;
+        background-color: #fdf0ef !important;
+    }
+
+    .pestana-semaforo .semaforo-dot.semaforo-rojo {
+        background-color: #c0392b !important;
+        box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.25);
+    }
+
+    /* Amarillo - En Proceso */
+    .pestana-semaforo.semaforo-amarillo {
+        border-color: #c9a800 !important;
+        color: #7a6200 !important;
+        background-color: #fffde7 !important;
+    }
+
+    .pestana-semaforo .semaforo-dot.semaforo-amarillo {
+        background-color: #e6c200 !important;
+        box-shadow: 0 0 0 2px rgba(230, 194, 0, 0.25);
+    }
+
+    /* Verde - Captura Finalizada */
+    .pestana-semaforo.semaforo-verde {
+        border-color: #27ae60 !important;
+        color: #1e8449 !important;
+        background-color: #eafaf1 !important;
+    }
+
+    .pestana-semaforo .semaforo-dot.semaforo-verde {
+        background-color: #27ae60 !important;
+        box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.25);
+    }
+
+    .tabla-egresados-scroll {
+        overflow-x: auto;
+    }
+
+    #tabla-egresados-main {
+        width: 100%;
+        border-collapse: separate;
+        table-layout: fixed;
+    }
+
+    #tabla-egresados-main thead,
+    #tabla-egresados-main tbody tr {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    #tabla-egresados-main tbody {
+        display: block;
+        max-height: none;
+        overflow-y: visible;
+        overflow-x: hidden;
+    }
+
+    /* === FIN BANNER DE SELECCIÓN === */
+</style>
 {% endblock %}
 
 {% block content %}
@@ -335,58 +368,64 @@
     <div class="header-usuarios">
         <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario or session.nombre_completo }}</strong>
             {% if periodo_anterior_literal or periodo_default_literal %}
-                &nbsp;|&nbsp; Periodo: <strong>{{ periodo_anterior_literal or periodo_default_literal }}</strong>
+            &nbsp;|&nbsp; Periodo: <strong>{{ periodo_anterior_literal or periodo_default_literal }}</strong>
             {% endif %}
             {% if session.sigla_unidad_academica or (unidad_actual and (unidad_actual.Sigla or unidad_actual.sigla)) %}
-                &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or unidad_actual.Sigla or unidad_actual.sigla or unidad_actual.Nombre }}</strong>
+            &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or unidad_actual.Sigla or
+                unidad_actual.sigla or unidad_actual.Nombre }}</strong>
             {% elif unidad_actual %}
-                &nbsp;|&nbsp; Unidad Académica: <strong>{{ unidad_actual.Sigla or unidad_actual.sigla or unidad_actual.Nombre }}</strong>
+            &nbsp;|&nbsp; Unidad Académica: <strong>{{ unidad_actual.Sigla or unidad_actual.sigla or
+                unidad_actual.Nombre }}</strong>
             {% endif %}
             {% if nombre_rol or session.nombre_rol %}
-                &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
+            &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
             {% endif %}
         </div>
         <form action="/mod_principal" method="get">
             <button type="submit" class="btn-home">🏠 Inicio</button>
         </form>
     </div>
-    
+
     <div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
-        <div style="text-align: center; max-width: 600px; padding: 40px; background: linear-gradient(135deg, #750946 0%, #750946 100%); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+        <div
+            style="text-align: center; max-width: 600px; padding: 40px; background: linear-gradient(135deg, #750946 0%, #750946 100%); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
             <div style="font-size: 80px; margin-bottom: 20px;">🔒</div>
             <h2 style="color: white; margin-bottom: 15px;">Acceso Restringido</h2>
             <p style="color: rgba(255,255,255,0.9); font-size: 18px; line-height: 1.6;">
                 Su rol no tiene permisos para acceder a esta sección del sistema.
             </p>
             <div style="margin-top: 30px;">
-                <a href="/mod_principal" style="display: inline-block; padding: 12px 30px; background: white; color: #750946; text-decoration: none; border-radius: 8px; font-weight: 600; transition: all 0.3s;">
+                <a href="/mod_principal"
+                    style="display: inline-block; padding: 12px 30px; background: white; color: #750946; text-decoration: none; border-radius: 8px; font-weight: 600; transition: all 0.3s;">
                     🏠 Volver al Inicio
                 </a>
             </div>
         </div>
     </div>
-    
+
     {% else %}
     <!-- **CONTENIDO NORMAL DE EGRESADOS** -->
-     <div class="header-usuarios">
+    <div class="header-usuarios">
         <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario or session.nombre_completo }}</strong>
             {% if periodo_anterior_literal or periodo_default_literal %}
-                &nbsp;|&nbsp; Periodo: <strong>{{ periodo_anterior_literal or periodo_default_literal }}</strong>
+            &nbsp;|&nbsp; Periodo: <strong>{{ periodo_anterior_literal or periodo_default_literal }}</strong>
             {% endif %}
             {% if session.sigla_unidad_academica or (unidad_actual and (unidad_actual.Sigla or unidad_actual.sigla)) %}
-                &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or unidad_actual.Sigla or unidad_actual.sigla or unidad_actual.Nombre }}</strong>
+            &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or unidad_actual.Sigla or
+                unidad_actual.sigla or unidad_actual.Nombre }}</strong>
             {% elif unidad_actual %}
-                &nbsp;|&nbsp; Unidad Académica: <strong>{{ unidad_actual.Sigla or unidad_actual.sigla or unidad_actual.Nombre }}</strong>
+            &nbsp;|&nbsp; Unidad Académica: <strong>{{ unidad_actual.Sigla or unidad_actual.sigla or
+                unidad_actual.Nombre }}</strong>
             {% endif %}
             {% if nombre_rol or session.nombre_rol %}
-                &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
+            &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
             {% endif %}
         </div>
         <form action="/mod_principal" method="get">
             <button type="submit" class="btn-volver">Regresar</button>
         </form>
     </div>
-    
+
     <h2>Captura de Egresados</h2>
 
     <!-- Panel de Filtros para Roles 4-5: Periodo + Nivel (UA fija del usuario) -->
@@ -394,16 +433,18 @@
     <div class="panel-filtros-superiores" id="panel-filtros-director">
         <div class="panel-header">
             <h3>🔍 Selección de Periodo y Nivel</h3>
-            <p>Seleccione el <strong>Periodo</strong> y el <strong>Nivel</strong> para consultar todos los programas de su <strong>Unidad Académica</strong>.</p>
+            <p>Seleccione el <strong>Periodo</strong> y el <strong>Nivel</strong> para consultar todos los programas de
+                su <strong>Unidad Académica</strong>.</p>
         </div>
-        
+
         <div class="filtros-superiores-container" style="grid-template-columns: 1fr 1fr 300px;">
             <div class="filtro-superior-item">
                 <label for="select-periodo-director"><strong>1. Periodo:</strong></label>
                 <select id="select-periodo-director" name="periodo_director" required>
                     <option value="">-- Seleccione un Periodo --</option>
                     {% for periodo in periodos %}
-                    <option value="{{ periodo.Id_Periodo }}" {% if periodo.Id_Periodo == periodo_default_id %}selected{% endif %}>
+                    <option value="{{ periodo.Id_Periodo }}" {% if periodo.Id_Periodo==periodo_default_id %}selected{%
+                        endif %}>
                         {{ periodo.Periodo }}
                         {% if periodo.Id_Estatus == 1 %}(Activo){% endif %}
                     </option>
@@ -422,7 +463,8 @@
             </div>
 
             <div class="filtro-superior-accion">
-                <button type="button" id="btn-ver-resumen-director" class="btn-consultar-superior" disabled style="background: linear-gradient(135deg, #4da5ec, #4da5ec);">
+                <button type="button" id="btn-ver-resumen-director" class="btn-consultar-superior" disabled
+                    style="background: linear-gradient(135deg, #4da5ec, #4da5ec);">
                     <span class="btn-icon">📈</span> Consultar Egresados
                 </button>
             </div>
@@ -434,23 +476,25 @@
     <div class="panel-filtros-superiores" id="panel-filtros-superiores">
         <div class="panel-header">
             <h3>🔍 Selección de Periodo, Unidad Académica y Nivel</h3>
-            <p>Seleccione el <strong>Periodo</strong>, luego la <strong>Unidad Académica</strong> y finalmente el <strong>Nivel</strong> a consultar</p>
+            <p>Seleccione el <strong>Periodo</strong>, luego la <strong>Unidad Académica</strong> y finalmente el
+                <strong>Nivel</strong> a consultar</p>
         </div>
-        
+
         <div class="filtros-superiores-container" style="grid-template-columns: 1fr 1fr 1fr 300px;">
             <div class="filtro-superior-item">
                 <label for="select-periodo-superior"><strong>1. Periodo:</strong></label>
                 <select id="select-periodo-superior" name="periodo_superior" required>
                     <option value="">-- Seleccione un Periodo --</option>
                     {% for periodo in periodos %}
-                    <option value="{{ periodo.Id_Periodo }}" {% if periodo.Id_Periodo == periodo_default_id %}selected{% endif %}>
+                    <option value="{{ periodo.Id_Periodo }}" {% if periodo.Id_Periodo==periodo_default_id %}selected{%
+                        endif %}>
                         {{ periodo.Periodo }}
                         {% if periodo.Id_Estatus == 1 %}(Activo){% endif %}
                     </option>
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div class="filtro-superior-item">
                 <label for="select-nivel-superior"><strong>2. Nivel Académico:</strong></label>
                 <select id="select-nivel-superior" name="nivel_superior" required>
@@ -460,21 +504,22 @@
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div class="filtro-superior-item">
                 <label for="select-ua-superior"><strong>3. Unidad Académica:</strong></label>
                 <select id="select-ua-superior" name="ua_superior" required disabled>
                     <option value="">-- Primero seleccione un Nivel --</option>
                 </select>
             </div>
-            
+
             <div class="filtro-superior-accion">
-                <button type="button" id="btn-ver-resumen" class="btn-consultar-superior" disabled style="background: linear-gradient(135deg, #4da5ec, #4da5ec);">
+                <button type="button" id="btn-ver-resumen" class="btn-consultar-superior" disabled
+                    style="background: linear-gradient(135deg, #4da5ec, #4da5ec);">
                     <span class="btn-icon">📈</span> Consultar Egresados
                 </button>
             </div>
         </div>
-        
+
         <div id="mensaje-carga-superior" class="mensaje-carga" style="display: none;">
             <div class="spinner"></div>
             <p>Cargando egresados seleccionados...</p>
@@ -541,7 +586,8 @@
                     <span><strong>Fecha:</strong> {{ rechazo_info.fecha_rechazo }}</span>
                 </div>
                 <div class="rechazo-instrucciones">
-                    <p>Realiza las correcciones correspondientes y asegúrate de guardar los cambios antes de finalizar el programa académico.</p>
+                    <p>Realiza las correcciones correspondientes y asegúrate de guardar los cambios antes de finalizar
+                        el programa académico.</p>
                 </div>
             </div>
         </div>
@@ -555,224 +601,229 @@
     {% else %}
 
     <!-- Contenido de Egresados (oculto inicialmente para roles 4-9) -->
-    <div id="contenedor-matricula-principal" {% if es_rol_director or es_rol_superior %}style="display: none;"{% endif %}>
+    <div id="contenedor-matricula-principal" {% if es_rol_director or es_rol_superior %}style="display: none;" {% endif
+        %}>
 
-    <!-- Sección de Filtros Primarios -->
-    <div class="filtros-container">
-        <div class="filtros-row">
-            <!-- Periodo - Campo oculto (se usa el periodo por defecto del sistema) -->
-            <input type="hidden" id="periodo" name="periodo" value="{{ periodo_default_id }}">
-            
-            <div class="filtro-item">
-                <label for="programa"> <strong>Programa Académico:</strong></label>
-                <select id="programa" name="programa" required>
-                    <option value="">-- Seleccione un Programa Académico --</option>
-                    {% for programa in programas %}
-                    <option value="{{ programa.id }}">{{ programa.nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="filtro-item">
-                <label for="modalidad"> <strong>Modalidad:</strong></label>
-                <select id="modalidad" name="modalidad" required disabled>
-                    <option value="">-- Primero seleccione un Programa Académico --</option>
-                    
-                </select>
-            </div>
-        </div>
-    </div>
+        <!-- Sección de Filtros Primarios -->
+        <div class="filtros-container">
+            <div class="filtros-row">
+                <!-- Periodo - Campo oculto (se usa el periodo por defecto del sistema) -->
+                <input type="hidden" id="periodo" name="periodo" value="{{ periodo_default_id }}">
 
-    <!-- Sección de captura: filtros + tabla dinámica (visible cuando se selecciona programa y modalidad) -->
-    <div id="seccion-captura-egresados" style="display: none;">
-
-        <!-- Filtros secundarios (Boleta, Generación, Edades) -->
-        <div id="filtros-secundarios" class="filtros-secundarios-container" style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-top: 20px; border: 2px solid #750946;">
-            <h3 style="color: #750946; margin: 0 0 15px 0; font-size: 20px;">📋 Agregar Registros de Egresados</h3>
-            
-            <div class="filtros-row" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
                 <div class="filtro-item">
-                    <label for="filtro-boleta"><strong>Boleta:</strong></label>
-                    <select id="filtro-boleta" name="filtro_boleta" disabled>
-                        <option value="">-- Seleccione Boleta --</option>
-                    </select>
-                </div>
-                
-                <div class="filtro-item">
-                    <label for="filtro-generacion"><strong>Generación:</strong></label>
-                    <select id="filtro-generacion" name="filtro_generacion" disabled>
-                        <option value="">-- Seleccione Generación --</option>
-                    </select>
-                </div>
-            </div>
-            
-            <!-- Selección de edades -->
-            <div style="margin-top: 20px; margin-bottom: 15px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <label style="font-weight: 600; color: #750946; font-size: 14px;">Seleccione las edades a agregar:</label>
-                    <div style="display: flex; gap: 10px;">
-                        <button type="button" onclick="seleccionarTodasEdades(true)" style="padding: 4px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
-                            ✓ Seleccionar Todas
-                        </button>
-                        <button type="button" onclick="seleccionarTodasEdades(false)" style="padding: 4px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
-                            ✗ Limpiar Selección
-                        </button>
-                    </div>
-                </div>
-                <div style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px; background: white; padding: 15px;">
-                    <div id="tabla-edades-seleccion" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;">
-                        {% for edad in edades %}
-                        <label style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
-                            <input type="checkbox" 
-                                   class="checkbox-edad" 
-                                   value="{{ edad.id }}" 
-                                   data-nombre="{{ edad.nombre }}"
-                                   style="width: 18px; height: 18px; cursor: pointer;">
-                            <span style="font-weight: 500; color: #333; font-size: 14px;">{{ edad.nombre }}</span>
-                        </label>
+                    <label for="programa"> <strong>Programa Académico:</strong></label>
+                    <select id="programa" name="programa" required>
+                        <option value="">-- Seleccione un Programa Académico --</option>
+                        {% for programa in programas %}
+                        <option value="{{ programa.id }}">{{ programa.nombre }}</option>
                         {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filtro-item">
+                    <label for="modalidad"> <strong>Modalidad:</strong></label>
+                    <select id="modalidad" name="modalidad" required disabled>
+                        <option value="">-- Primero seleccione un Programa Académico --</option>
+
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de captura: filtros + tabla dinámica (visible cuando se selecciona programa y modalidad) -->
+        <div id="seccion-captura-egresados" style="display: none;">
+
+            <!-- Filtros secundarios (Boleta, Generación, Edades) -->
+            <div id="filtros-secundarios" class="filtros-secundarios-container"
+                style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-top: 20px; border: 2px solid #750946;">
+                <h3 style="color: #750946; margin: 0 0 15px 0; font-size: 20px;">📋 Agregar Registros de Egresados</h3>
+
+                <div class="filtros-row"
+                    style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
+                    <div class="filtro-item">
+                        <label for="filtro-boleta"><strong>Boleta:</strong></label>
+                        <select id="filtro-boleta" name="filtro_boleta" disabled>
+                            <option value="">-- Seleccione Boleta --</option>
+                        </select>
+                    </div>
+
+                    <div class="filtro-item">
+                        <label for="filtro-generacion"><strong>Generación:</strong></label>
+                        <select id="filtro-generacion" name="filtro_generacion" disabled>
+                            <option value="">-- Seleccione Generación --</option>
+                        </select>
                     </div>
                 </div>
-                <div id="edades-seleccionadas-count" style="margin-top: 8px; font-size: 13px; color: #636569; text-align: right;">
-                    0 edades seleccionadas
+
+                <!-- Selección de edades -->
+                <div style="margin-top: 20px; margin-bottom: 15px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label style="font-weight: 600; color: #750946; font-size: 14px;">Seleccione las edades a
+                            agregar:</label>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="button" onclick="seleccionarTodasEdades(true)"
+                                style="padding: 4px 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                                ✓ Seleccionar Todas
+                            </button>
+                            <button type="button" onclick="seleccionarTodasEdades(false)"
+                                style="padding: 4px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                                ✗ Limpiar Selección
+                            </button>
+                        </div>
+                    </div>
+                    <div
+                        style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px; background: white; padding: 15px;">
+                        <div id="tabla-edades-seleccion"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;">
+                            {% for edad in edades %}
+                            <label
+                                style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                                <input type="checkbox" class="checkbox-edad" value="{{ edad.id }}"
+                                    data-nombre="{{ edad.nombre }}" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-weight: 500; color: #333; font-size: 14px;">{{ edad.nombre }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div id="edades-seleccionadas-count"
+                        style="margin-top: 8px; font-size: 13px; color: #636569; text-align: right;">
+                        0 edades seleccionadas
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                    <button type="button" class="btn-primary" onclick="agregarFilasEgresados()"
+                        style="padding: 12px 30px; background: #750946; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                        ➕ Agregar Filas
+                    </button>
                 </div>
             </div>
-            
-            <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                <button type="button" class="btn-primary" onclick="agregarFilasEgresados()" style="padding: 12px 30px; background: #750946; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                    ➕ Agregar Filas
-                </button>
-            </div>
-        </div>
 
-        <!-- Banner informativo: Programa y Modalidad seleccionados (estilo matrícula) -->
-        <div class="banner-seleccion-egresados" id="banner-seleccion-egresados">
-            <h3>
-                <span class="header-programa" id="banner-nombre-programa">—</span>
-                <span class="header-separador"> ◉ </span>
-                <span class="header-modalidad" id="banner-nombre-modalidad">—</span>
-            </h3>
-        </div>
-
-        <!-- Banner del título de la tabla (encima de los inputs) -->
-        <div class="tabla-matricula-container" style="margin-top: 10px;">
-            <div class="tabla-header tabla-header-egresados" style="display: flex; justify-content: flex-end;">
-                <button type="button" onclick="limpiarTablaEgresados()" style="padding: 8px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                    🗑️ Limpiar Tabla
-                </button>
+            <!-- Banner informativo: Programa y Modalidad seleccionados (estilo matrícula) -->
+            <div class="banner-seleccion-egresados" id="banner-seleccion-egresados">
+                <h3>
+                    <span class="header-programa" id="banner-nombre-programa">—</span>
+                    <span class="header-separador"> ◉ </span>
+                    <span class="header-modalidad" id="banner-nombre-modalidad">—</span>
+                </h3>
             </div>
 
-            <div class="tabla-egresados-scroll">
-                <table class="tabla-egresados-dinamica" id="tabla-egresados-main" style="width: 100%; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
-                    <thead id="egresados-thead">
-                        <!-- Generado dinámicamente con los turnos según nivel -->
-                    </thead>
-                    <tbody id="egresados-tbody">
-                        <tr>
-                            <td colspan="10" style="text-align: center; padding: 40px; color: #636569;">
-                                <div style="font-size: 48px; margin-bottom: 15px;">📚</div>
-                                <p style="font-size: 16px; margin: 0;">Seleccione Programa y Modalidad, luego agregue filas.</p>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+            <!-- Banner del título de la tabla (encima de los inputs) -->
+            <div class="tabla-matricula-container" style="margin-top: 10px;">
+                <div class="tabla-header tabla-header-egresados" style="display: flex; justify-content: flex-end;">
+                    <button type="button" onclick="limpiarTablaEgresados()"
+                        style="padding: 8px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        🗑️ Limpiar Tabla
+                    </button>
+                </div>
 
-        <!-- Botones de Acción -->
-        <div class="actions-section actions-after-table" style="margin-top: 30px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-            {% if es_capturista %}
-            <button id="btn-guardar-avance" type="button" class="btn-primary" onclick="guardarAvanceEgresados()" 
+                <div class="tabla-egresados-scroll">
+                    <table class="tabla-egresados-dinamica" id="tabla-egresados-main"
+                        style="width: 100%; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
+                        <thead id="egresados-thead">
+                            <!-- Generado dinámicamente con los turnos según nivel -->
+                        </thead>
+                        <tbody id="egresados-tbody">
+                            <tr>
+                                <td colspan="10" style="text-align: center; padding: 40px; color: #636569;">
+                                    <div style="font-size: 48px; margin-bottom: 15px;">📚</div>
+                                    <p style="font-size: 16px; margin: 0;">Seleccione Programa y Modalidad, luego
+                                        agregue filas.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="actions-section actions-after-table"
+                style="margin-top: 30px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                {% if es_capturista %}
+                <button id="btn-guardar-avance" type="button" class="btn-primary" onclick="guardarAvanceEgresados()"
                     style="padding: 12px 30px; background: #17a2b8; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                💾 Guardar Avance
-            </button>
-            <button id="btn-limpiar-formulario" type="button" class="btn-secondary" onclick="limpiarFormulario()" 
+                    💾 Guardar Avance
+                </button>
+                <button id="btn-limpiar-formulario" type="button" class="btn-secondary" onclick="limpiarFormulario()"
                     style="padding: 12px 30px; background: #6c757d; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                🧹 Limpiar Todo
-            </button>
-            <button id="btn-finalizar-captura" type="button" class="btn-success" onclick="finalizarCapturaEgresados()" 
-                    style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                ✅ Finalizar Captura
-            </button>
-            {% if matricula_rechazada %}
-            <button id="btn-validar-todos-egresados" type="button" class="btn-success btn-validacion-masiva" 
-                    onclick="validarTodosLosEgresados()" 
-                    {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado estos egresados"{% endif %}
-                    style="padding: 12px 30px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; margin-left: 10px;">
-                ✅✅ Validar Todos los Programas
-            </button>
-            {% endif %}
-            {% else %}
-            <button id="btn-validar-egresados" type="button" class="btn-success" onclick="validarEgresados()"
-                {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado estos egresados"{% endif %} 
-                style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                ✅ Validar
-            </button>
-            <button id="btn-rechazar-egresados" type="button" class="btn-danger" onclick="rechazarEgresados()"
-                {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado estos egresados"{% endif %} 
-                style="padding: 12px 30px; background: #dc3545; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                ❌ Rechazar
-            </button>
-            {% endif %}
-        </div>
-    </div> <!-- fin seccion-captura-egresados -->
+                    🧹 Limpiar Todo
+                </button>
+                {% endif %}
+            </div>
+        </div> <!-- fin seccion-captura-egresados -->
     </div> <!-- fin contenedor-matricula-principal -->
-    
+
     <!-- Panel de Informe (oculto para roles 4-9) -->
-    <div id="informe-panel" class="informe-container" style="{% if es_rol_director or es_rol_superior %}display:none;{% else %}display:block;{% endif %} margin-top: 30px;">
+    <div id="informe-panel" class="informe-container"
+        style="{% if es_rol_director or es_rol_superior %}display:none;{% else %}display:block;{% endif %} margin-top: 30px;">
         <h3 style="text-align:center; color:#750946;">📊 Informe de Egresados Guardados</h3>
-        <p style="text-align:center; color:#636569; margin-bottom: 20px;">Datos actuales guardados en la base de datos</p>
-        
+        <p style="text-align:center; color:#636569; margin-bottom: 20px;">Datos actuales guardados en la base de datos
+        </p>
+
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <div id="pestana-semaforo-egresados" class="pestana-semaforo" title="Estado de captura por semáforo" style="display: none; margin-bottom: 0;">
+            <div id="pestana-semaforo-egresados" class="pestana-semaforo" title="Estado de captura por semáforo"
+                style="display: none; margin-bottom: 0;">
                 <span id="semaforo-dot-egresados" class="semaforo-dot"></span>
                 <span id="semaforo-texto-egresados">No hay datos capturados</span>
             </div>
             <!-- Botones de acciones múltiples -->
             <div id="acciones-multiples-informe" style="display: none; gap: 10px; align-items: center;">
                 <button type="button" id="btn-editar-multiples" onclick="editarFilasSeleccionadas()"
-                        style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size:13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size:13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     ✏️ Editar Seleccionados
                 </button>
                 <button type="button" id="btn-borrar-multiples" onclick="borrarFilasSeleccionadas()"
-                        style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size:13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size:13px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     🗑️ Borrar Seleccionados
                 </button>
             </div>
         </div>
 
         <div style="overflow-x: auto;">
-            <table id="informe-egresados-table" style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <table id="informe-egresados-table"
+                style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <thead style="background: linear-gradient(135deg, #750946 0%, #a3195b 100%); color: white;">
                     <tr>
-                        <th style="padding: 12px; text-align: center; border: 1px solid #ddd; width: 40px; background: rgba(0,0,0,0.05);">
-                            <input type="checkbox" id="seleccionar-todas-informe" style="transform: scale(1.2); cursor: pointer;" />
+                        <th
+                            style="padding: 12px; text-align: center; border: 1px solid #ddd; width: 40px; background: rgba(0,0,0,0.05);">
+                            <input type="checkbox" id="seleccionar-todas-informe"
+                                style="transform: scale(1.2); cursor: pointer;" />
                         </th>
-                        <th class="filterable-header" data-column="1" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="1"
+                            style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Programa <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="2" style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="2"
+                            style="padding: 12px; text-align: left; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Modalidad <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="3" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="3"
+                            style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Turno <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="4" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="4"
+                            style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Boleta <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="5" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="5"
+                            style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Generación <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="6" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="6"
+                            style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Edad <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="7" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="7"
+                            style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Hombres <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="8" style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="8"
+                            style="padding: 12px; text-align: center; border: 1px solid #ddd; position: relative; cursor: pointer;">
                             Mujeres <span class="filter-icon">▼</span>
                         </th>
-                        <th class="filterable-header" data-column="9" style="padding: 12px; text-align: center; border: 1px solid #ddd; background: rgba(0,0,0,0.1); position: relative; cursor: pointer;">
+                        <th class="filterable-header" data-column="9"
+                            style="padding: 12px; text-align: center; border: 1px solid #ddd; background: rgba(0,0,0,0.1); position: relative; cursor: pointer;">
                             Total <span class="filter-icon">▼</span>
                         </th>
                     </tr>
@@ -787,11 +838,44 @@
                 </tbody>
             </table>
         </div>
-    </div>
 
-    </div> 
+        <!-- Botones de Acción Finales -->
+        <div class="actions-section-final"
+            style="margin-top: 30px; display: none; gap: 15px; justify-content: center; flex-wrap: wrap;">
+            {% if es_capturista %}
+            <button id="btn-finalizar-captura" type="button" class="btn-success" onclick="finalizarCapturaEgresados()"
+                style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                ✅ Finalizar Captura
+            </button>
+            {% if matricula_rechazada %}
+            <button id="btn-validar-todos-egresados" type="button" class="btn-success btn-validacion-masiva"
+                onclick="validarTodosLosEgresados()" {% if usuario_ya_valido or usuario_ya_rechazo %}disabled
+                title="Ya has validado/rechazado estos egresados" {% endif %}
+                style="padding: 12px 30px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; margin-left: 10px;">
+                ✅✅ Validar Todos los Programas
+            </button>
+            {% endif %}
+            {% else %}
+            <button id="btn-validar-egresados" type="button" class="btn-success" onclick="validarEgresados()" {% if
+                usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado estos egresados" {%
+                endif %}
+                style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                ✅ Validar
+            </button>
+            <button id="btn-rechazar-egresados" type="button" class="btn-danger" onclick="rechazarEgresados()" {% if
+                usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado estos egresados" {%
+                endif %}
+                style="padding: 12px 30px; background: #dc3545; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                ❌ Rechazar
+            </button>
+            {% endif %}
+        </div>
 
-    {% endif %}
+</div>
+
+</div>
+
+{% endif %}
 
 {% endif %}
 
@@ -801,201 +885,201 @@
 
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         {% if rechazo_info %}
-            console.log("DEBUG: rechazo_info recibido:", {{ rechazo_info | tojson }});
-            const banner = document.getElementById('banner-rechazo');
-            if (banner) {
-                banner.style.display = 'flex';
-                banner.style.setProperty('display', 'flex', 'important'); // Forzado extra
-            }
-        {% else %}
-            console.log("DEBUG: No hay rechazo_info para mostrar.");
-        {% endif %}
+        console.log("DEBUG: rechazo_info recibido:", {{ rechazo_info | tojson }});
+    const banner = document.getElementById('banner-rechazo');
+    if (banner) {
+        banner.style.display = 'flex';
+        banner.style.setProperty('display', 'flex', 'important'); // Forzado extra
+    }
+    {% else %}
+    console.log("DEBUG: No hay rechazo_info para mostrar.");
+    {% endif %}
     });
 </script>
 
 <style>
-/* Estilos para filtros tipo Excel (rediseno visual) */
-.filterable-header {
-    transition: background-color 0.2s ease, box-shadow 0.2s ease;
-    user-select: none;
-}
-
-.filterable-header:hover {
-    background-color: rgba(255, 255, 255, 0.08);
-}
-
-.filterable-header.is-open {
-    background-color: rgba(255, 255, 255, 0.16);
-    box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.45);
-}
-
-.filterable-header.has-filter {
-    background-color: rgba(255, 255, 255, 0.2);
-    box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.9);
-}
-
-.filter-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    margin-left: 6px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.2);
-    font-size: 10px;
-    opacity: 0.85;
-    transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
-}
-
-.filterable-header:hover .filter-icon {
-    opacity: 1;
-}
-
-.filterable-header.is-open .filter-icon {
-    transform: rotate(180deg);
-}
-
-.filterable-header.has-filter .filter-icon {
-    background: #ffffff;
-    color: #750946;
-    opacity: 1;
-}
-
-.filter-dropdown {
-    position: fixed;
-    top: 0;
-    left: 0;
-    background: #ffffff;
-    border: 1px solid #e8d8e1;
-    border-radius: 12px;
-    box-shadow: 0 16px 32px rgba(50, 8, 32, 0.2);
-    z-index: 5000;
-    min-width: 220px;
-    max-width: min(520px, calc(100vw - 24px));
-    max-height: 360px;
-    overflow: hidden;
-    color: #2d2d2d;
-    opacity: 0;
-    transform: translateY(6px) scale(0.98);
-    pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.filter-dropdown::before {
-    content: '';
-    position: absolute;
-    top: -7px;
-    left: var(--anchor-offset, 24px);
-    width: 12px;
-    height: 12px;
-    background: #ffffff;
-    border-left: 1px solid #e8d8e1;
-    border-top: 1px solid #e8d8e1;
-    transform: rotate(45deg);
-}
-
-.filter-dropdown.open-up::before {
-    top: auto;
-    bottom: -7px;
-    transform: rotate(225deg);
-}
-
-.filter-dropdown.active {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    pointer-events: auto;
-}
-
-.filter-options {
-    max-height: 220px;
-    overflow-y: auto;
-    padding: 8px;
-}
-
-.filter-options::-webkit-scrollbar {
-    width: 8px;
-}
-
-.filter-options::-webkit-scrollbar-thumb {
-    background: #c8b0be;
-    border-radius: 8px;
-}
-
-.filter-option {
-    padding: 8px 10px;
-    cursor: pointer;
-    display: flex;
-    align-items: flex-start;
-    gap: 9px;
-    font-size: 13px;
-    border-radius: 8px;
-    transition: background-color 0.18s ease;
-}
-
-.filter-option span {
-    flex: 1;
-    line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.filter-option:hover {
-    background: #f7edf3;
-}
-
-.filter-option.is-checked {
-    background: #f3e5ee;
-    font-weight: 600;
-}
-
-.filter-option input[type="checkbox"] {
-    cursor: pointer;
-    margin-top: 1px;
-    accent-color: #750946;
-}
-
-@media (max-width: 768px) {
-    .filter-dropdown {
-        min-width: 220px;
-        max-width: 84vw;
+    /* Estilos para filtros tipo Excel (rediseno visual) */
+    .filterable-header {
+        transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        user-select: none;
     }
-}
+
+    .filterable-header:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .filterable-header.is-open {
+        background-color: rgba(255, 255, 255, 0.16);
+        box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.45);
+    }
+
+    .filterable-header.has-filter {
+        background-color: rgba(255, 255, 255, 0.2);
+        box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    .filter-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        margin-left: 6px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.2);
+        font-size: 10px;
+        opacity: 0.85;
+        transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .filterable-header:hover .filter-icon {
+        opacity: 1;
+    }
+
+    .filterable-header.is-open .filter-icon {
+        transform: rotate(180deg);
+    }
+
+    .filterable-header.has-filter .filter-icon {
+        background: #ffffff;
+        color: #750946;
+        opacity: 1;
+    }
+
+    .filter-dropdown {
+        position: fixed;
+        top: 0;
+        left: 0;
+        background: #ffffff;
+        border: 1px solid #e8d8e1;
+        border-radius: 12px;
+        box-shadow: 0 16px 32px rgba(50, 8, 32, 0.2);
+        z-index: 5000;
+        min-width: 220px;
+        max-width: min(520px, calc(100vw - 24px));
+        max-height: 360px;
+        overflow: hidden;
+        color: #2d2d2d;
+        opacity: 0;
+        transform: translateY(6px) scale(0.98);
+        pointer-events: none;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .filter-dropdown::before {
+        content: '';
+        position: absolute;
+        top: -7px;
+        left: var(--anchor-offset, 24px);
+        width: 12px;
+        height: 12px;
+        background: #ffffff;
+        border-left: 1px solid #e8d8e1;
+        border-top: 1px solid #e8d8e1;
+        transform: rotate(45deg);
+    }
+
+    .filter-dropdown.open-up::before {
+        top: auto;
+        bottom: -7px;
+        transform: rotate(225deg);
+    }
+
+    .filter-dropdown.active {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+    }
+
+    .filter-options {
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 8px;
+    }
+
+    .filter-options::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .filter-options::-webkit-scrollbar-thumb {
+        background: #c8b0be;
+        border-radius: 8px;
+    }
+
+    .filter-option {
+        padding: 8px 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        font-size: 13px;
+        border-radius: 8px;
+        transition: background-color 0.18s ease;
+    }
+
+    .filter-option span {
+        flex: 1;
+        line-height: 1.25;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .filter-option:hover {
+        background: #f7edf3;
+    }
+
+    .filter-option.is-checked {
+        background: #f3e5ee;
+        font-weight: 600;
+    }
+
+    .filter-option input[type="checkbox"] {
+        cursor: pointer;
+        margin-top: 1px;
+        accent-color: #750946;
+    }
+
+    @media (max-width: 768px) {
+        .filter-dropdown {
+            min-width: 220px;
+            max-width: 84vw;
+        }
+    }
 </style>
 <script>
     /* ==============================================
        VARIABLES GLOBALES Y CONFIGURACIÓN
        ============================================== */
-    
+
     const periodoLiteral = {{ periodo_default_literal | tojson }};
     const datosPrecargados = {{ datos_precargados_json | safe }};
     const esCapturista = {{ 'true' if es_capturista else 'false' }};
     const idRol = {{ id_rol }};
     const idUnidadActual = {{ (unidad_actual.Id_Unidad_Academica if unidad_actual else None) | tojson }};
-    
+
     // Estado de filtros para la tabla de informe
     let activeFilters = {};
     let currentFilterDropdown = null;
     let currentFilterHeaderEl = null;
     let spEnEjecucion = false;
     let interfazBloqueada = false;
-    
+
     // Variables de estado de validación (desde el backend)
     const puedeValidar = "{{ puede_validar }}".toLowerCase() === 'true';
     const usuarioYaValido = "{{ usuario_ya_valido }}".toLowerCase() === 'true';
     const usuarioYaRechazo = "{{ usuario_ya_rechazo }}".toLowerCase() === 'true';
     const esValidador = {{ 'true' if es_validador else 'false' }};
-    
+
     console.log('🔍 Estado de validación al cargar:');
     console.log(`   puedeValidar: ${puedeValidar}`);
     console.log(`   usuarioYaValido: ${usuarioYaValido}`);
     console.log(`   usuarioYaRechazo: ${usuarioYaRechazo}`);
     console.log(`   esCapturista: ${esCapturista}`);
     console.log(`   esValidador: ${esValidador}`);
-    
+
     // Almacén de filas de egresados en memoria (estructura única, turnos como columnas)
     // [ { id, programa, programaNombre, modalidad, modalidadNombre, boleta, boletaNombre,
     //     generacion, generacionNombre, edad, edadNombre,
@@ -1003,12 +1087,12 @@
     let filasEgresados = [];
     let datosFilas = JSON.parse('{{ filas | tojson | safe }}') || [];
     let datosFilasFiltrados = [];
-    
+
     // Catálogo global de turnos y turnos dinámicos según selección
     const catalogoTurnosGlobal = {{ turnos | tojson }};
     let turnosDisponibles = {{ turnos | tojson }};
     let programaModalidadTurnos = {{ programa_modalidad_turnos_json | safe if programa_modalidad_turnos_json is defined else '{}' }};
-    
+
     // Mapeo de Programa ID -> Modalidades IDs para filtrado dinámico
     let programaAModalidades = {};
     let todasLasModalidades = [];
@@ -1020,7 +1104,7 @@
         const color = (estado.color || '').trim();
         if (id) mapaColoresSemaforo[id] = color;
     });
-    
+
     const catalogoBoletas = {{ boletas | tojson }};
     const catalogoGeneraciones = {{ generaciones | tojson }};
 
@@ -1031,7 +1115,7 @@
     function obtenerTurnosParaProgramaModalidad(progNombre, modNombre) {
         const turnosEncontrados = [];
         const turnosVistos = new Set();
-        
+
         const progBuscado = (progNombre || '').trim().toLowerCase();
         const modBuscada = (modNombre || '').trim().toLowerCase();
 
@@ -1040,12 +1124,12 @@
             if (!row) return;
             const rProg = (row.Nombre_Programa || '').trim().toLowerCase();
             const rMod = (row.Modalidad || '').trim().toLowerCase();
-            
+
             if (rProg === progBuscado && rMod === modBuscada && row.Turno) {
                 const tNom = String(row.Turno).trim();
                 if (tNom && !turnosVistos.has(tNom.toLowerCase())) {
                     turnosVistos.add(tNom.toLowerCase());
-                    const matchCatalogo = (catalogoTurnosGlobal || []).find(ct => 
+                    const matchCatalogo = (catalogoTurnosGlobal || []).find(ct =>
                         (ct.nombre || ct.Turno || '').trim().toLowerCase() === tNom.toLowerCase()
                     );
                     turnosEncontrados.push({
@@ -1064,7 +1148,7 @@
                 const tNom = String(tNomRaw).trim();
                 if (tNom && !turnosVistos.has(tNom.toLowerCase())) {
                     turnosVistos.add(tNom.toLowerCase());
-                    const matchCatalogo = (catalogoTurnosGlobal || []).find(ct => 
+                    const matchCatalogo = (catalogoTurnosGlobal || []).find(ct =>
                         (ct.nombre || ct.Turno || '').trim().toLowerCase() === tNom.toLowerCase()
                     );
                     turnosEncontrados.push({
@@ -1077,7 +1161,7 @@
 
         // Ordenar con preferencia estándar (Matutino, Vespertino, Mixto, Nocturno, Discontinuo...)
         const ordenPreferencia = { 'matutino': 1, 'vespertino': 2, 'mixto': 3, 'nocturno': 4, 'discontinuo': 5 };
-        
+
         if (turnosEncontrados.length > 0) {
             turnosEncontrados.sort((a, b) => {
                 const oA = ordenPreferencia[a.nombre.toLowerCase()] || 99;
@@ -1136,17 +1220,17 @@
 
     try {
         programaAModalidades = {{ programa_a_modalidades_json | safe }};
-        todasLasModalidades = {{ modalidades | tojson }};
-        console.log('✅ Mapeo cargado:', Object.keys(programaAModalidades).length, 'programas');
-        console.log('🔄 Turnos disponibles iniciales:', turnosDisponibles);
+    todasLasModalidades = {{ modalidades | tojson }};
+    console.log('✅ Mapeo cargado:', Object.keys(programaAModalidades).length, 'programas');
+    console.log('🔄 Turnos disponibles iniciales:', turnosDisponibles);
     } catch (e) {
         console.error('❌ Error al cargar mapeo:', e);
     }
-    
+
     /* ==============================================
        FUNCIONES DE CONTROL DE CARGA
        ============================================== */
-    
+
     function mostrarOverlayCarga(texto = 'Procesando...', subtexto = 'Por favor espere') {
         spEnEjecucion = true;
         interfazBloqueada = true;
@@ -1158,7 +1242,7 @@
             console.log('🔒 Interfaz bloqueada');
         }
     }
-    
+
     function ocultarOverlayCarga() {
         spEnEjecucion = false;
         interfazBloqueada = false;
@@ -1168,7 +1252,7 @@
             console.log('✅ Interfaz desbloqueada');
         }
     }
-    
+
     function verificarSiPuedeContinuar() {
         if (spEnEjecucion || interfazBloqueada) {
             console.warn('⚠️ Operación bloqueada: hay un proceso en ejecución');
@@ -1197,30 +1281,30 @@
         if (typeof Swal === 'undefined') return;
         if (Swal.isVisible()) Swal.close();
     }
-    
+
     /* ==============================================
        FUNCIONES DE FILTRADO
        ============================================== */
-    
+
     /**
      * Filtrar modalidades según el programa seleccionado
      */
     function filtrarModalidadesPorPrograma() {
         const selectPrograma = document.getElementById('programa');
         const selectModalidad = document.getElementById('modalidad');
-        
+
         if (!selectPrograma || !selectModalidad) return;
-        
+
         const programaId = selectPrograma.value;
-        
+
         if (!programaId) {
             resetSelect(selectModalidad, '-- Primero seleccione un Programa Académico --');
             ocultarSeccionCaptura();
             return;
         }
-        
+
         const modalidadesDelPrograma = programaAModalidades[programaId] || programaAModalidades[String(programaId)] || programaAModalidades[parseInt(programaId)] || [];
-        
+
         let modalidadesFiltradas = [];
         if (Array.isArray(modalidadesDelPrograma) && modalidadesDelPrograma.length > 0) {
             modalidadesFiltradas = (todasLasModalidades || []).filter(mod => {
@@ -1229,23 +1313,23 @@
                 return modalidadesDelPrograma.some(m => String(m) === String(modId) || String(m) === String(modNom));
             });
         }
-        
+
         // Si el mapeo vino vacío o no arrojó coincidencias, usar todas las modalidades disponibles
         if (!modalidadesFiltradas || modalidadesFiltradas.length === 0) {
             modalidadesFiltradas = todasLasModalidades || [];
         }
-        
+
         if (modalidadesFiltradas.length === 0) {
             resetSelect(selectModalidad, '-- No hay modalidades disponibles --');
             ocultarSeccionCaptura();
             return;
         }
-        
+
         selectModalidad.innerHTML = '<option value="">-- Seleccione una Modalidad --</option>';
         llenarSelect(selectModalidad, modalidadesFiltradas);
         selectModalidad.disabled = false;
     }
-    
+
     /**
      * Seleccionar o deseleccionar todas las edades
      */
@@ -1254,7 +1338,7 @@
         checkboxes.forEach(cb => cb.checked = seleccionar);
         actualizarContadorEdades();
     }
-    
+
     /**
      * Actualizar el contador de edades seleccionadas
      */
@@ -1272,32 +1356,36 @@
     /* ==============================================
        CONTROL VISIBILIDAD SECCIÓN CAPTURA
        ============================================== */
-    
+
     function mostrarSeccionCaptura() {
         const seccion = document.getElementById('seccion-captura-egresados');
         const acciones = document.querySelector('.actions-after-table');
-        
+        const accionesFinales = document.querySelector('.actions-section-final');
+
         // Para Capturista (rol 3): SIEMPRE mostrar el formulario y botones (sin restricción de semáforo)
         if (esCapturista) {
             if (seccion) seccion.style.display = 'block';
             if (acciones) acciones.style.display = 'flex';  // Mostrar botones
+            if (accionesFinales) accionesFinales.style.display = 'flex';
             console.log('✅ Capturista: sección de captura visible (sin restricción de semáforo)');
-        } 
+        }
         // Para Validador (roles 4-9): mostrar solo si puede validar (semáforo en su nivel)
         else if (esValidador) {
             if (!puedeValidar) {
                 console.log('⏳ Validador esperando: semáforo no en su nivel aún');
                 if (seccion) seccion.style.display = 'none';
                 if (acciones) acciones.style.display = 'none';
+                if (accionesFinales) accionesFinales.style.display = 'none';
                 return;
             }
             if (seccion) seccion.style.display = 'block';
             if (acciones) acciones.style.display = 'flex';  // Mostrar botones de validación/rechazo
+            if (accionesFinales) accionesFinales.style.display = 'flex';
             console.log('✅ Validador: sección de validación visible (semáforo en nivel correcto)');
         }
 
         aplicarBloqueoCapturaPorSemaforo(estadoSemaforoCapturaActual === 3);
-        
+
         // Generar/actualizar cabecera de tabla con turnos dinámicos del programa y modalidad seleccionados
         const selectProg = document.getElementById('programa');
         const selectMod = document.getElementById('modalidad');
@@ -1319,6 +1407,8 @@
         if (banner) banner.classList.remove('visible');
         const acciones = document.querySelector('.actions-after-table');
         if (acciones) acciones.style.display = 'none';
+        const accionesFinales = document.querySelector('.actions-section-final');
+        if (accionesFinales) accionesFinales.style.display = 'none';
         const tablaWrap = document.querySelector('.tabla-captura-wrap');
         if (tablaWrap) tablaWrap.style.display = 'none';
         aplicarBloqueoCapturaPorSemaforo(false);
@@ -1596,7 +1686,7 @@
 
             // Inicializar turnos precargando datos guardados si existen
             const turnosInit = {};
-            (turnosDisponibles || []).forEach(t => { 
+            (turnosDisponibles || []).forEach(t => {
                 const turnoNom = (t.nombre || t).trim();
                 const turnoId = t.id !== undefined ? t.id : turnoNom;
 
@@ -1911,7 +2001,7 @@
     /* ==============================================
        FUNCIONES DE GUARDADO Y VALIDACIÓN
        ============================================== */
-    
+
     /**
      * Validar egresados (para roles superiores)
      */
@@ -1941,7 +2031,7 @@
             if (!confirm('¿Confirmar la validación de estos egresados?')) return;
             mostrarOverlayCarga('Validando Egresados...', 'Por favor espere');
         }
-        
+
         try {
             const response = await fetch('/egresados/validar', {
                 method: 'POST',
@@ -1955,9 +2045,9 @@
                     modalidad: document.getElementById('modalidad').value
                 })
             });
-            
+
             const resultado = await response.json();
-            
+
             if (resultado.success) {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
@@ -2001,7 +2091,7 @@
             ocultarOverlayCarga();
         }
     }
-    
+
     /**
      * Rechazar egresados (para roles superiores)
      */
@@ -2043,7 +2133,7 @@
             }
             mostrarOverlayCarga('Rechazando Egresados...', 'Por favor espere');
         }
-        
+
         try {
             const response = await fetch('/egresados/rechazar', {
                 method: 'POST',
@@ -2058,9 +2148,9 @@
                     motivo: motivo.trim()
                 })
             });
-            
+
             const resultado = await response.json();
-            
+
             if (resultado.success) {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
@@ -2104,7 +2194,7 @@
             ocultarOverlayCarga();
         }
     }
-    
+
     /**
      * Guardar Avance de Egresados
      */
@@ -2114,17 +2204,17 @@
         const btnGuardar = document.getElementById('btn-guardar-avance');
         const btnLimpiar = document.getElementById('btn-limpiar-formulario');
         const btnFinalizar = document.getElementById('btn-finalizar-captura');
-        
+
         if (!programa || !programa.value) {
             mostrarAlerta('Por favor seleccione un programa antes de guardar.', 'Campos incompletos');
             return;
         }
-        
+
         if (!modalidad || !modalidad.value) {
             mostrarAlerta('Por favor seleccione una modalidad antes de guardar.', 'Campos incompletos');
             return;
         }
-        
+
         if (!esBorrado) {
             if (filasEgresados.length === 0) {
                 mostrarAlerta('No hay datos para guardar. Por favor agregue al menos un registro en la tabla de captura.', 'Sin datos para guardar', 'warning');
@@ -2146,7 +2236,7 @@
                 return;
             }
         }
-        
+
         // Rellenar valores vacíos con 0 para todos los turnos
         filasEgresados.forEach(fila => {
             (turnosDisponibles || []).forEach(turno => {
@@ -2163,14 +2253,14 @@
                 }
             });
         });
-        
+
         if (!esBorrado) {
             renderizarTablaEgresados();
         }
-        
+
         const programaNombre = programa.options[programa.selectedIndex].text;
         const modalidadNombre = modalidad.options[modalidad.selectedIndex].text;
-        
+
         if (!esBorrado) {
             if (typeof Swal !== 'undefined') {
                 const confirmacion = await Swal.fire({
@@ -2211,7 +2301,7 @@
                 mostrarOverlayCarga('Guardando Avance...', 'Actualizando datos de egresados');
             }
         }
-        
+
         try {
             const responseTemp = await fetch('/egresados/guardar', {
                 method: 'POST',
@@ -2222,13 +2312,13 @@
                     registros: filasEgresados
                 })
             });
-            
+
             const resultadoTemp = await responseTemp.json();
-            
+
             if (!resultadoTemp.success) {
                 throw new Error(resultadoTemp.error || 'Error al guardar en Temp_Egresados');
             }
-            
+
             const response = await fetch('/egresados/guardar_avance', {
                 method: 'POST',
                 credentials: 'same-origin',
@@ -2237,9 +2327,9 @@
                     periodo: document.getElementById('periodo').value
                 })
             });
-            
+
             const resultado = await response.json();
-            
+
             if (resultado.success) {
                 // Actualizar datosFilas en memoria directamente (estilo Titulados)
                 if (!datosFilas) datosFilas = [];
@@ -2248,8 +2338,8 @@
                         const tNom = t.nombre || t;
                         const tId = t.id !== undefined ? t.id : tNom;
                         const vals = (f.turnos && (f.turnos[tId] || f.turnos[String(tId)] || f.turnos[tNom])) || { hombres: 0, mujeres: 0 };
-                        
-                        let regH = datosFilas.find(d => 
+
+                        let regH = datosFilas.find(d =>
                             d &&
                             (d.Nombre_Programa || '').trim() === f.programaNombre.trim() &&
                             (d.Modalidad || '').trim() === f.modalidadNombre.trim() &&
@@ -2276,7 +2366,7 @@
                             });
                         }
 
-                        let regM = datosFilas.find(d => 
+                        let regM = datosFilas.find(d =>
                             d &&
                             (d.Nombre_Programa || '').trim() === f.programaNombre.trim() &&
                             (d.Modalidad || '').trim() === f.modalidadNombre.trim() &&
@@ -2395,17 +2485,17 @@
         const btnLimpiar = document.getElementById('btn-limpiar-formulario');
         const btnFinalizar = document.getElementById('btn-finalizar-captura');
         const tieneFilas = Array.isArray(filasEgresados) && filasEgresados.length > 0;
-        
+
         if (!programa || !programa.value) {
             mostrarAlerta('Por favor seleccione un programa antes de finalizar.', 'Campos incompletos');
             return;
         }
-        
+
         if (!modalidad || !modalidad.value) {
             mostrarAlerta('Por favor seleccione una modalidad antes de finalizar.', 'Campos incompletos');
             return;
         }
-        
+
         if (tieneFilas) {
             filasEgresados.forEach(fila => {
                 (turnosDisponibles || []).forEach(turno => {
@@ -2424,11 +2514,11 @@
             });
             renderizarTablaEgresados();
         }
-        
+
         const programaNombre = programa.options[programa.selectedIndex].text;
         const modalidadNombre = modalidad.options[modalidad.selectedIndex].text;
         const totalFilas = tieneFilas ? filasEgresados.length : 0;
-        
+
         if (typeof Swal !== 'undefined') {
             const confirmacion = await Swal.fire({
                 title: '⚠️ ¿Desea finalizar la captura?',
@@ -2453,24 +2543,24 @@
         } else {
             const confirmacionTexto = tieneFilas
                 ? `¿Está seguro de FINALIZAR la captura?\n\n` +
-                  `📚 Programa: ${programaNombre}\n` +
-                  `📋 Modalidad: ${modalidadNombre}\n` +
-                  `📊 Total de filas: ${totalFilas}\n\n` +
-                  `⚠️ Esta acción marcará la captura como completada.\n` +
-                  `Los campos vacíos se guardarán como 0.`
+                `📚 Programa: ${programaNombre}\n` +
+                `📋 Modalidad: ${modalidadNombre}\n` +
+                `📊 Total de filas: ${totalFilas}\n\n` +
+                `⚠️ Esta acción marcará la captura como completada.\n` +
+                `Los campos vacíos se guardarán como 0.`
                 : `¿Está seguro de FINALIZAR la captura?\n\n` +
-                  `📚 Programa: ${programaNombre}\n` +
-                  `📋 Modalidad: ${modalidadNombre}\n\n` +
-                  `⚠️ No hay filas capturadas, pero la captura se cerrará igualmente.`;
-            
+                `📚 Programa: ${programaNombre}\n` +
+                `📋 Modalidad: ${modalidadNombre}\n\n` +
+                `⚠️ No hay filas capturadas, pero la captura se cerrará igualmente.`;
+
             if (!confirm(confirmacionTexto)) return;
             mostrarOverlayCarga('Finalizando Captura...', 'Procesando datos y actualizando semáforo');
         }
-        
+
         if (btnGuardar) btnGuardar.disabled = true;
         if (btnLimpiar) btnLimpiar.disabled = true;
         if (btnFinalizar) btnFinalizar.disabled = true;
-        
+
         try {
             if (tieneFilas) {
                 const responseTemp = await fetch('/egresados/guardar', {
@@ -2482,16 +2572,16 @@
                         registros: filasEgresados
                     })
                 });
-                
+
                 const resultadoTemp = await responseTemp.json();
-                
+
                 if (!resultadoTemp.success) {
                     throw new Error(resultadoTemp.error || 'Error al guardar en Temp_Egresados');
                 }
-                
+
                 console.log('✅ Datos guardados en Temp_Egresados');
             }
-            
+
             const response = await fetch('/egresados/finalizar_captura', {
                 method: 'POST',
                 credentials: 'same-origin',
@@ -2502,9 +2592,9 @@
                     modalidad: modalidad.value
                 })
             });
-            
+
             const resultado = await response.json();
-            
+
             if (resultado.success) {
                 filasEgresados = [];
                 renderizarTablaEgresados();
@@ -2657,85 +2747,86 @@
             return;
         }
 
-        const todosLosProgramas = {{ programas | tojson }};
-        if (!Array.isArray(todosLosProgramas) || todosLosProgramas.length === 0) {
-            await Swal.fire({ icon: 'warning', title: 'Sin programas', text: 'No hay programas disponibles para esta UA.' });
-            return;
-        }
+        const todosLosProgramas = {{ programas | tojson
+    }};
+    if (!Array.isArray(todosLosProgramas) || todosLosProgramas.length === 0) {
+        await Swal.fire({ icon: 'warning', title: 'Sin programas', text: 'No hay programas disponibles para esta UA.' });
+        return;
+    }
 
-        // Construir plan de Programa + Modalidad
-        const plan = [];
-        const resumen = [];
-        const paresEnCero = [];
+    // Construir plan de Programa + Modalidad
+    const plan = [];
+    const resumen = [];
+    const paresEnCero = [];
 
-        for (const prog of todosLosProgramas) {
-            const progId = String(prog.id);
-            const progNombre = prog.nombre || `Programa ${progId}`;
-            const modalidadesIds = programaAModalidades[progId] || programaAModalidades[prog.id] || [];
+    for (const prog of todosLosProgramas) {
+        const progId = String(prog.id);
+        const progNombre = prog.nombre || `Programa ${progId}`;
+        const modalidadesIds = programaAModalidades[progId] || programaAModalidades[prog.id] || [];
 
-            if (!Array.isArray(modalidadesIds) || modalidadesIds.length === 0) {
-                (todasLasModalidades || []).forEach(m => {
-                    const mId = String(m.id || m.Id_Modalidad || m);
-                    const mNombre = m.nombre || m.Modalidad || `Modalidad ${mId}`;
-                    plan.push({
-                        programaId: prog.id,
-                        programaNombre: progNombre,
-                        modalidadId: mId,
-                        modalidadNombre: mNombre
-                    });
+        if (!Array.isArray(modalidadesIds) || modalidadesIds.length === 0) {
+            (todasLasModalidades || []).forEach(m => {
+                const mId = String(m.id || m.Id_Modalidad || m);
+                const mNombre = m.nombre || m.Modalidad || `Modalidad ${mId}`;
+                plan.push({
+                    programaId: prog.id,
+                    programaNombre: progNombre,
+                    modalidadId: mId,
+                    modalidadNombre: mNombre
                 });
-            } else {
-                for (const modId of modalidadesIds) {
-                    const modIdStr = String(modId);
-                    const modObj = (todasLasModalidades || []).find(m => String(m.id || m.Id_Modalidad || m) === modIdStr);
-                    const modNombre = modObj ? (modObj.nombre || modObj.Modalidad || `Modalidad ${modIdStr}`) : `Modalidad ${modIdStr}`;
-                    plan.push({
-                        programaId: prog.id,
-                        programaNombre: progNombre,
-                        modalidadId: modIdStr,
-                        modalidadNombre: modNombre
-                    });
-                }
-            }
-        }
-
-        if (plan.length === 0) {
-            await Swal.fire({ icon: 'warning', title: 'Sin elementos', text: 'No se encontraron programas ni modalidades para validar.' });
-            return;
-        }
-
-        // Detectar si hay programas+modalidades con 0 egresados registrados
-        const filasTotales = Array.isArray(datosFilas) ? datosFilas : [];
-        for (const item of plan) {
-            const progBuscado = item.programaNombre.trim().toLowerCase();
-            const modBuscada = item.modalidadNombre.trim().toLowerCase();
-            
-            let totalEgresados = 0;
-            filasTotales.forEach(row => {
-                if (!row) return;
-                const rProg = (row.Nombre_Programa || '').trim().toLowerCase();
-                const rMod = (row.Modalidad || '').trim().toLowerCase();
-                if (rProg === progBuscado && rMod === modBuscada) {
-                    const eg = parseInt(row.Egresados || 0, 10);
-                    if (!isNaN(eg)) totalEgresados += eg;
-                }
             });
-
-            if (totalEgresados === 0) {
-                paresEnCero.push({
-                    programaNombre: item.programaNombre,
-                    modalidadNombre: item.modalidadNombre
+        } else {
+            for (const modId of modalidadesIds) {
+                const modIdStr = String(modId);
+                const modObj = (todasLasModalidades || []).find(m => String(m.id || m.Id_Modalidad || m) === modIdStr);
+                const modNombre = modObj ? (modObj.nombre || modObj.Modalidad || `Modalidad ${modIdStr}`) : `Modalidad ${modIdStr}`;
+                plan.push({
+                    programaId: prog.id,
+                    programaNombre: progNombre,
+                    modalidadId: modIdStr,
+                    modalidadNombre: modNombre
                 });
             }
         }
+    }
 
-        // Si hay programas en 0, preguntar al usuario
-        if (paresEnCero.length > 0) {
-            const htmlLista = paresEnCero.map(p => `<li style="padding: 3px 0;"><strong>${p.programaNombre}</strong> — ${p.modalidadNombre}</li>`).join('');
+    if (plan.length === 0) {
+        await Swal.fire({ icon: 'warning', title: 'Sin elementos', text: 'No se encontraron programas ni modalidades para validar.' });
+        return;
+    }
 
-            const confirmacionCeros = await Swal.fire({
-                title: 'Programas sin egresados detectados',
-                html: `
+    // Detectar si hay programas+modalidades con 0 egresados registrados
+    const filasTotales = Array.isArray(datosFilas) ? datosFilas : [];
+    for (const item of plan) {
+        const progBuscado = item.programaNombre.trim().toLowerCase();
+        const modBuscada = item.modalidadNombre.trim().toLowerCase();
+
+        let totalEgresados = 0;
+        filasTotales.forEach(row => {
+            if (!row) return;
+            const rProg = (row.Nombre_Programa || '').trim().toLowerCase();
+            const rMod = (row.Modalidad || '').trim().toLowerCase();
+            if (rProg === progBuscado && rMod === modBuscada) {
+                const eg = parseInt(row.Egresados || 0, 10);
+                if (!isNaN(eg)) totalEgresados += eg;
+            }
+        });
+
+        if (totalEgresados === 0) {
+            paresEnCero.push({
+                programaNombre: item.programaNombre,
+                modalidadNombre: item.modalidadNombre
+            });
+        }
+    }
+
+    // Si hay programas en 0, preguntar al usuario
+    if (paresEnCero.length > 0) {
+        const htmlLista = paresEnCero.map(p => `<li style="padding: 3px 0;"><strong>${p.programaNombre}</strong> — ${p.modalidadNombre}</li>`).join('');
+
+        const confirmacionCeros = await Swal.fire({
+            title: 'Programas sin egresados detectados',
+            html: `
                     <div style="text-align: left; margin: 5px 0;">
                         <p style="margin-bottom: 8px;">Se detectaron <strong>${paresEnCero.length} programa(s)/modalidad(es)</strong> con <strong>0 egresados</strong>:</p>
                         <div style="max-height: 180px; overflow-y: auto; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px 14px; margin: 10px 0;">
@@ -2746,94 +2837,94 @@
                         <p style="margin-top: 10px; font-weight: 600; color: #750946;">¿Desea continuar y validarlos en 0?</p>
                     </div>
                 `,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, validar en 0',
-                cancelButtonText: 'Cancelar y revisar',
-                confirmButtonColor: '#28a745',
-                cancelButtonColor: '#dc3545'
-            });
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, validar en 0',
+            cancelButtonText: 'Cancelar y revisar',
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#dc3545'
+        });
 
-            if (!confirmacionCeros.isConfirmed) {
-                return;
-            }
+        if (!confirmacionCeros.isConfirmed) {
+            return;
         }
+    }
 
-        const totalPares = plan.length;
-        let procesados = 0;
-        let exitosos = 0;
-        let errores = 0;
+    const totalPares = plan.length;
+    let procesados = 0;
+    let exitosos = 0;
+    let errores = 0;
 
-        validacionMasivaEnCurso = true;
-        const botonesMasivos = document.querySelectorAll('#btn-validar-todos-egresados, .btn-validacion-masiva');
-        botonesMasivos.forEach(b => b.disabled = true);
+    validacionMasivaEnCurso = true;
+    const botonesMasivos = document.querySelectorAll('#btn-validar-todos-egresados, .btn-validacion-masiva');
+    botonesMasivos.forEach(b => b.disabled = true);
 
-        try {
-            abrirModalProgresoCircularEgresados(totalPares);
-            actualizarModalProgresoCircularEgresados(0, totalPares, 'Iniciando validación masiva...', `0 de ${totalPares} programas/modalidades`);
+    try {
+        abrirModalProgresoCircularEgresados(totalPares);
+        actualizarModalProgresoCircularEgresados(0, totalPares, 'Iniciando validación masiva...', `0 de ${totalPares} programas/modalidades`);
 
-            for (const item of plan) {
-                actualizarModalProgresoCircularEgresados(
-                    procesados,
-                    totalPares,
-                    `${item.programaNombre} — ${item.modalidadNombre}`,
-                    `Procesando ${procesados + 1} de ${totalPares}`
-                );
+        for (const item of plan) {
+            actualizarModalProgresoCircularEgresados(
+                procesados,
+                totalPares,
+                `${item.programaNombre} — ${item.modalidadNombre}`,
+                `Procesando ${procesados + 1} de ${totalPares}`
+            );
 
-                try {
-                    const response = await fetch('/egresados/finalizar_captura', {
-                        method: 'POST',
-                        credentials: 'same-origin',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            periodo: periodoInput,
-                            programa: item.programaId,
-                            modalidad: item.modalidadId
-                        })
+            try {
+                const response = await fetch('/egresados/finalizar_captura', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        periodo: periodoInput,
+                        programa: item.programaId,
+                        modalidad: item.modalidadId
+                    })
+                });
+
+                const resultado = await response.json();
+                if (resultado.success) {
+                    exitosos++;
+                    resumen.push({
+                        programaNombre: item.programaNombre,
+                        modalidadNombre: item.modalidadNombre,
+                        ok: true,
+                        observacion: 'Completado'
                     });
-
-                    const resultado = await response.json();
-                    if (resultado.success) {
-                        exitosos++;
-                        resumen.push({
-                            programaNombre: item.programaNombre,
-                            modalidadNombre: item.modalidadNombre,
-                            ok: true,
-                            observacion: 'Completado'
-                        });
-                    } else {
-                        errores++;
-                        resumen.push({
-                            programaNombre: item.programaNombre,
-                            modalidadNombre: item.modalidadNombre,
-                            ok: false,
-                            observacion: resultado.warning || resultado.error || 'Error al validar'
-                        });
-                    }
-                } catch (errItem) {
-                    console.error(`Error validando ${item.programaNombre} (${item.modalidadNombre}):`, errItem);
+                } else {
                     errores++;
                     resumen.push({
                         programaNombre: item.programaNombre,
                         modalidadNombre: item.modalidadNombre,
                         ok: false,
-                        observacion: errItem.message || 'Error de conexión'
+                        observacion: resultado.warning || resultado.error || 'Error al validar'
                     });
-                } finally {
-                    procesados++;
-                    actualizarModalProgresoCircularEgresados(
-                        procesados,
-                        totalPares,
-                        `${item.programaNombre} — ${item.modalidadNombre}`,
-                        `${procesados} de ${totalPares} procesados`
-                    );
                 }
+            } catch (errItem) {
+                console.error(`Error validando ${item.programaNombre} (${item.modalidadNombre}):`, errItem);
+                errores++;
+                resumen.push({
+                    programaNombre: item.programaNombre,
+                    modalidadNombre: item.modalidadNombre,
+                    ok: false,
+                    observacion: errItem.message || 'Error de conexión'
+                });
+            } finally {
+                procesados++;
+                actualizarModalProgresoCircularEgresados(
+                    procesados,
+                    totalPares,
+                    `${item.programaNombre} — ${item.modalidadNombre}`,
+                    `${procesados} de ${totalPares} procesados`
+                );
             }
+        }
 
-            cerrarModalProgresoCircularEgresados();
+        cerrarModalProgresoCircularEgresados();
 
-            const efectividad = Math.round((exitosos / totalPares) * 100);
-            const filasHtml = resumen.map(r => `
+        const efectividad = Math.round((exitosos / totalPares) * 100);
+        const filasHtml = resumen.map(r => `
                 <tr style="border-bottom: 1px solid #e9ecef;">
                     <td style="padding: 8px 10px; text-align: left; font-weight: 500;">${r.programaNombre}</td>
                     <td style="padding: 8px 10px; text-align: center;">${r.modalidadNombre}</td>
@@ -2845,9 +2936,9 @@
                 </tr>
             `).join('');
 
-            await Swal.fire({
-                title: 'Resumen de Validación Masiva - Egresados',
-                html: `
+        await Swal.fire({
+            title: 'Resumen de Validación Masiva - Egresados',
+            html: `
                     <div style="margin-bottom: 15px;">
                         <div style="display: flex; justify-content: space-around; background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
                             <div style="text-align: center;">
@@ -2883,32 +2974,32 @@
                         </div>
                     </div>
                 `,
-                icon: errores === 0 ? 'success' : 'warning',
-                confirmButtonColor: '#750946',
-                confirmButtonText: 'Aceptar y Actualizar'
+            icon: errores === 0 ? 'success' : 'warning',
+            confirmButtonColor: '#750946',
+            confirmButtonText: 'Aceptar y Actualizar'
+        });
+
+        if (exitosos === totalPares) {
+            botonesMasivos.forEach(b => {
+                b.style.display = 'none';
             });
-
-            if (exitosos === totalPares) {
-                botonesMasivos.forEach(b => {
-                    b.style.display = 'none';
-                });
-            }
-
-            window.location.reload();
-
-        } catch (error) {
-            console.error('Error en validación masiva:', error);
-            cerrarModalProgresoCircularEgresados();
-            await Swal.fire({
-                icon: 'error',
-                title: 'Error en validación masiva',
-                text: error.message || 'Ocurrió un error inesperado durante el proceso.',
-                confirmButtonColor: '#750946'
-            });
-        } finally {
-            validacionMasivaEnCurso = false;
-            botonesMasivos.forEach(b => b.disabled = false);
         }
+
+        window.location.reload();
+
+    } catch (error) {
+        console.error('Error en validación masiva:', error);
+        cerrarModalProgresoCircularEgresados();
+        await Swal.fire({
+            icon: 'error',
+            title: 'Error en validación masiva',
+            text: error.message || 'Ocurrió un error inesperado durante el proceso.',
+            confirmButtonColor: '#750946'
+        });
+    } finally {
+        validacionMasivaEnCurso = false;
+        botonesMasivos.forEach(b => b.disabled = false);
+    }
     }
 
     /* ==============================================
@@ -2998,7 +3089,7 @@
             const genEnc = encodeURIComponent(fila.Generacion);
             const edadEnc = encodeURIComponent(fila.Grupo_Edad);
 
-            const esFinalizado = (datos || []).some(d => 
+            const esFinalizado = (datos || []).some(d =>
                 d &&
                 d.Nombre_Programa === fila.Nombre_Programa &&
                 d.Modalidad === fila.Modalidad &&
@@ -3130,8 +3221,8 @@
         const progNombre = selectPrograma.options[selectPrograma.selectedIndex]?.text.trim() || selectPrograma.value;
         const modNombre = selectModalidad.options[selectModalidad.selectedIndex]?.text.trim() || selectModalidad.value;
 
-        const filasFiltradas = (datosFilas || []).filter(f => 
-            (f.Nombre_Programa === progNombre || f.Nombre_Programa === selectPrograma.value) && 
+        const filasFiltradas = (datosFilas || []).filter(f =>
+            (f.Nombre_Programa === progNombre || f.Nombre_Programa === selectPrograma.value) &&
             (f.Modalidad === modNombre || f.Modalidad === selectModalidad.value)
         );
 
@@ -3456,7 +3547,7 @@
     }
 
     // EVENT DELEGATION FOR MULTI-SELECT CHECKBOXES (SELECCIONAR TODAS / INDIVIDUAL)
-    document.addEventListener('change', function(e) {
+    document.addEventListener('change', function (e) {
         if (e.target && e.target.id === 'seleccionar-todas-informe') {
             const checkboxes = document.querySelectorAll('.seleccionar-fila-informe');
             checkboxes.forEach(cb => {
@@ -3480,18 +3571,18 @@
             }
         }
     });
-    
+
     /* ==============================================
        FUNCIONES DE BANNER Y NOTIFICACIONES
        ============================================== */
-    
+
     function inicializarValoresAutocompletados() {
         const selectPrograma = document.getElementById('programa');
         const selectModalidad = document.getElementById('modalidad');
         if (selectPrograma && selectPrograma.value) {
             console.log('Autocompletado detectado para programa:', selectPrograma.value);
             selectPrograma.dispatchEvent(new Event('change'));
-            
+
             setTimeout(() => {
                 if (selectModalidad && selectModalidad.value) {
                     console.log('Autocompletado detectado para modalidad:', selectModalidad.value);
@@ -3499,7 +3590,7 @@
                 }
             }, 100);
         }
-        
+
         const selectNivelSuperior = document.getElementById('select-nivel-superior');
         if (selectNivelSuperior && selectNivelSuperior.value) {
             selectNivelSuperior.dispatchEvent(new Event('change'));
@@ -3512,309 +3603,309 @@
     }
 
     // Event listeners al cargar el DOM
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // Obtener referencias a los selectores principales (fuera del bloque de roles)
         const selectPrograma = document.getElementById('programa');
         const selectModalidad = document.getElementById('modalidad');
         const selectBoleta = document.getElementById('filtro-boleta');
         const selectGeneracion = document.getElementById('filtro-generacion');
-        
+
         // === LÓGICA PARA ROLES 4-9 (SELECTOR DE PERIODO/UA/NIVEL) ===
         const esRolDirector = {{ 'true' if es_rol_director else 'false' }};
-        const esRolSuperior = {{ 'true' if es_rol_superior else 'false' }};
-        
-        if (esRolDirector || esRolSuperior) {
-            const contenedorMatricula = document.getElementById('contenedor-matricula-principal');
-            
-            const todasUnidades = {{ unidades_disponibles | tojson }};
-            const todosNiveles = {{ niveles_disponibles | tojson }};
-            const nivelAUAs = {{ nivel_a_uas_json | safe }};  // Mapeo: nivel_id -> [ua_ids]
-            const uaFijaSiglaDirector = {{ (unidad_actual.Sigla if unidad_actual else '') | tojson }};
-            
-            console.log('🎯 Modo Rol 4-9 activado');
-            console.log('📊 Unidades disponibles:', todasUnidades.length);
-            console.log('📊 Niveles disponibles:', todosNiveles.length);
-            console.log('🔗 Mapeo Nivel->UAs:', nivelAUAs);
+    const esRolSuperior = {{ 'true' if es_rol_superior else 'false' }};
 
-            if (esRolDirector) {
-                const selectPeriodoDirector = document.getElementById('select-periodo-director');
-                const selectNivelDirector = document.getElementById('select-nivel-director');
-                const btnVerResumenDirector = document.getElementById('btn-ver-resumen-director');
+    if (esRolDirector || esRolSuperior) {
+        const contenedorMatricula = document.getElementById('contenedor-matricula-principal');
 
-                function verificarSeleccionDirector() {
-                    const todosSeleccionados = !!(selectPeriodoDirector.value && selectNivelDirector.value);
-                    btnVerResumenDirector.disabled = !todosSeleccionados;
-                }
+        const todasUnidades = {{ unidades_disponibles | tojson }};
+    const todosNiveles = {{ niveles_disponibles | tojson }};
+    const nivelAUAs = {{ nivel_a_uas_json | safe }};  // Mapeo: nivel_id -> [ua_ids]
+    const uaFijaSiglaDirector = {{ (unidad_actual.Sigla if unidad_actual else '') | tojson }};
 
-                selectPeriodoDirector.addEventListener('change', verificarSeleccionDirector);
-                selectNivelDirector.addEventListener('change', verificarSeleccionDirector);
+    console.log('🎯 Modo Rol 4-9 activado');
+    console.log('📊 Unidades disponibles:', todasUnidades.length);
+    console.log('📊 Niveles disponibles:', todosNiveles.length);
+    console.log('🔗 Mapeo Nivel->UAs:', nivelAUAs);
 
-                btnVerResumenDirector.addEventListener('click', async function() {
-                    const idNivel = selectNivelDirector.value;
-                    const idPeriodo = selectPeriodoDirector.value;
+    if (esRolDirector) {
+        const selectPeriodoDirector = document.getElementById('select-periodo-director');
+        const selectNivelDirector = document.getElementById('select-nivel-director');
+        const btnVerResumenDirector = document.getElementById('btn-ver-resumen-director');
 
-                    if (!idNivel || !idPeriodo) {
-                        mostrarAlerta('Por favor, seleccione Periodo y Nivel', 'Campos incompletos');
-                        return;
-                    }
-
-                    if (!uaFijaSiglaDirector) {
-                        mostrarAlerta('No se pudo identificar la Unidad Académica del usuario', 'Información', 'error');
-                        return;
-                    }
-
-                    const periodoTexto = selectPeriodoDirector.options[selectPeriodoDirector.selectedIndex].text.replace(' (Activo)', '').trim();
-                    const nivelTexto = selectNivelDirector.options[selectNivelDirector.selectedIndex].text;
-
-                    console.log(`📈 Abriendo resumen dinámico (Director) - Periodo: ${periodoTexto}, Nivel: ${nivelTexto}, UA fija: ${uaFijaSiglaDirector}`);
-
-                    mostrarCargaSeleccion('Cargando egresados seleccionados...');
-                    btnVerResumenDirector.disabled = true;
-
-                    // =======================================================
-                    // PASO 3: GUARDAR NIVEL EN SESIÓN (EGRESADOS)
-                    // =======================================================
-                    try {
-                        await fetch('/egresados/fijar-nivel-temporal', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                id_nivel: idNivel, 
-                                nombre_nivel: nivelTexto
-                            })
-                        });
-                    } catch (error) {
-                        console.error("Error al fijar el nivel en sesión:", error);
-                    }
-                    // =======================================================
-
-                    const url = `/egresados/resumen-dinamico?periodo=${encodeURIComponent(periodoTexto)}&nivel=${encodeURIComponent(nivelTexto)}&unidad=${encodeURIComponent(uaFijaSiglaDirector)}`;
-                    setTimeout(() => {
-                        window.location.href = url;
-                    }, 80);
-                });
-
-                verificarSeleccionDirector();
-            } else if (esRolSuperior) {
-                const selectPeriodoSuperior = document.getElementById('select-periodo-superior');
-                const selectNivelSuperior = document.getElementById('select-nivel-superior');
-                const selectUASuperior = document.getElementById('select-ua-superior');
-                const btnVerResumen = document.getElementById('btn-ver-resumen');
-
-                function filtrarUAsPorNivel() {
-                    const nivelSeleccionado = selectNivelSuperior.value;
-
-                    if (!nivelSeleccionado) {
-                        selectUASuperior.disabled = true;
-                        selectUASuperior.innerHTML = '<option value="">-- Primero seleccione un Nivel --</option>';
-                        btnVerResumen.disabled = true;
-                        return;
-                    }
-
-                    const uasDelNivel = nivelAUAs[nivelSeleccionado] || [];
-                    console.log(`📊 Nivel ${nivelSeleccionado} tiene ${uasDelNivel.length} UAs disponibles:`, uasDelNivel);
-
-                    const uasFiltradas = todasUnidades.filter(ua =>
-                        uasDelNivel.includes(ua.Id_Unidad_Academica)
-                    ).sort((a, b) => a.Nombre.localeCompare(b.Nombre));
-
-                    selectUASuperior.innerHTML = '<option value="">-- Seleccione una Unidad Académica --</option>';
-                    uasFiltradas.forEach(ua => {
-                        const option = document.createElement('option');
-                        option.value = ua.Id_Unidad_Academica;
-                        option.setAttribute('data-sigla', ua.Sigla);
-                        option.textContent = `${ua.Sigla} - ${ua.Nombre}`;
-                        selectUASuperior.appendChild(option);
-                    });
-
-                    if (uasFiltradas.length > 0) {
-                        selectUASuperior.disabled = false;
-                        console.log(`✅ ${uasFiltradas.length} UAs disponibles para selección`);
-                    } else {
-                        selectUASuperior.disabled = true;
-                        selectUASuperior.innerHTML = '<option value="">-- Este Nivel no tiene UAs con egresados --</option>';
-                        console.warn('⚠️ Este Nivel no tiene UAs disponibles');
-                    }
-
-                    btnVerResumen.disabled = true;
-                }
-
-                function verificarSeleccion() {
-                    const nivelSeleccionado = selectNivelSuperior.value;
-                    const uaSeleccionada = selectUASuperior.value;
-                    const periodoSeleccionado = selectPeriodoSuperior.value;
-                    const todosSeleccionados = !!(nivelSeleccionado && uaSeleccionada && periodoSeleccionado);
-                    btnVerResumen.disabled = !todosSeleccionados;
-                }
-
-                selectPeriodoSuperior.addEventListener('change', verificarSeleccion);
-
-                selectNivelSuperior.addEventListener('change', function() {
-                    filtrarUAsPorNivel();
-                    verificarSeleccion();
-                });
-
-                selectUASuperior.addEventListener('change', verificarSeleccion);
-
-                btnVerResumen.addEventListener('click', function() {
-                    const idNivel = selectNivelSuperior.value;
-                    const idUA = selectUASuperior.value;
-                    const idPeriodo = selectPeriodoSuperior.value;
-
-                    if (!idNivel || !idUA || !idPeriodo) {
-                        mostrarAlerta('Por favor, seleccione Periodo, Nivel y Unidad Académica', 'Campos incompletos');
-                        return;
-                    }
-
-                    const periodoTexto = selectPeriodoSuperior.options[selectPeriodoSuperior.selectedIndex].text.replace(' (Activo)', '').trim();
-                    const nivelTexto = selectNivelSuperior.options[selectNivelSuperior.selectedIndex].text;
-                    const uaSigla = selectUASuperior.options[selectUASuperior.selectedIndex].getAttribute('data-sigla');
-
-                    console.log(`📈 Abriendo resumen dinámico - Periodo: ${periodoTexto}, Nivel: ${nivelTexto}, UA: ${uaSigla}`);
-
-                    mostrarCargaSeleccion('Cargando egresados seleccionados...');
-                    btnVerResumen.disabled = true;
-
-                    const url = `/egresados/resumen-dinamico?periodo=${encodeURIComponent(periodoTexto)}&nivel=${encodeURIComponent(nivelTexto)}&unidad=${encodeURIComponent(uaSigla)}`;
-                    setTimeout(() => {
-                        window.location.href = url;
-                    }, 80);
-                });
-            }
+        function verificarSeleccionDirector() {
+            const todosSeleccionados = !!(selectPeriodoDirector.value && selectNivelDirector.value);
+            btnVerResumenDirector.disabled = !todosSeleccionados;
         }
-        // === FIN LÓGICA ROLES 4-9 ===
 
-        // Si el usuario regresa con el botón "atrás", cerramos el overlay de carga
-        window.addEventListener('pageshow', function(event) {
-            if (event.persisted) {
-                ocultarCargaSeleccion();
+        selectPeriodoDirector.addEventListener('change', verificarSeleccionDirector);
+        selectNivelDirector.addEventListener('change', verificarSeleccionDirector);
+
+        btnVerResumenDirector.addEventListener('click', async function () {
+            const idNivel = selectNivelDirector.value;
+            const idPeriodo = selectPeriodoDirector.value;
+
+            if (!idNivel || !idPeriodo) {
+                mostrarAlerta('Por favor, seleccione Periodo y Nivel', 'Campos incompletos');
+                return;
             }
+
+            if (!uaFijaSiglaDirector) {
+                mostrarAlerta('No se pudo identificar la Unidad Académica del usuario', 'Información', 'error');
+                return;
+            }
+
+            const periodoTexto = selectPeriodoDirector.options[selectPeriodoDirector.selectedIndex].text.replace(' (Activo)', '').trim();
+            const nivelTexto = selectNivelDirector.options[selectNivelDirector.selectedIndex].text;
+
+            console.log(`📈 Abriendo resumen dinámico (Director) - Periodo: ${periodoTexto}, Nivel: ${nivelTexto}, UA fija: ${uaFijaSiglaDirector}`);
+
+            mostrarCargaSeleccion('Cargando egresados seleccionados...');
+            btnVerResumenDirector.disabled = true;
+
+            // =======================================================
+            // PASO 3: GUARDAR NIVEL EN SESIÓN (EGRESADOS)
+            // =======================================================
+            try {
+                await fetch('/egresados/fijar-nivel-temporal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_nivel: idNivel,
+                        nombre_nivel: nivelTexto
+                    })
+                });
+            } catch (error) {
+                console.error("Error al fijar el nivel en sesión:", error);
+            }
+            // =======================================================
+
+            const url = `/egresados/resumen-dinamico?periodo=${encodeURIComponent(periodoTexto)}&nivel=${encodeURIComponent(nivelTexto)}&unidad=${encodeURIComponent(uaFijaSiglaDirector)}`;
+            setTimeout(() => {
+                window.location.href = url;
+            }, 80);
         });
-        
-        // Agregar listeners a los checkboxes de edad
-        const checkboxesEdad = document.querySelectorAll('.checkbox-edad');
-        checkboxesEdad.forEach(checkbox => {
-            checkbox.addEventListener('change', actualizarContadorEdades);
+
+        verificarSeleccionDirector();
+    } else if (esRolSuperior) {
+        const selectPeriodoSuperior = document.getElementById('select-periodo-superior');
+        const selectNivelSuperior = document.getElementById('select-nivel-superior');
+        const selectUASuperior = document.getElementById('select-ua-superior');
+        const btnVerResumen = document.getElementById('btn-ver-resumen');
+
+        function filtrarUAsPorNivel() {
+            const nivelSeleccionado = selectNivelSuperior.value;
+
+            if (!nivelSeleccionado) {
+                selectUASuperior.disabled = true;
+                selectUASuperior.innerHTML = '<option value="">-- Primero seleccione un Nivel --</option>';
+                btnVerResumen.disabled = true;
+                return;
+            }
+
+            const uasDelNivel = nivelAUAs[nivelSeleccionado] || [];
+            console.log(`📊 Nivel ${nivelSeleccionado} tiene ${uasDelNivel.length} UAs disponibles:`, uasDelNivel);
+
+            const uasFiltradas = todasUnidades.filter(ua =>
+                uasDelNivel.includes(ua.Id_Unidad_Academica)
+            ).sort((a, b) => a.Nombre.localeCompare(b.Nombre));
+
+            selectUASuperior.innerHTML = '<option value="">-- Seleccione una Unidad Académica --</option>';
+            uasFiltradas.forEach(ua => {
+                const option = document.createElement('option');
+                option.value = ua.Id_Unidad_Academica;
+                option.setAttribute('data-sigla', ua.Sigla);
+                option.textContent = `${ua.Sigla} - ${ua.Nombre}`;
+                selectUASuperior.appendChild(option);
+            });
+
+            if (uasFiltradas.length > 0) {
+                selectUASuperior.disabled = false;
+                console.log(`✅ ${uasFiltradas.length} UAs disponibles para selección`);
+            } else {
+                selectUASuperior.disabled = true;
+                selectUASuperior.innerHTML = '<option value="">-- Este Nivel no tiene UAs con egresados --</option>';
+                console.warn('⚠️ Este Nivel no tiene UAs disponibles');
+            }
+
+            btnVerResumen.disabled = true;
+        }
+
+        function verificarSeleccion() {
+            const nivelSeleccionado = selectNivelSuperior.value;
+            const uaSeleccionada = selectUASuperior.value;
+            const periodoSeleccionado = selectPeriodoSuperior.value;
+            const todosSeleccionados = !!(nivelSeleccionado && uaSeleccionada && periodoSeleccionado);
+            btnVerResumen.disabled = !todosSeleccionados;
+        }
+
+        selectPeriodoSuperior.addEventListener('change', verificarSeleccion);
+
+        selectNivelSuperior.addEventListener('change', function () {
+            filtrarUAsPorNivel();
+            verificarSeleccion();
         });
-        
-        // Configurar filtrado de modalidades y selectores en cascada
-        if (selectPrograma && selectModalidad) {
-            resetSelect(selectModalidad, '-- Primero seleccione un Programa Académico --');
+
+        selectUASuperior.addEventListener('change', verificarSeleccion);
+
+        btnVerResumen.addEventListener('click', function () {
+            const idNivel = selectNivelSuperior.value;
+            const idUA = selectUASuperior.value;
+            const idPeriodo = selectPeriodoSuperior.value;
+
+            if (!idNivel || !idUA || !idPeriodo) {
+                mostrarAlerta('Por favor, seleccione Periodo, Nivel y Unidad Académica', 'Campos incompletos');
+                return;
+            }
+
+            const periodoTexto = selectPeriodoSuperior.options[selectPeriodoSuperior.selectedIndex].text.replace(' (Activo)', '').trim();
+            const nivelTexto = selectNivelSuperior.options[selectNivelSuperior.selectedIndex].text;
+            const uaSigla = selectUASuperior.options[selectUASuperior.selectedIndex].getAttribute('data-sigla');
+
+            console.log(`📈 Abriendo resumen dinámico - Periodo: ${periodoTexto}, Nivel: ${nivelTexto}, UA: ${uaSigla}`);
+
+            mostrarCargaSeleccion('Cargando egresados seleccionados...');
+            btnVerResumen.disabled = true;
+
+            const url = `/egresados/resumen-dinamico?periodo=${encodeURIComponent(periodoTexto)}&nivel=${encodeURIComponent(nivelTexto)}&unidad=${encodeURIComponent(uaSigla)}`;
+            setTimeout(() => {
+                window.location.href = url;
+            }, 80);
+        });
+    }
+        }
+    // === FIN LÓGICA ROLES 4-9 ===
+
+    // Si el usuario regresa con el botón "atrás", cerramos el overlay de carga
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            ocultarCargaSeleccion();
+        }
+    });
+
+    // Agregar listeners a los checkboxes de edad
+    const checkboxesEdad = document.querySelectorAll('.checkbox-edad');
+    checkboxesEdad.forEach(checkbox => {
+        checkbox.addEventListener('change', actualizarContadorEdades);
+    });
+
+    // Configurar filtrado de modalidades y selectores en cascada
+    if (selectPrograma && selectModalidad) {
+        resetSelect(selectModalidad, '-- Primero seleccione un Programa Académico --');
+        resetSelect(selectBoleta, '-- Seleccione Boleta --');
+        resetSelect(selectGeneracion, '-- Seleccione Generación --');
+
+        selectPrograma.addEventListener('change', function () {
+            ocultarSeccionCaptura();
             resetSelect(selectBoleta, '-- Seleccione Boleta --');
             resetSelect(selectGeneracion, '-- Seleccione Generación --');
-            
-            selectPrograma.addEventListener('change', function() {
-                ocultarSeccionCaptura();
-                resetSelect(selectBoleta, '-- Seleccione Boleta --');
-                resetSelect(selectGeneracion, '-- Seleccione Generación --');
-                
-                const programaId = this.value;
-                if (!programaId) {
-                    resetSelect(selectModalidad, '-- Primero seleccione un Programa Académico --');
-                    actualizarBannerSeleccion();
-                    filtrarPorSelects();
-                    return;
-                }
-                
-                filtrarModalidadesPorPrograma();
+
+            const programaId = this.value;
+            if (!programaId) {
+                resetSelect(selectModalidad, '-- Primero seleccione un Programa Académico --');
                 actualizarBannerSeleccion();
                 filtrarPorSelects();
-            });
-            
-            selectModalidad.addEventListener('change', function() {
-                filasEgresados = [];
-
-                resetSelect(selectBoleta, '-- Seleccione Boleta --');
-                resetSelect(selectGeneracion, '-- Seleccione Generación --');
-
-                if (selectPrograma.value && this.value) {
-                    const progNom = selectPrograma.options[selectPrograma.selectedIndex].text.trim();
-                    const modNom = this.options[this.selectedIndex].text.trim();
-                    turnosDisponibles = obtenerTurnosParaProgramaModalidad(progNom, modNom);
-                    generarCabeceraTabla();
-                    renderizarTablaEgresados();
-
-                    mostrarSeccionCaptura();
-                    actualizarBannerSeleccion();
-
-                    llenarSelect(selectBoleta, catalogoBoletas);
-                    selectBoleta.disabled = false;
-
-                    renderizarTablaEgresadosInforme(datosFilas);
-                    filtrarPorSelects();
-                    actualizarSemaforoEgresados();
-                } else {
-                    renderizarTablaEgresados();
-                    ocultarSeccionCaptura();
-                    actualizarBannerSeleccion();
-                    filtrarPorSelects();
-                }
-            });
-
-            if (selectBoleta) {
-                selectBoleta.addEventListener('change', function() {
-                    resetSelect(selectGeneracion, '-- Seleccione Generación --');
-
-                    if (!this.value) return;
-
-                    llenarSelect(selectGeneracion, catalogoGeneraciones);
-                    selectGeneracion.disabled = false;
-                });
+                return;
             }
 
-            window.addEventListener('resize', function() {
-                ajustarTamanoBannerSeleccion();
-            });
-            
-            inicializarValoresAutocompletados();
-        }
-        
-        // Cerrar panel de notificaciones al hacer clic fuera
-        document.addEventListener('click', function(event) {
-            const panel = document.getElementById('panel-notificaciones');
-            const btnNotificaciones = document.querySelector('.btn-notificaciones');
-            
-            if (panel && panel.style.display === 'block') {
-                if (!panel.contains(event.target) && btnNotificaciones && !btnNotificaciones.contains(event.target)) {
-                    panel.style.display = 'none';
-                }
-            }
-            
-            // Cerrar dropdown de filtros si se hace clic fuera
-            if (currentFilterDropdown && !event.target.closest('.filterable-header') && !event.target.closest('.filter-dropdown')) {
-                currentFilterDropdown.remove();
-                currentFilterDropdown = null;
-                currentFilterHeaderEl = null;
-                unbindFilterDropdownAutoPosition();
-                clearHeaderOpenState();
-            }
+            filtrarModalidadesPorPrograma();
+            actualizarBannerSeleccion();
+            filtrarPorSelects();
         });
-        
-        // Cargar el informe de egresados al iniciar (solo para capturistas)
-        if (esCapturista) {
-            if (datosFilas && datosFilas.length > 0) {
+
+        selectModalidad.addEventListener('change', function () {
+            filasEgresados = [];
+
+            resetSelect(selectBoleta, '-- Seleccione Boleta --');
+            resetSelect(selectGeneracion, '-- Seleccione Generación --');
+
+            if (selectPrograma.value && this.value) {
+                const progNom = selectPrograma.options[selectPrograma.selectedIndex].text.trim();
+                const modNom = this.options[this.selectedIndex].text.trim();
+                turnosDisponibles = obtenerTurnosParaProgramaModalidad(progNom, modNom);
+                generarCabeceraTabla();
+                renderizarTablaEgresados();
+
+                mostrarSeccionCaptura();
+                actualizarBannerSeleccion();
+
+                llenarSelect(selectBoleta, catalogoBoletas);
+                selectBoleta.disabled = false;
+
                 renderizarTablaEgresadosInforme(datosFilas);
                 filtrarPorSelects();
+                actualizarSemaforoEgresados();
+            } else {
+                renderizarTablaEgresados();
+                ocultarSeccionCaptura();
+                actualizarBannerSeleccion();
+                filtrarPorSelects();
             }
-            initTableFilters();
+        });
+
+        if (selectBoleta) {
+            selectBoleta.addEventListener('change', function () {
+                resetSelect(selectGeneracion, '-- Seleccione Generación --');
+
+                if (!this.value) return;
+
+                llenarSelect(selectGeneracion, catalogoGeneraciones);
+                selectGeneracion.disabled = false;
+            });
         }
-        
-        console.log('✅ Aplicación de Egresados inicializada correctamente');
+
+        window.addEventListener('resize', function () {
+            ajustarTamanoBannerSeleccion();
+        });
+
+        inicializarValoresAutocompletados();
+    }
+
+    // Cerrar panel de notificaciones al hacer clic fuera
+    document.addEventListener('click', function (event) {
+        const panel = document.getElementById('panel-notificaciones');
+        const btnNotificaciones = document.querySelector('.btn-notificaciones');
+
+        if (panel && panel.style.display === 'block') {
+            if (!panel.contains(event.target) && btnNotificaciones && !btnNotificaciones.contains(event.target)) {
+                panel.style.display = 'none';
+            }
+        }
+
+        // Cerrar dropdown de filtros si se hace clic fuera
+        if (currentFilterDropdown && !event.target.closest('.filterable-header') && !event.target.closest('.filter-dropdown')) {
+            currentFilterDropdown.remove();
+            currentFilterDropdown = null;
+            currentFilterHeaderEl = null;
+            unbindFilterDropdownAutoPosition();
+            clearHeaderOpenState();
+        }
     });
-    
+
+    // Cargar el informe de egresados al iniciar (solo para capturistas)
+    if (esCapturista) {
+        if (datosFilas && datosFilas.length > 0) {
+            renderizarTablaEgresadosInforme(datosFilas);
+            filtrarPorSelects();
+        }
+        initTableFilters();
+    }
+
+    console.log('✅ Aplicación de Egresados inicializada correctamente');
+    });
+
     /* ==============================================
        FILTROS TIPO EXCEL PARA TABLA DE INFORME
        ============================================== */
-    
+
     function initTableFilters() {
         const headers = document.querySelectorAll('.filterable-header');
         updateFilterHeaderStates();
-        
+
         headers.forEach(header => {
-            header.addEventListener('click', function(e) {
+            header.addEventListener('click', function (e) {
                 e.stopPropagation();
                 const columnIndex = parseInt(this.dataset.column);
-                
+
                 // Si ya hay un dropdown abierto, cerrarlo
                 if (currentFilterDropdown) {
                     currentFilterDropdown.remove();
@@ -3826,7 +3917,7 @@
                         return;
                     }
                 }
-                
+
                 // Crear nuevo dropdown
                 showFilterDropdown(this, columnIndex);
             });
@@ -3847,17 +3938,17 @@
             header.classList.toggle('has-filter', hasFilter);
         });
     }
-    
+
     function showFilterDropdown(headerElement, columnIndex) {
         const table = document.getElementById('informe-egresados-table');
         const tbody = table.querySelector('tbody');
         const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('td[colspan]'));
-        
+
         if (rows.length === 0) {
             console.log('⚠️ No hay datos para filtrar');
             return;
         }
-        
+
         // Recopilar valores únicos de la columna
         const uniqueValues = new Set();
         rows.forEach(row => {
@@ -3867,7 +3958,7 @@
                 uniqueValues.add(value);
             }
         });
-        
+
         const sortedValues = Array.from(uniqueValues).sort((a, b) => {
             // Ordenar numéricamente si ambos son números
             const numA = parseFloat(a);
@@ -3875,37 +3966,37 @@
             if (!isNaN(numA) && !isNaN(numB)) {
                 return numA - numB;
             }
-            return a.localeCompare(b, 'es', {numeric: true});
+            return a.localeCompare(b, 'es', { numeric: true });
         });
 
         const dropdownWidth = calculateDynamicDropdownWidth(sortedValues, headerElement);
-        
+
         // Crear dropdown
         const dropdown = document.createElement('div');
         dropdown.className = 'filter-dropdown active';
         dropdown.dataset.column = columnIndex;
-        
+
         // Prevenir que clicks dentro del dropdown lo cierren
-        dropdown.addEventListener('click', function(e) {
+        dropdown.addEventListener('click', function (e) {
             e.stopPropagation();
         });
-        
+
         // Contenedor de opciones
         const optionsContainer = document.createElement('div');
         optionsContainer.className = 'filter-options';
-        
+
         // Opción "Seleccionar todo"
         const selectAllOption = createFilterOption('(Seleccionar todo)', '__ALL__', columnIndex);
         optionsContainer.appendChild(selectAllOption);
-        
+
         // Opciones individuales
         sortedValues.forEach(value => {
             const option = createFilterOption(value, value, columnIndex);
             optionsContainer.appendChild(option);
         });
-        
+
         dropdown.appendChild(optionsContainer);
-        
+
         // Posicionar dropdown
         clearHeaderOpenState();
         headerElement.classList.add('is-open');
@@ -3916,7 +4007,7 @@
         currentFilterDropdown = dropdown;
         currentFilterHeaderEl = headerElement;
         bindFilterDropdownAutoPosition();
-        
+
         // Marcar checkboxes según filtros activos
         const activeColumnFilter = activeFilters[columnIndex];
         if (activeColumnFilter) {
@@ -4040,36 +4131,36 @@
             option.classList.toggle('is-checked', checkboxElement.checked);
         }
     }
-    
+
     function createFilterOption(label, value, columnIndex) {
         const option = document.createElement('div');
         option.className = 'filter-option';
-        
+
         // Prevenir propagación de click en la opción
-        option.addEventListener('click', function(e) {
+        option.addEventListener('click', function (e) {
             e.stopPropagation();
             // Toggle del checkbox cuando se hace clic en la opción
             const checkbox = this.querySelector('input[type="checkbox"]');
             checkbox.checked = !checkbox.checked;
-            
+
             // Disparar evento change manualmente
             const event = new Event('change', { bubbles: true });
             checkbox.dispatchEvent(event);
         });
-        
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.dataset.value = value;
         checkbox.checked = true;
-        
+
         // Prevenir propagación en el checkbox mismo
-        checkbox.addEventListener('click', function(e) {
+        checkbox.addEventListener('click', function (e) {
             e.stopPropagation();
         });
-        
+
         // Lógica "Seleccionar todo"
         if (value === '__ALL__') {
-            checkbox.addEventListener('change', function(e) {
+            checkbox.addEventListener('change', function (e) {
                 e.stopPropagation();
                 const dropdown = this.closest('.filter-dropdown');
                 const allCheckboxes = dropdown.querySelectorAll('.filter-option:not(:first-child) input[type="checkbox"]');
@@ -4081,7 +4172,7 @@
                 applyColumnFilter(columnIndex, dropdown, false);
             });
         } else {
-            checkbox.addEventListener('change', function(e) {
+            checkbox.addEventListener('change', function (e) {
                 e.stopPropagation();
                 const dropdown = this.closest('.filter-dropdown');
                 const selectAllCheckbox = dropdown.querySelector('.filter-option:first-child input[type="checkbox"]');
@@ -4093,27 +4184,27 @@
                 applyColumnFilter(columnIndex, dropdown, false);
             });
         }
-        
+
         const labelSpan = document.createElement('span');
         labelSpan.textContent = label;
-        
+
         option.appendChild(checkbox);
         option.appendChild(labelSpan);
         setOptionCheckedStyle(checkbox);
-        
+
         return option;
     }
-    
+
     function applyColumnFilter(columnIndex, dropdown, closeDropdown = true) {
         const checkboxes = dropdown.querySelectorAll('.filter-option:not(:first-child) input[type="checkbox"]');
         const selectedValues = [];
-        
+
         checkboxes.forEach(checkbox => {
             if (checkbox.checked) {
                 selectedValues.push(checkbox.dataset.value);
             }
         });
-        
+
         if (selectedValues.length === checkboxes.length) {
             // Todos seleccionados = sin filtro
             delete activeFilters[columnIndex];
@@ -4123,7 +4214,7 @@
         } else {
             activeFilters[columnIndex] = selectedValues;
         }
-        
+
         applyAllFilters();
         updateFilterHeaderStates();
 
@@ -4137,12 +4228,12 @@
 
         console.log('✅ Filtro aplicado en columna', columnIndex, ':', selectedValues.length, 'valores');
     }
-    
+
     function clearColumnFilter(columnIndex) {
         delete activeFilters[columnIndex];
         applyAllFilters();
         updateFilterHeaderStates();
-        
+
         if (currentFilterDropdown) {
             currentFilterDropdown.remove();
             currentFilterDropdown = null;
@@ -4150,20 +4241,20 @@
             unbindFilterDropdownAutoPosition();
         }
         clearHeaderOpenState();
-        
+
         console.log('🗑️ Filtro limpiado en columna', columnIndex);
     }
-    
+
     function applyAllFilters() {
         const table = document.getElementById('informe-egresados-table');
         const tbody = table.querySelector('tbody');
         const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('td[colspan]'));
-        
+
         let visibleCount = 0;
-        
+
         rows.forEach(row => {
             let shouldShow = true;
-            
+
             // Aplicar cada filtro activo
             for (const [columnIndex, allowedValues] of Object.entries(activeFilters)) {
                 const cell = row.cells[parseInt(columnIndex)];
@@ -4175,7 +4266,7 @@
                     }
                 }
             }
-            
+
             row.style.display = shouldShow ? '' : 'none';
             if (shouldShow) visibleCount++;
         });
@@ -4187,7 +4278,7 @@
 
         rows.forEach(row => {
             if (row.style.display === 'none') return;
-            
+
             // Preferir atributos data-hombres/data-mujeres si existen
             const dh = row.dataset && row.dataset.hombres ? parseInt(row.dataset.hombres) : NaN;
             const dm = row.dataset && row.dataset.mujeres ? parseInt(row.dataset.mujeres) : NaN;
@@ -4210,7 +4301,7 @@
                 const th = totalRow.querySelector('.total-hombres');
                 const tm = totalRow.querySelector('.total-mujeres');
                 const tg = totalRow.querySelector('.total-general-egresados');
-                
+
                 if (th) th.textContent = totalVisibleHombres.toLocaleString('en-US');
                 if (tm) tm.textContent = totalVisibleMujeres.toLocaleString('en-US');
                 if (tg) tg.textContent = totalVisibleGeneral.toLocaleString('en-US');
@@ -4221,9 +4312,9 @@
 
         console.log(`📊 Filtros aplicados: ${visibleCount}/${rows.length} filas visibles — Totales: Hombres=${totalVisibleHombres}, Mujeres=${totalVisibleMujeres}, Total=${totalVisibleGeneral}`);
     }
-    
+
     // Restricción global para inputs de captura numérica (4 dígitos, sin signos ni puntos)
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (e.target && e.target.type === 'number' && e.target.closest('#tabla-egresados-body, .tabla-matricula-container, .capture-table')) {
             if (['-', '.', '+', 'e', 'E', ','].includes(e.key)) {
                 e.preventDefault();
@@ -4231,7 +4322,7 @@
         }
     }, true);
 
-    document.addEventListener('input', function(e) {
+    document.addEventListener('input', function (e) {
         if (e.target && e.target.type === 'number' && e.target.closest('#tabla-egresados-body, .tabla-matricula-container, .capture-table')) {
             const clean = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
             if (e.target.value !== clean) {
@@ -4240,7 +4331,7 @@
         }
     }, true);
 
-    document.addEventListener('paste', function(e) {
+    document.addEventListener('paste', function (e) {
         if (e.target && e.target.type === 'number' && e.target.closest('#tabla-egresados-body, .tabla-matricula-container, .capture-table')) {
             e.preventDefault();
             const text = (e.clipboardData || window.clipboardData).getData('text') || '';

@@ -319,7 +319,6 @@
     {# ── Columna izquierda: Boleta (1) · Tipo de Titulación (2) ── #}
     <div class="columna-izq">
 
-        {% if tabla_boletas %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
                 1. Boleta
@@ -353,9 +352,7 @@
                 </tfoot>
             </table>
         </div>
-        {% endif %}
 
-        {% if tabla_tipo_tit %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
                 2. Tipo de Titulación
@@ -389,14 +386,12 @@
                 </tfoot>
             </table>
         </div>
-        {% endif %}
 
     </div>{# fin columna-izq #}
 
     {# ── Columna derecha: Grupo de Edad (3) · Programa Académico (4) · Modalidad (5) · Turno (6) ── #}
     <div class="columna-der">
 
-        {% if tabla_edades %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
                 3. Grupo de Edad
@@ -430,9 +425,7 @@
                 </tfoot>
             </table>
         </div>
-        {% endif %}
 
-        {% if tabla_programas %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
                 4. Programa Académico
@@ -466,9 +459,7 @@
                 </tfoot>
             </table>
         </div>
-        {% endif %}
 
-        {% if tabla_modalidades %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
                 5. Modalidad
@@ -502,9 +493,7 @@
                 </tfoot>
             </table>
         </div>
-        {% endif %}
 
-        {% if tabla_turnos %}
         <div class="tabla-seccion">
             <div class="tabla-titulo">
                 6. Turno
@@ -538,7 +527,6 @@
                 </tfoot>
             </table>
         </div>
-        {% endif %}
 
     </div>{# fin columna-der #}
 

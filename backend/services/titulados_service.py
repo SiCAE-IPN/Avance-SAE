@@ -188,8 +188,8 @@ def procesar_titulados(filas: list[dict]) -> dict:
         except (ValueError, TypeError):
             cantidad = 0
 
-        if cantidad <= 0:
-            continue
+        # if cantidad <= 0:
+        #     continue
 
         grupos = [
             (programa,  row.get('Nombre_Programa', 'Sin Programa')),
