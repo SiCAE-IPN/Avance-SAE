@@ -234,7 +234,7 @@ async def consulta_titulados(
     contexto = {}
     filas = []
     rechazo_info = {}
-
+    matricula_rechazada = False
 
     if es_capturista:
         try:
@@ -254,6 +254,9 @@ async def consulta_titulados(
                 id_nivel=getattr(sess, 'id_nivel', None))
             
             print("Esta es la info de rechzo: ", rechazo_info)
+            
+            if rechazo_info:
+                matricula_rechazada = True
 
             contexto, filas = obtener_titulados(
                 db=db,
@@ -354,6 +357,7 @@ async def consulta_titulados(
              "es_validador": es_validador,
              "es_rol_superior": es_rol_superior,
              "es_rol_director": es_rol_director,
+             "matricula_rechazada": matricula_rechazada,
              "acceso_restringido" : False,
              "session": sess}
              )
@@ -372,7 +376,7 @@ def guardar_titulados(
         )
 
     try:
-        verificar_permiso_formato(db, int(sess.id_usuario), 4)
+        verificar_permiso_formato(db, int(sess.id_usuario), 4, id_rol=id_rol)
     except HTTPException as e:
         return JSONResponse(content={"status": "error", "message": e.detail}, status_code=403)
 
@@ -432,7 +436,7 @@ def finalizar_captura_titulados(
         )
 
     try:
-        verificar_permiso_formato(db, int(sess.id_usuario), 4)
+        verificar_permiso_formato(db, int(sess.id_usuario), 4, id_rol=id_rol)
     except HTTPException as e:
         return JSONResponse(content={"status": "error", "message": e.detail}, status_code=403)
 
@@ -611,12 +615,30 @@ async def acuse_titulados_view(
 
     print("Nivle: ", id_nivel)
     
+    # El semáforo de Titulados se almacena en el penúltimo periodo (anterior al último),
+    # igual que en Egresados, ya que los SPs buscan internamente periodo_activo - 1
+    id_p_anterior, _ = get_periodo_anterior_al_ultimo(db)
+    id_semaforo_periodo = id_p_anterior or id_p_actual  # fallback al activo si no hay anterior
+
+    print(f"[acuse] Buscando semáforo en periodo anterior id={id_p_anterior} (activo={id_p_actual})")
+
     semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
-        SemaforoUnidadAcademica.Id_Periodo == id_periodo_req,
+        SemaforoUnidadAcademica.Id_Periodo == id_semaforo_periodo,
         SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
         SemaforoUnidadAcademica.Id_Formato == 4,
         SemaforoUnidadAcademica.Id_Nivel == id_nivel
     ).first()
+
+    # Fallback: si no hay en el anterior, intentar en el activo
+    if not semaforo_captura and id_semaforo_periodo != id_p_actual:
+        semaforo_captura = db.query(SemaforoUnidadAcademica).filter(
+            SemaforoUnidadAcademica.Id_Periodo == id_p_actual,
+            SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
+            SemaforoUnidadAcademica.Id_Formato == 4,
+            SemaforoUnidadAcademica.Id_Nivel == id_nivel
+        ).first()
+        if semaforo_captura:
+            print(f"[acuse] Semáforo encontrado en fallback (periodo activo id={id_p_actual})")
     
     print("Semaforo Captura:", semaforo_captura)
 
@@ -649,11 +671,11 @@ async def acuse_titulados_view(
                 esperando_por_rol = "Capturista"
 
     try:
-        if id_rol in [4, 5, 6, 7, 8, 9] and periodo_anterior_id is not None:
+        if id_rol in [4, 5, 6, 7, 8, 9] and id_periodo_req is not None:
             estado_semaforo = semaforo
             print()
             print()
-            print(f"Estado del semáforo para la unidad {unidad} en el periodo {periodo_anterior_id}: {semaforo}")
+            print(f"Estado del semáforo para la unidad {unidad} en el periodo {id_periodo_req}: {semaforo}")
             # Regla de jerarquía real (alineada a los SPs de Validar/Rechazar):
             # SP_Valida_Titulados y SP_Rechaza_Titulados validan que:
             #   sua.Id_Semaforo == (Id_Rol del usuario) - 1
@@ -674,7 +696,7 @@ async def acuse_titulados_view(
             try:
                 id_usuario_actual = int(sess.id_usuario)
                 rechazo_usuario = db.query(Validacion).filter(
-                    Validacion.Id_Periodo == periodo_anterior_id,
+                    Validacion.Id_Periodo == id_semaforo_periodo,
                     Validacion.Id_Usuario == id_usuario_actual,
                     Validacion.Id_Formato == 4,
                     Validacion.Validado == 0
@@ -688,7 +710,8 @@ async def acuse_titulados_view(
 
             if not puede_validar and not usuario_ya_valido and not usuario_ya_rechazo and semaforo > 0:
                 pendiente_validacion = True
-    except Exception:
+    except Exception as ex:
+        print(f"[acuse titulados] Error en lógica de validación: {ex}")
         # Si algo falla, solo no mostramos estado (UI seguirá normal)
         pass
 

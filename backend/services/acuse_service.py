@@ -40,7 +40,8 @@ def build_folio_acuse(*, periodo_literal: str, unidad_sigla: str, estatus_entreg
     sufijo = "ORDINARIA"
     if estatus_entrega and "extempor" in estatus_entrega.strip().lower():
         sufijo = "EXTEMPORANEA"
-    return f"{_safe_slug(unidad_sigla).upper()}-{_safe_slug(periodo_literal).upper()}"
+    # Se arma usando la cadena literal del periodo para conservar formato como "2025-2026/2" en el PDF
+    return f"{_safe_slug(unidad_sigla).upper()}-{periodo_literal.strip().upper()}"
 
 
 def save_acuse_pdf_for_user(

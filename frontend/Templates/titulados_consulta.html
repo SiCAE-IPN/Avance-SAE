@@ -236,7 +236,7 @@
 {% endblock %}
 {% block content %}
 
-<div id="overlay-carga-sp">
+<div id="overlay-carga-sp" class="activo">
     <div class="contenedor-spinner">
         <div class="spinner-sp"></div>
         <div class="texto-carga-sp">Procesando...</div>
@@ -434,7 +434,8 @@
         <div class="panel-header">
             <h3>🔍 Selección de Periodo, Unidad Académica y Nivel</h3>
             <p>Seleccione el <strong>Periodo</strong>, luego la <strong>Unidad Académica</strong> y finalmente el
-                <strong>Nivel</strong> a consultar</p>
+                <strong>Nivel</strong> a consultar
+            </p>
         </div>
 
         <div class="filtros-superiores-container" style="grid-template-columns: 1fr 1fr 1fr 300px;">
@@ -443,7 +444,7 @@
                 <select id="select-periodo-superior" name="periodo_superior" required>
                     <option value="">-- Seleccione un Periodo --</option>
                     {% for p in periodos %}
-                    <option value="{{ p.Periodo }}" {% if p.Id_Estatus == 1 %}selected{% endif %}>
+                    <option value="{{ p.Periodo }}" {% if p.Id_Estatus==1 %}selected{% endif %}>
                         {{ p.Periodo }} {% if p.Id_Estatus == 1 %}(Activo){% endif %}
                     </option>
                     {% endfor %}
@@ -738,9 +739,17 @@
             <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
                 <button id="btn-finalizar-captura" type="button" class="btn-success"
                     onclick="finalizarCapturaTitulados()"
-                    style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                    ✅ Finalizar Programa Modalidad
+                    style="display: none; padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                    ✅ Finalizar Captura
                 </button>
+                {% if matricula_rechazada %}
+                <button id="btn-validar-todos-titulados" type="button" class="btn-success btn-validacion-masiva"
+                    onclick="validarTodosLosTitulados()" {% if usuario_ya_valido or usuario_ya_rechazo %}disabled
+                    title="Ya has validado/rechazado estos titulados" {% endif %}
+                    style="display: none; padding: 12px 30px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; margin-left: 10px;">
+                    ✅✅ Validar Todos los Programas
+                </button>
+                {% endif %}
             </div>
         </div>
 
@@ -804,13 +813,20 @@
 
 </script>
 
-<script src="/static/js/titulados_consulta.js?v=2.2.0"></script>
+<script src="/static/js/titulados_consulta.js?v=2.2.1"></script>
 <script src="/static/js/notificacion.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (datosFilas && datosFilas.length > 0) {
             generarCabeceraTabla();
             initTableFilters();
+        }
+    });
+
+    window.addEventListener('load', function () {
+        const overlay = document.getElementById('overlay-carga-sp');
+        if (overlay) {
+            overlay.classList.remove('activo');
         }
     });
 </script>

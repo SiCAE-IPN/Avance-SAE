@@ -834,7 +834,7 @@ async function finalizarCapturaTitulados() {
             }
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || errData.detail || 'Error en la respuesta del servidor');
+                throw new Error(errData.error || errData.message || errData.detail || 'Error en la respuesta del servidor');
             }
             return response.json();
         })
@@ -848,10 +848,14 @@ async function finalizarCapturaTitulados() {
                     timer: 2000,
                     showConfirmButton: false
                 }).then(() => {
+                    const overlay = document.getElementById('overlay-carga-sp');
+                    if (overlay) overlay.classList.add('activo');
                     window.location.reload();
                 });
             } else {
                 alert('Finalizado programa modalidad correctamente');
+                const overlay = document.getElementById('overlay-carga-sp');
+                if (overlay) overlay.classList.add('activo');
                 window.location.reload();
             }
         })
@@ -1431,11 +1435,15 @@ function calculateDynamicDropdownWidth(values, headerElement) {
     const selectTipoTitulacion = document.getElementById('filtro-generacion');
     const contenedor = document.getElementById("tabla-edades-seleccion");
     const btnFinalizar = document.getElementById("btn-finalizar-captura");
+    const btnValidarTodos = document.getElementById("btn-validar-todos-titulados");
 
     console.log('Boton finalizar: ', btnFinalizar);
 
     if (btnFinalizar) {
         btnFinalizar.style.display = 'none';
+    }
+    if (btnValidarTodos) {
+        btnValidarTodos.style.display = 'none';
     }
 
     // Select nivel para roles superiores
@@ -1586,13 +1594,16 @@ function calculateDynamicDropdownWidth(values, headerElement) {
 
         const filtrosSecundarios = document.getElementById('filtros-secundarios');
         const btnFinalizar = document.getElementById('btn-finalizar-captura');
+        const btnValidarTodos = document.getElementById('btn-validar-todos-titulados');
 
         if (valor === 3) {
             filtrosSecundarios.style.display = 'none';
             if (btnFinalizar) btnFinalizar.disabled = true;
+            if (btnValidarTodos) btnValidarTodos.disabled = true;
         } else {
             filtrosSecundarios.style.display = 'block';
             if (btnFinalizar) btnFinalizar.disabled = false;
+            if (btnValidarTodos) btnValidarTodos.disabled = false;
         }
     }
 
@@ -1642,6 +1653,8 @@ function calculateDynamicDropdownWidth(values, headerElement) {
 
             filtrosSecundarios.style.display = 'none';
             pill.style.display = 'none';
+            if (btnFinalizar) btnFinalizar.style.display = 'none';
+            if (btnValidarTodos) btnValidarTodos.style.display = 'none';
 
             resetSelect(selectModalidad, '-- Seleccione una Modalidad --');
             resetSelect(selectBoleta, '-- Seleccione Boleta --');
@@ -1710,12 +1723,15 @@ function calculateDynamicDropdownWidth(values, headerElement) {
             if (!this.value) {
                 filtrosSecundarios.style.display = 'none';
                 pill.style.display = 'none';
+                if (btnFinalizar) btnFinalizar.style.display = 'none';
+                if (btnValidarTodos) btnValidarTodos.style.display = 'none';
                 return;
             }
 
             pill.style.display = 'inline-flex';
             filtrosSecundarios.style.display = 'block';
             if (btnFinalizar) btnFinalizar.style.display = 'inline-block';
+            if (btnValidarTodos) btnValidarTodos.style.display = 'inline-block';
 
             llenarSelect(selectBoleta, boletas);
             selectBoleta.disabled = false;
@@ -2241,3 +2257,318 @@ document.addEventListener('paste', function(e) {
     }
 }, true);
 
+
+/* ==========================================================
+   VALIDACIÓN MASIVA PARA TITULADOS (PROGRESO CIRCULAR & RESUMEN)
+   ========================================================== */
+let validacionMasivaEnCurso = false;
+let modalProgresoTitulados = null;
+
+function abrirModalProgresoCircularTitulados(total) {
+    if (modalProgresoTitulados) {
+        modalProgresoTitulados.close();
+        modalProgresoTitulados = null;
+    }
+    Swal.fire({
+        title: 'Validación masiva de Titulados...',
+        html: `
+            <div style="position: relative; width: 150px; height: 150px; margin: 0 auto;">
+                <svg viewBox="0 0 120 120" style="transform: rotate(-90deg); width: 100%; height: 100%;">
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="#e0e0e0" stroke-width="8" />
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="#28a745" stroke-width="8"
+                            stroke-dasharray="339.292" stroke-dashoffset="339.292"
+                            class="progress-ring__circle" />
+                </svg>
+                <div id="progreso-porcentaje-modal-tit" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 28px; font-weight: bold; color: #28a745;">0%</div>
+            </div>
+            <div id="progreso-texto-modal-tit" style="margin-top: 20px; font-size: 14px; color: #555; text-align: center;">Preparando validación...</div>
+            <div id="progreso-detalle-modal-tit" style="margin-top: 8px; font-size: 12px; color: #999; text-align: center;">0 de ${total}</div>
+        `,
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            modalProgresoTitulados = Swal.getPopup();
+            const circle = modalProgresoTitulados.querySelector('.progress-ring__circle');
+            if (circle) {
+                const radius = 54;
+                const circumference = radius * 2 * Math.PI;
+                circle.style.strokeDasharray = `${circumference} ${circumference}`;
+                circle.style.strokeDashoffset = circumference;
+                window.progressCircumferenceTit = circumference;
+            } else {
+                window.progressCircumferenceTit = 339.292;
+            }
+        }
+    });
+}
+
+function actualizarModalProgresoCircularTitulados(actual, total, texto, detalle) {
+    if (!modalProgresoTitulados) return;
+    const percent = total > 0 ? Math.round((actual / total) * 100) : 0;
+    const circle = modalProgresoTitulados.querySelector('.progress-ring__circle');
+    if (circle && window.progressCircumferenceTit) {
+        const offset = window.progressCircumferenceTit - (percent / 100) * window.progressCircumferenceTit;
+        circle.style.strokeDashoffset = offset;
+    }
+    const porcentajeSpan = modalProgresoTitulados.querySelector('#progreso-porcentaje-modal-tit');
+    if (porcentajeSpan) porcentajeSpan.innerText = `${percent}%`;
+    const textoDiv = modalProgresoTitulados.querySelector('#progreso-texto-modal-tit');
+    if (textoDiv) textoDiv.innerText = texto;
+    const detalleDiv = modalProgresoTitulados.querySelector('#progreso-detalle-modal-tit');
+    if (detalleDiv) detalleDiv.innerText = detalle;
+}
+
+function cerrarModalProgresoCircularTitulados() {
+    if (modalProgresoTitulados) {
+        Swal.close();
+        modalProgresoTitulados = null;
+    }
+}
+
+async function validarTodosLosTitulados() {
+    if (validacionMasivaEnCurso) {
+        Swal.fire({ icon: 'info', title: 'En proceso', text: 'Ya hay una validación masiva en curso.' });
+        return;
+    }
+
+    const confirmacion = await Swal.fire({
+        title: 'Validación masiva de Titulados',
+        html: '<p><strong>Se validarán todos los programas y modalidades de la Unidad Académica.</strong></p>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, continuar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#dc3545'
+    });
+
+    if (!confirmacion.isConfirmed) return;
+
+    const plan = [];
+    const paresEnCero = [];
+    const visitados = new Set();
+    const filasTotales = Array.isArray(datosFilas) ? datosFilas : [];
+
+    filasTotales.forEach(row => {
+        if (!row || !row.Nombre_Programa || !row.Modalidad) return;
+        const progNombre = String(row.Nombre_Programa).trim();
+        const modNombre = String(row.Modalidad).trim();
+        const key = `${progNombre.toLowerCase()}|||${modNombre.toLowerCase()}`;
+        if (!visitados.has(key)) {
+            visitados.add(key);
+            plan.push({
+                programaNombre: progNombre,
+                modalidadNombre: modNombre
+            });
+        }
+    });
+
+    if (plan.length === 0) {
+        await Swal.fire({ icon: 'warning', title: 'Sin elementos', text: 'No se encontraron programas ni modalidades para validar.' });
+        return;
+    }
+
+    for (const item of plan) {
+        let totalTitulados = 0;
+        filasTotales.forEach(row => {
+            if (
+                row &&
+                (row.Nombre_Programa || '').trim().toLowerCase() === item.programaNombre.toLowerCase() &&
+                (row.Modalidad || '').trim().toLowerCase() === item.modalidadNombre.toLowerCase()
+            ) {
+                const num = parseInt(row.Titulados || 0, 10);
+                if (!isNaN(num)) totalTitulados += num;
+            }
+        });
+        if (totalTitulados === 0) {
+            paresEnCero.push(item);
+        }
+    }
+
+    if (paresEnCero.length > 0) {
+        const htmlLista = paresEnCero.map(p => `<li style="padding: 3px 0;"><strong>${p.programaNombre}</strong> - ${p.modalidadNombre}</li>`).join('');
+        const confirmacionCeros = await Swal.fire({
+            title: 'Programas sin titulados detectados',
+            html: `
+                <div style="text-align: left; margin: 5px 0;">
+                    <p style="margin-bottom: 8px;">Se detectaron <strong>${paresEnCero.length} programa(s)/modalidad(es)</strong> con <strong>0 titulados</strong>:</p>
+                    <div style="max-height: 180px; overflow-y: auto; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px 14px; margin: 10px 0;">
+                        <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #495057;">
+                            ${htmlLista}
+                        </ul>
+                    </div>
+                    <p style="margin-top: 10px; font-weight: 600; color: #750946;">¿Desea continuar y validarlos en 0?</p>
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, validar en 0',
+            cancelButtonText: 'Cancelar y revisar',
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#dc3545'
+        });
+
+        if (!confirmacionCeros.isConfirmed) return;
+    }
+
+    const totalPares = plan.length;
+    let procesados = 0;
+    let exitosos = 0;
+    let errores = 0;
+    const resumen = [];
+
+    validacionMasivaEnCurso = true;
+    const botonesMasivos = document.querySelectorAll('#btn-validar-todos-titulados, .btn-validacion-masiva');
+    botonesMasivos.forEach(b => b.disabled = true);
+
+    try {
+        abrirModalProgresoCircularTitulados(totalPares);
+        actualizarModalProgresoCircularTitulados(0, totalPares, 'Iniciando validación masiva...', `0 de ${totalPares} programas/modalidades`);
+
+        for (const item of plan) {
+            actualizarModalProgresoCircularTitulados(
+                procesados,
+                totalPares,
+                `${item.programaNombre} — ${item.modalidadNombre}`,
+                `Procesando ${procesados + 1} de ${totalPares}`
+            );
+
+            const filasItem = filasTotales.filter(row => 
+                row &&
+                (row.Nombre_Programa || '').trim().toLowerCase() === item.programaNombre.toLowerCase() &&
+                (row.Modalidad || '').trim().toLowerCase() === item.modalidadNombre.toLowerCase()
+            );
+
+            try {
+                const response = await fetch('/titulados/finalizar-titulados', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        datos: filasItem,
+                        programa: item.programaNombre,
+                        modalidad: item.modalidadNombre,
+                        origen: 'db'
+                    })
+                });
+
+                const resultado = await response.json();
+                if (resultado.status === 'success' || resultado.status === 'guardado' || resultado.status === 'finalizado') {
+                    exitosos++;
+                    resumen.push({
+                        programaNombre: item.programaNombre,
+                        modalidadNombre: item.modalidadNombre,
+                        ok: true,
+                        observacion: 'Completado'
+                    });
+                } else {
+                    errores++;
+                    resumen.push({
+                        programaNombre: item.programaNombre,
+                        modalidadNombre: item.modalidadNombre,
+                        ok: false,
+                        observacion: resultado.message || resultado.warning || resultado.error || 'Error al validar'
+                    });
+                }
+            } catch (errItem) {
+                console.error(`Error validando ${item.programaNombre} (${item.modalidadNombre}):`, errItem);
+                errores++;
+                resumen.push({
+                    programaNombre: item.programaNombre,
+                    modalidadNombre: item.modalidadNombre,
+                    ok: false,
+                    observacion: errItem.message || 'Error de conexión'
+                });
+            } finally {
+                procesados++;
+                actualizarModalProgresoCircularTitulados(
+                    procesados,
+                    totalPares,
+                    `${item.programaNombre} — ${item.modalidadNombre}`,
+                    `${procesados} de ${totalPares} procesados`
+                );
+            }
+        }
+
+        cerrarModalProgresoCircularTitulados();
+
+        const efectividad = totalPares > 0 ? Math.round((exitosos / totalPares) * 100) : 0;
+        const filasHtml = resumen.map(r => `
+            <tr style="border-bottom: 1px solid #e9ecef;">
+                <td style="padding: 8px 10px; text-align: left; font-weight: 500;">${r.programaNombre}</td>
+                <td style="padding: 8px 10px; text-align: center;">${r.modalidadNombre}</td>
+                <td style="padding: 8px 10px; text-align: center;">
+                    <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; background: ${r.ok ? '#d4edda' : '#f8d7da'}; color: ${r.ok ? '#155724' : '#721c24'};">
+                        ${r.ok ? '✓ Validado' : '✗ ' + r.observacion}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+
+        await Swal.fire({
+            title: 'Resumen de Validación Masiva - Titulados',
+            html: `
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-around; background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #750946;">${totalPares}</div>
+                            <div style="font-size: 11px; color: #666;">Total</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #28a745;">${exitosos}</div>
+                            <div style="font-size: 11px; color: #666;">Validados</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: ${errores > 0 ? '#dc3545' : '#6c757d'};">${errores}</div>
+                            <div style="font-size: 11px; color: #666;">Errores</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #17a2b8;">${efectividad}%</div>
+                            <div style="font-size: 11px; color: #666;">Efectividad</div>
+                        </div>
+                    </div>
+                    <div style="max-height: 250px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead>
+                                <tr style="background: #750946; color: white;">
+                                    <th style="padding: 8px 10px; text-align: left;">Programa</th>
+                                    <th style="padding: 8px 10px; text-align: center;">Modalidad</th>
+                                    <th style="padding: 8px 10px; text-align: center;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${filasHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `,
+            icon: errores === 0 ? 'success' : 'warning',
+            confirmButtonColor: '#750946',
+            confirmButtonText: 'Aceptar y Actualizar'
+        });
+
+        if (exitosos === totalPares) {
+            botonesMasivos.forEach(b => {
+                b.style.display = 'none';
+            });
+        }
+
+        const overlay = document.getElementById('overlay-carga-sp');
+        if (overlay) overlay.classList.add('activo');
+        window.location.reload();
+
+    } catch (error) {
+        console.error('Error en validación masiva:', error);
+        cerrarModalProgresoCircularTitulados();
+        await Swal.fire({
+            icon: 'error',
+            title: 'Error en validación masiva',
+            text: error.message || 'Ocurrió un error inesperado durante el proceso.',
+            confirmButtonColor: '#750946'
+        });
+    } finally {
+        validacionMasivaEnCurso = false;
+        botonesMasivos.forEach(b => b.disabled = false);
+    }
+}
