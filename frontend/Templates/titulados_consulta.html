@@ -399,11 +399,11 @@
             <div class="filtro-superior-item">
                 <label for="select-periodo-director"><strong>1. Periodo:</strong></label>
                 <select id="select-periodo-director" name="periodo_director" required>
-                    <option value="">-- Seleccione un Periodo --</option>
-
-                    <option value="{{ periodo_default_literal }}">
-                        {{periodo_default_literal}} (Activo)
+                    {% for p in periodos %}
+                    <option value="{{ p.Periodo }}" {% if p.Id_Estatus == 1 or p.Periodo == periodo_default_literal %}selected{% endif %}>
+                        {{ p.Periodo }} {% if p.Id_Estatus == 1 %}(Activo){% endif %}
                     </option>
+                    {% endfor %}
                 </select>
             </div>
 
@@ -442,9 +442,8 @@
             <div class="filtro-superior-item">
                 <label for="select-periodo-superior"><strong>1. Periodo:</strong></label>
                 <select id="select-periodo-superior" name="periodo_superior" required>
-                    <option value="">-- Seleccione un Periodo --</option>
                     {% for p in periodos %}
-                    <option value="{{ p.Periodo }}" {% if p.Id_Estatus==1 %}selected{% endif %}>
+                    <option value="{{ p.Periodo }}" {% if p.Id_Estatus == 1 or p.Periodo == periodo_default_literal %}selected{% endif %}>
                         {{ p.Periodo }} {% if p.Id_Estatus == 1 %}(Activo){% endif %}
                     </option>
                     {% endfor %}
@@ -813,7 +812,7 @@
 
 </script>
 
-<script src="/static/js/titulados_consulta.js?v=2.2.1"></script>
+<script src="/static/js/titulados_consulta.js?v=2.2.2"></script>
 <script src="/static/js/notificacion.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {

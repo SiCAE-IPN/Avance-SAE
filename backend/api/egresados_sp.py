@@ -2358,7 +2358,8 @@ async def resumen_egresados_dinamico_view(
         puede_validar = False
         usuario_ya_valido = False
         usuario_ya_rechazo = False
-        esperando_por_rol = None
+        esperando_por_rol = "Capturista"
+        estado_semaforo = None
 
         try:
             if id_rol in [4, 5, 6, 7, 8, 9] and periodo_id is not None:
@@ -2371,10 +2372,33 @@ async def resumen_egresados_dinamico_view(
 
                 estado_semaforo = semaforo_unidad.Id_Semaforo if semaforo_unidad else None
 
+                # Calcular con quién está la información según el estado del semáforo
+                if estado_semaforo is not None and estado_semaforo > 0:
+                    if estado_semaforo in [1, 2]:
+                        esperando_por_rol = "Capturista"
+                    elif estado_semaforo < 9:
+                        semaforo_a_siguiente_rol = {
+                            3: 4,  # Semáforo 3 -> Sigue CEGET (4)
+                            4: 5,  # Semáforo 4 -> Sigue Titular UA (5)
+                            5: 6,  # Semáforo 5 -> Sigue Analista (6)
+                            6: 7,  # Semáforo 6 -> Sigue Jefe/a de Departamento (7)
+                            7: 8,  # Semáforo 7 -> Sigue Jefe/a de División (8)
+                            8: 9,  # Semáforo 8 -> Sigue Director/a de DII (9)
+                        }
+                        try:
+                            siguiente_rol_id = semaforo_a_siguiente_rol.get(estado_semaforo, int(estado_semaforo) + 1)
+                            rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == siguiente_rol_id).first()
+                            esperando_por_rol = rol_obj.Rol if rol_obj else "Capturista"
+                        except Exception:
+                            esperando_por_rol = "Capturista"
+                    else:
+                        esperando_por_rol = None
+                else:
+                    esperando_por_rol = "Capturista"
+
                 # Regla de jerarquía real (alineada a los SPs de Validar/Rechazar):
                 # SP_Valida_Egresados y SP_Rechaza_Egresados validan que:
                 #   sua.Id_Semaforo == (Id_Rol del usuario) - 1
-                # Esto permite pasos distintos para 6,7,8,9 en vez de agruparlos.
                 semaforo_esperado = id_rol - 1
 
                 if estado_semaforo is not None:
@@ -2387,20 +2411,6 @@ async def resumen_egresados_dinamico_view(
                     else:
                         # Aún no toca este nivel
                         puede_validar = False
-                        try:
-                            # El primer rol por defecto debe ser Capturista (Id_Rol 2)
-                            # Si el semáforo está en 1 o 2, está esperando al Capturista
-                            if estado_semaforo in [1, 2]:
-                                esperando_por_rol = "Capturista"
-                            else:
-                                rol_esperado_id = int(estado_semaforo) + 1
-                                rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == rol_esperado_id).first()
-                                esperando_por_rol = rol_obj.Rol if rol_obj else "Capturista"
-                        except Exception:
-                            esperando_por_rol = "Capturista"
-                else:
-                    # Si no hay semáforo configurado, el primer paso siempre es Capturista
-                    esperando_por_rol = "Capturista"
 
                 # Si ya rechazó, ocultar botones (salvo que el semáforo esté justo en el nivel esperado)
                 try:

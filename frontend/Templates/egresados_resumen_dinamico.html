@@ -1337,9 +1337,10 @@
                 periodo,
                 motivo
             }),
-htmlNoTurno: '<span style="font-size: 24px;">⏳</span> <strong>Esperando ser validado por: {{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>',
-htmlYaValido: '<span style="font-size: 24px;">✅</span> <strong>Ya has validado Egresados previamente.</strong>',
-htmlYaRechazo: '<span style="font-size: 24px;">❌</span> <strong>Ya has rechazado Egresados previamente.</strong>',
+            htmlNoTurno: '<span style="font-size: 24px;">⏳</span> <strong>En espera de validación por: {{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>',
+            htmlYaValido: '<span style="font-size: 24px;">✅</span> <strong>Ya has validado Egresados previamente.</strong>' +
+                '{% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %}<br><span style="font-size: 18px; margin-top: 5px; display: inline-block;">⏳ Pendiente de validar por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Siguiente Autoridad" }}</strong></span>{% endif %}',
+            htmlYaRechazo: '<span style="font-size: 24px;">❌</span> <strong>Ya has rechazado Egresados previamente.</strong>',
 tooltipNoTurno: '⏳ Esperando validación de nivel/rol anterior.',
 
             beforeValidar: async () => {

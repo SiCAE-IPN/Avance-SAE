@@ -459,6 +459,8 @@ document.addEventListener('DOMContentLoaded', function () {
         .filter(select => select !== null) // Se filtran los que estan distintos de null
         .forEach(select => select.addEventListener('change', verificarFiltros));
 
+    verificarFiltros();
+
     // Al hacer clic, navegar al acuse de titulados
     if (btnConsultar) {
         btnConsultar.addEventListener('click', function () {

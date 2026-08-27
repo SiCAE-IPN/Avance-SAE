@@ -662,13 +662,23 @@ async def acuse_titulados_view(
     if semaforo is not None and semaforo > 0:
         if semaforo in [1, 2]:
             esperando_por_rol = "Capturista"
-        else:
+        elif semaforo < 9:
+            semaforo_a_siguiente_rol = {
+                3: 4,  # Semáforo 3 -> Sigue CEGET (4)
+                4: 5,  # Semáforo 4 -> Sigue Titular UA (5)
+                5: 6,  # Semáforo 5 -> Sigue Analista (6)
+                6: 7,  # Semáforo 6 -> Sigue Jefe/a de Departamento (7)
+                7: 8,  # Semáforo 7 -> Sigue Jefe/a de División (8)
+                8: 9,  # Semáforo 8 -> Sigue Director/a de DII (9)
+            }
             try:
-                rol_esperado_id = int(semaforo) + 1
-                rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == rol_esperado_id).first()
+                siguiente_rol_id = semaforo_a_siguiente_rol.get(semaforo, int(semaforo) + 1)
+                rol_obj = db.query(CatRoles).filter(CatRoles.Id_Rol == siguiente_rol_id).first()
                 esperando_por_rol = rol_obj.Rol if rol_obj else "Capturista"
             except Exception:
                 esperando_por_rol = "Capturista"
+        else:
+            esperando_por_rol = None
 
     try:
         if id_rol in [4, 5, 6, 7, 8, 9] and id_periodo_req is not None:

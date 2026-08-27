@@ -555,30 +555,24 @@
 
         {% if usuario_ya_valido %}
             <div class="estado-validacion estado-validado">
-                ✅ TITULADOS VALIDADOS
+                ✅ TITULADOS VALIDADOS POR TI
             </div>
             {% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %}
             <div class="estado-validacion estado-pendiente">
-                ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
+                ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Siguiente Autoridad" }}</strong>
             </div>
             {% endif %}
         {% elif usuario_ya_rechazo %}
             <div class="estado-validacion estado-rechazado">
                 ❌ TITULADOS RECHAZADOS
             </div>
-        {% elif puede_validar or pendiente_validacion %}
-            {% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %}
+        {% elif puede_validar %}
             <div class="estado-validacion estado-pendiente">
-                ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
+                ⏳ Es tu turno de validar (<strong>{{ nombre_rol }}</strong>)
             </div>
-            {% else %}
-                <div class="estado-validacion estado-validado">
-                    ✅ TITULADOS VALIDADOS
-                </div>
-            {% endif %}
         {% else %}
             <div class="estado-validacion estado-esperando">
-                ⏸️ EN ESPERA DE VALIDACIÓN
+                ⏸️ EN ESPERA DE VALIDACIÓN POR: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
             </div>
         {% endif %}
 
@@ -667,8 +661,9 @@
             periodo, motivo, unidad, nivel,
             ...(idRol >= 6 && idRol <= 9 ? { id_unidad_academica: idUnidad, id_nivel: idNivel } : {})
         }),
-        htmlNoTurno:  '<span>⏳</span> <strong>Esperando validación por: {{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>',
-        htmlYaValido: '<span>✅</span> <strong>Ya has validado estos titulados previamente.</strong>',
+        htmlNoTurno:  '<span>⏳</span> <strong>En espera de validación por: {{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>',
+        htmlYaValido: '<span>✅</span> <strong>Ya has validado estos titulados previamente.</strong>' +
+            '{% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %}<br><span style="margin-top: 5px; display: inline-block;">⏳ Pendiente de validar por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Siguiente Autoridad" }}</strong></span>{% endif %}',
         htmlYaRechazo:'<span>❌</span> <strong>Ya has rechazado estos titulados previamente.</strong>',
         msgValidarBloqueado: '⏳ Aún no es tu turno de validación.',
 

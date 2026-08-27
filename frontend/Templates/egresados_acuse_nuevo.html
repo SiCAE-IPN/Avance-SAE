@@ -457,6 +457,11 @@
         <div class="acuse-footer">
             {% if usuario_ya_valido %}
                 <div class="estado-validacion estado-validado">✅ EGRESADOS VALIDADOS POR TI</div>
+                {% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %}
+                <div class="estado-validacion estado-pendiente">
+                    ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Siguiente Autoridad" }}</strong>
+                </div>
+                {% endif %}
             {% elif usuario_ya_rechazo %}
                 <div class="estado-validacion estado-rechazado">❌ EGRESADOS RECHAZADOS</div>
             {% elif puede_validar %}
@@ -564,8 +569,9 @@
                     id_nivel: idNivelSeleccionado
                 } : {})
             }),
-            htmlNoTurno: '<span style="font-size: 20px;">⏳</span> <strong>Esperando ser validado por: {{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>',
-            htmlYaValido: '<span style="font-size: 20px;">✅</span> <strong>Ya has validado estos egresados previamente.</strong>',
+            htmlNoTurno: '<span style="font-size: 20px;">⏳</span> <strong>En espera de validación por: {{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>',
+            htmlYaValido: '<span style="font-size: 20px;">✅</span> <strong>Ya has validado estos egresados previamente.</strong>' +
+                '{% if estado_semaforo_actual is not none and estado_semaforo_actual < 9 %}<br><span style="font-size: 16px; margin-top: 5px; display: inline-block;">⏳ Pendiente de validar por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Siguiente Autoridad" }}</strong></span>{% endif %}',
             htmlYaRechazo: '<span style="font-size: 20px;">❌</span> <strong>Ya has rechazado estos egresados previamente.</strong>',
             msgValidarBloqueado: '⏳ Aún no es tu turno de validación.',
             beforeValidar: async () => {
