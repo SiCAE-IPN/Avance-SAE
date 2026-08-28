@@ -23,6 +23,6 @@
   "cmake.configureOnOpen": false,
   "java.enabled": false,
   "gitlens.currentLine.enabled": false,
-  "workbench.colorTheme": "Default Dark Modern",
+  "workbench.colorTheme": "Dark Modern",
   "workbench.iconTheme": "symbols"
 }

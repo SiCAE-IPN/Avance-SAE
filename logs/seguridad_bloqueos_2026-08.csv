@@ -99,3 +99,4 @@ Fecha_Hora,IP_Cliente,Hostname,Usuario_Objetivo,Dispositivo_ID,Endpoint,Metodo,T
 2026-08-17 14:47:22,unknown,localhost,user_714 (ID:714),dev_03b0c46babe8,/titulados/acuse-validacion?periodo=2018-2019/1,GET,IDOR_ACCESO_NO_AUTORIZADO,ACCESO_DENEGADO_HTTP_403,Desconocido
 2026-08-17 14:47:22,unknown,localhost,user_715 (ID:715),dev_a28758b602cb,/titulados/acuse-validacion/pdf?periodo=2017-2018/2,GET,IDOR_ACCESO_NO_AUTORIZADO,ACCESO_DENEGADO_HTTP_403,Desconocido
 2026-08-17 22:36:10,192.168.1.182,192.168.1.182,emontiel55,dev_7617a2634aea,/login/,POST,RATE_LIMIT_LOGIN,BLOQUEO_HTTP_429 (35s),Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0
+2026-08-27 12:35:27,127.0.0.1,EMMANUEL-LAPTOP,ldejesusg1700,dev_fad680eda5a5,/login/,POST,RATE_LIMIT_LOGIN,BLOQUEO_HTTP_429 (15s),Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:154.0) Gecko/20100101 Firefox/154.0
