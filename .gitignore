@@ -13,3 +13,4 @@ menv
 .venv
 venv
 .env
+backend/storage/acuses/
