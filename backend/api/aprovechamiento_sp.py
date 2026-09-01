@@ -1377,10 +1377,8 @@ async def validar_aprovechamiento(request: Request, sess=Depends(get_current_ses
             id_ua = int(ua_obj.Id_Unidad_Academica) if ua_obj else int(getattr(sess, 'id_unidad_academica', 0) or 0)
             id_nivel_sess = int(getattr(sess, 'id_nivel', 0) or 0)
 
-            # Verificar si todos los módulos de la UA ya están en semáforo >= 5
-            todos_listos = bool(sp_rows) or verificar_todos_modulos_validados_titular(
-                db=db, id_unidad=id_ua, id_nivel=id_nivel_sess
-            )
+            # Generar y enviar acuse ÚNICAMENTE si el SP devolvió filas (autorizó la entrega de la UA)
+            todos_listos = bool(sp_rows)
 
             if todos_listos:
                 try:
@@ -1432,7 +1430,7 @@ async def rechazar_aprovechamiento(request: Request, sess=Depends(get_current_se
     try:
         body = await request.json()
         print("Body :",body)
-        periodo = body.get("periodo", "")
+        _, periodo = get_periodo_activo(db) 
         nivel = body.get("nivel", "")
         unidad = body.get("unidad_academica", "")
         motivo = body.get("motivo", "")

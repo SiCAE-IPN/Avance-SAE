@@ -2,7 +2,7 @@ import os
 import base64
 import msal
 import requests
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, Union, List
 from backend.core.config import settings
 
 class EmailSendError(Exception):
@@ -16,7 +16,7 @@ class EmailAttachment(TypedDict):
 
 
 def send_email(
-    to_email: str,
+    to_email: Union[str, List[str]],
     subject: str,
     html_body: str,
     from_email: Optional[str] = None,
@@ -28,6 +28,23 @@ def send_email(
 
     # Mantener tu lógica exacta de prefijos para mantener el estándar visual
     full_subject = f"{settings.SMTP_SUBJECT_PREFIX} - {subject}" if settings.SMTP_SUBJECT_PREFIX else subject
+
+    # Normalizar destinatarios a lista sin vacíos ni duplicados
+    if isinstance(to_email, str):
+        destinatarios = [to_email]
+    else:
+        destinatarios = list(to_email)
+
+    recipients_list = []
+    seen = set()
+    for email_addr in destinatarios:
+        clean_addr = str(email_addr or "").strip()
+        if clean_addr and clean_addr.lower() not in seen:
+            seen.add(clean_addr.lower())
+            recipients_list.append({"emailAddress": {"address": clean_addr}})
+
+    if not recipients_list:
+        raise EmailSendError("No se proporcionaron destinatarios válidos para enviar el correo.")
 
     try:
         # 2. Configurar autenticación con Microsoft Entra ID
@@ -68,13 +85,7 @@ def send_email(
                 "contentType": "HTML",
                 "content": html_body
             },
-            "toRecipients": [
-                {
-                    "emailAddress": {
-                        "address": to_email
-                    }
-                }
-            ],
+            "toRecipients": recipients_list,
             "attachments": []
         }
 

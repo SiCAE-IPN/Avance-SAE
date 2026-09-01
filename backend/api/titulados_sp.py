@@ -1057,9 +1057,8 @@ async def validar_titulados(request: Request, sess=Depends(get_current_session),
             id_ua = int(ua_obj.Id_Unidad_Academica) if ua_obj else int(getattr(sess, 'id_unidad_academica', 0) or 0)
             id_nivel_sess = int(getattr(sess, 'id_nivel', 0) or 0)
 
-            todos_listos = bool(sp_rows) or verificar_todos_modulos_validados_titular(
-                db=db, id_unidad=id_ua, id_nivel=id_nivel_sess
-            )
+            # Generar y enviar acuse ÚNICAMENTE si el SP devolvió filas (autorizó la entrega de la UA)
+            todos_listos = bool(sp_rows)
 
             if todos_listos:
                 try:

@@ -2928,10 +2928,8 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
         correo_acuse_error = None
         acuse_error = None
 
-        # Generar y enviar acuse si el SP devolvió filas o si todos los módulos de la UA ya están en semáforo >= 5
-        todos_listos = bool(sp_rows) or (
-            id_rol == 5 and verificar_todos_modulos_validados_titular(db=db, id_unidad=id_unidad_objetivo, id_nivel=id_nivel_objetivo)
-        )
+        # Generar y enviar acuse ÚNICAMENTE si el SP devolvió filas (autorizó la entrega de la UA)
+        todos_listos = bool(sp_rows)
 
         if todos_listos:
             try:
