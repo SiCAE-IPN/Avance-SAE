@@ -180,9 +180,10 @@ def enviar_correo_acuse_titular(
     clave_ur: Optional[str],
     periodo_literal: str,
     estatus_entrega: str = "",
+    id_unidad: Optional[int] = None,
 ) -> Tuple[Optional[dict], bool, Optional[str], Optional[str]]:
     """
-    Genera el PDF de acuse, lo guarda en disco y envía el correo al titular.
+    Genera el PDF de acuse, lo guarda en disco y envía el correo al Titular y al CEGET.
 
     Retorna:
         (acuse_info, correo_enviado, acuse_error, correo_error)
@@ -249,12 +250,48 @@ def enviar_correo_acuse_titular(
         periodo_anterior_literal = periodo_anterior_literal or "N/A"
 
         usuario_db = db.query(Usuario).filter(Usuario.Id_Usuario == id_usuario).first()
-        correo_destino = str(usuario_db.Email or "").strip() if usuario_db else ""
+        correo_titular = str(usuario_db.Email or "").strip() if usuario_db else ""
 
-        if correo_destino:
+        # Resolver id_unidad_academica para obtener correo(s) de CEGET (id_rol = 4)
+        id_ua = id_unidad
+        if not id_ua and usuario_db:
+            id_ua = usuario_db.Id_Unidad_Academica
+        if not id_ua and unidad_sigla:
+            from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+            ua_obj = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Sigla == unidad_sigla).first()
+            if ua_obj:
+                id_ua = ua_obj.Id_Unidad_Academica
+
+        correos_ceget = []
+        if id_ua:
+            ceget_usuarios = db.query(Usuario).filter(
+                Usuario.Id_Unidad_Academica == id_ua,
+                Usuario.Id_Rol == 4,
+                Usuario.Id_Estatus == 1
+            ).all()
+            for c in ceget_usuarios:
+                c_email = str(c.Email or "").strip()
+                if c_email:
+                    correos_ceget.append(c_email)
+
+        # Destinatarios únicos: Titular y CEGET en un solo correo
+        destinatarios = []
+        if correo_titular:
+            destinatarios.append(correo_titular)
+        destinatarios.extend(correos_ceget)
+
+        destinatarios_unicos = []
+        seen = set()
+        for email_addr in destinatarios:
+            clean = str(email_addr or "").strip()
+            if clean and clean.lower() not in seen:
+                seen.add(clean.lower())
+                destinatarios_unicos.append(clean)
+
+        if destinatarios_unicos:
             try:
                 send_email(
-                    to_email=correo_destino,
+                    to_email=destinatarios_unicos,
                     subject="Conclusión de Captura de Información - SiCAE",
                     html_body=html_correo_acuse(
                         nombre_completo=nombre_completo,
@@ -272,12 +309,12 @@ def enviar_correo_acuse_titular(
                     ],
                 )
                 correo_enviado = True
-                print(f"📧 Acuse enviado por correo -> destino={correo_destino}, archivo={acuse_guardado.file_name}")
+                print(f"📧 Acuse enviado por correo -> destinos={', '.join(destinatarios_unicos)}, archivo={acuse_guardado.file_name}")
             except EmailSendError as e_mail:
                 correo_error = str(e_mail)
-                print(f"❌ Fallo envío de correo de acuse -> destino={correo_destino}, error={correo_error}")
+                print(f"❌ Fallo envío de correo de acuse -> destinos={', '.join(destinatarios_unicos)}, error={correo_error}")
         else:
-            print(f"⚠️ No se envió correo de acuse: usuario sin email registrado. usuario={usuario_login}")
+            print(f"⚠️ No se envió correo de acuse: sin email registrado para Titular ni CEGET. usuario={usuario_login}")
 
     except Exception as e_acuse:
         acuse_error = str(e_acuse)

@@ -921,7 +921,7 @@ def guardar_progreso_aprovechamiento(datos: List[Dict[str, Any]], sess=Depends(g
                 if 'id_semaforo' not in dato_corregido:
                     dato_corregido['id_semaforo'] = 2
 
-                filtro_unico = {k: v for k, v in dato_corregido.items() if k not in ['Alumnos']}
+                filtro_unico = {k: v for k, v in dato_corregido.items() if k not in ['Alumnos', 'id_semaforo']}
                 if filtro_unico:
                     db.query(Temp_Aprovechamiento).filter_by(**filtro_unico).delete(synchronize_session=False)
                     db.flush()

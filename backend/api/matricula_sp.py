@@ -62,6 +62,7 @@ from backend.services.envio_correo_service import (
     html_correo_acuse,
     obtener_correos_involucrados,
     verificar_todos_modulos_validados_titular,
+    enviar_correo_acuse_titular,
 )
 from backend.services.encargado_ua_service import obtener_encargados, verificar_permiso_formato
 from backend.core.session_store import SessionData,session_store
@@ -2947,80 +2948,19 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
                                 estatus_entrega = "Extemporaneo"
                     except Exception as _e_per:
                         pass
-                folio_acuse = build_folio_acuse(
-                    periodo_literal=periodo_literal,
-                    unidad_sigla=unidad_sigla,
-                    estatus_entrega=estatus_entrega,
-                )
-
                 clave_ur_ua = str(getattr(unidad, "Clave", "") or "").strip()
-                pdf_bytes = generar_acuse_matricula_pdf_en_memoria(
-                    escuela=str(getattr(unidad, "Nombre", "") or unidad_sigla),
-                    sigla=unidad_sigla,
-                    clave_ur=clave_ur_ua or None,
-                    folio=folio_acuse,
-                    titular_nombre=nombre_completo or "TITULAR DE LA UNIDAD ACADÉMICA",
-                    titular_cargo=f"DIRECTOR(A) / TITULAR DE {unidad_sigla.upper()}",
-                    fecha_evento=datetime.now(),
-                    estatus_entrega=estatus_entrega,
+                acuse_info, correo_acuse_enviado, acuse_error, correo_acuse_error = enviar_correo_acuse_titular(
                     db=db,
-                )
-
-                acuse_guardado = save_acuse_pdf_for_user(
+                    id_usuario=id_usuario,
                     usuario_login=usuario_sp,
-                    folio=folio_acuse,
-                    periodo_literal=periodo_literal,
+                    nombre_completo=nombre_completo or "TITULAR DE LA UNIDAD ACADÉMICA",
                     unidad_sigla=unidad_sigla,
-                    pdf_bytes=pdf_bytes,
+                    unidad_nombre=str(getattr(unidad, "Nombre", "") or unidad_sigla),
+                    clave_ur=clave_ur_ua or None,
+                    periodo_literal=periodo_literal,
+                    estatus_entrega=estatus_entrega,
+                    id_unidad=id_unidad_objetivo,
                 )
-                acuse_info = {
-                    "folio": acuse_guardado.folio,
-                    "file_name": acuse_guardado.file_name,
-                    "download_url": acuse_guardado.relative_url,
-                }
-
-                # Obtener el periodo anterior al ultimo pero en string no id
-                _, periodo_anterior_literal = get_periodo_anterior_al_ultimo(db)
-                periodo_anterior_literal = periodo_anterior_literal or "N/A"
-
-                usuario_db = db.query(Usuario).filter(Usuario.Id_Usuario == id_usuario).first()
-                correo_destino = str(usuario_db.Email or "").strip() if usuario_db else ""
-                if correo_destino:
-                    try:
-                        send_email(
-                            to_email=correo_destino,
-                            subject="Conclusión de Captura de Información - SiCAE",
-                            html_body=html_correo_acuse(
-                                nombre_completo=nombre_completo,
-                                periodo_activo=periodo_literal,
-                                periodo_anterior= periodo_anterior_literal,
-                                unidad_sigla=unidad_sigla,
-                                folio=folio_acuse,
-                            ),
-                            attachments=[
-                                {
-                                    "filename": acuse_guardado.file_name,
-                                    "content": pdf_bytes,
-                                    "mime_type": "application/pdf",
-                                }
-                            ],
-                        )
-                        correo_acuse_enviado = True
-                        print(
-                            "📧 Acuse enviado por correo correctamente -> "
-                            f"destino={correo_destino}, archivo={acuse_guardado.file_name}"
-                        )
-                    except EmailSendError as e_mail:
-                        correo_acuse_error = str(e_mail)
-                        print(
-                            "❌ Fallo envio de correo de acuse -> "
-                            f"destino={correo_destino}, error={correo_acuse_error}"
-                        )
-                else:
-                    print(
-                        "⚠️ No se envio correo de acuse: usuario sin email registrado. "
-                        f"usuario={usuario_sp}"
-                    )
             except Exception as e_acuse:
                 acuse_error = str(e_acuse)
                 print(

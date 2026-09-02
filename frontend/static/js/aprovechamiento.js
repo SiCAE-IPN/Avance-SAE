@@ -538,6 +538,14 @@ window.registrarCambio = function (input) {
     const key = `${semestreActual}|${input.dataset.tipo}|${input.dataset.turno}|${input.dataset.sexo}`;
     cambiosGlobales[key] = input.value === '' ? '' : parseInt(input.value);
     calcularTablaUnificada();
+
+    // Sincronizar deserción calculada del semestre actual en cambiosGlobales
+    document.querySelectorAll('#tabla-body .span-desercion-calculada').forEach(span => {
+        const valD = parseInt(span.dataset.valor ?? span.textContent.replace(/,/g, ''), 10) || 0;
+        const keyD = `${semestreActual}|Deserción|${span.dataset.turno}|${span.dataset.sexo}`;
+        cambiosGlobales[keyD] = valD;
+    });
+
     renderizarSeccionTotales();
 };
 
@@ -575,6 +583,7 @@ window.calcularTablaUnificada = function () {
                 const spanDesercion = document.getElementById(`desercion-${t}-${s}`);
                 if (spanDesercion) {
                     spanDesercion.textContent = Number(desercionCalculada || 0).toLocaleString('en-US');
+                    spanDesercion.dataset.valor = desercionCalculada;
                 }
 
                 // 4. Actualizar el Totalizador Final (Aprovechamiento Completo = Editables + Deserción)
@@ -627,7 +636,7 @@ function obtenerTotalesAprovechamiento() {
         if (!porConcepto['Deserción']) porConcepto['Deserción'] = { H: 0, M: 0 };
 
         spansDesercion.forEach(span => {
-            const val  = parseInt(span.textContent) || 0;
+            const val  = parseInt(span.dataset.valor ?? span.textContent.replace(/,/g, ''), 10) || 0;
             const sexo = span.dataset.sexo;
 
             if (sexo === 'Hombre') { totalH += val; porConcepto['Deserción'].H += val; }
@@ -1164,15 +1173,17 @@ function actualizarMemoriaLocalConCambios(datosGuardados) {
     datosGuardados.forEach(dato => {
         const semNum = normalizarSemestre(dato.semestre);
         const existente = window.aprovechamientos.find(r => {
-            const rProg  = String(r.Nombre_Programa || '').trim().toUpperCase();
-            const rMod   = String(r.Modalidad || '').trim().toUpperCase();
-            const rSem   = normalizarSemestre(r.Semestre || r.semestre);
-            const rSit   = r.Aprovechamiento || r.aprovechamiento || r.Situacion || r.situacion;
-            const rTurno = r.Turno || r.turno;
-            const rSexo  = r.Sexo  || r.sexo;
+            const rProg    = String(r.Nombre_Programa || '').trim().toUpperCase();
+            const rMod     = String(r.Modalidad || '').trim().toUpperCase();
+            const rSem     = normalizarSemestre(r.Semestre || r.semestre);
+            const rSit     = r.Aprovechamiento || r.aprovechamiento || r.Situacion || r.situacion;
+            const rTurno   = r.Turno || r.turno;
+            const rSexo    = r.Sexo  || r.sexo;
+            const rSitNorm = String(rSit || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const dSitNorm = String(dato.situacion_academica || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             return rProg === progVal && rMod === modVal && rSem === semNum &&
-                   rSit  === dato.situacion_academica && rTurno === dato.turno &&
-                   String(rSexo).charAt(0) === String(dato.sexo).charAt(0);
+                   rSitNorm === dSitNorm && rTurno === dato.turno &&
+                   String(rSexo).charAt(0).toUpperCase() === String(dato.sexo).charAt(0).toUpperCase();
         });
         if (existente) {
             existente.Alumnos     = dato.alumnos;
@@ -1208,6 +1219,25 @@ window.guardarTablaUnificada = async function () {
         const r = await Swal.fire({ title: '⚠️ Totales no coinciden', text: '¿Deseas guardar de todos modos?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, guardar' });
         if (!r.isConfirmed) return;
     }
+
+    // Si no había cambios previos en memoria, recopilar todos los inputs actuales del formulario
+    const clavesPrevias = Object.keys(cambiosGlobales);
+    if (clavesPrevias.length === 0) {
+        document.querySelectorAll('#tabla-body input[type="number"]').forEach(input => {
+            let v = input.value.trim();
+            if (v === '' || isNaN(v)) { v = 0; } else v = parseInt(v);
+            const key = `${semestreActual}|${input.dataset.tipo}|${input.dataset.turno}|${input.dataset.sexo}`;
+            cambiosGlobales[key] = v;
+        });
+    }
+
+    // Registrar siempre la deserción calculada del semestre actual
+    document.querySelectorAll('#tabla-body .span-desercion-calculada').forEach(span => {
+        const valD = parseInt(span.dataset.valor ?? span.textContent.replace(/,/g, ''), 10) || 0;
+        const keyD = `${semestreActual}|Deserción|${span.dataset.turno}|${span.dataset.sexo}`;
+        cambiosGlobales[keyD] = valD;
+    });
+
     const claves = Object.keys(cambiosGlobales);
     if (claves.length === 0) { Swal.fire('Información', 'No hay cambios pendientes.', 'info'); return; }
 
@@ -1278,6 +1308,13 @@ window.validarCapturaSemestre = async function () {
             let v = input.value.trim();
             if (v === '' || isNaN(v)) { v = 0; input.value = 0; } else v = parseInt(v);
             const key = `${semestreActual}|${input.dataset.tipo}|${input.dataset.turno}|${input.dataset.sexo}`;
+            cambiosGlobales[key] = v;
+        });
+
+        // Registrar también la deserción calculada del semestre actual
+        document.querySelectorAll('#tabla-body .span-desercion-calculada').forEach(span => {
+            const v = parseInt(span.dataset.valor ?? span.textContent.replace(/,/g, ''), 10) || 0;
+            const key = `${semestreActual}|Deserción|${span.dataset.turno}|${span.dataset.sexo}`;
             cambiosGlobales[key] = v;
         });
 
@@ -1420,7 +1457,7 @@ function verificarTotalesSemestre() {
 
     // 3. NUEVO: Sumar los valores de Deserción Calculada (.span-desercion-calculada)
     document.querySelectorAll('#tabla-body .span-desercion-calculada').forEach(span => {
-        const val = parseInt(span.textContent, 10) || 0;
+        const val = parseInt(span.dataset.valor ?? span.textContent.replace(/,/g, ''), 10) || 0;
         const sexo = span.dataset.sexo;
         if (sexo === 'Hombre') sumaAprovH += val;
         else if (sexo === 'Mujer') sumaAprovM += val;
@@ -1664,6 +1701,14 @@ window.validarTodosLosSemestres = async function () {
             inputs.forEach(input => {
                 const val = parseInt(input.value) || 0;
                 const key = `${semestreNum}|${input.dataset.tipo}|${input.dataset.turno}|${input.dataset.sexo}`;
+                cambiosTemp[key] = val;
+                cambiosGlobales[key] = val;
+            });
+
+            // Incluir también la deserción calculada
+            document.querySelectorAll('#tabla-body .span-desercion-calculada').forEach(span => {
+                const val = parseInt(span.dataset.valor ?? span.textContent.replace(/,/g, ''), 10) || 0;
+                const key = `${semestreNum}|Deserción|${span.dataset.turno}|${span.dataset.sexo}`;
                 cambiosTemp[key] = val;
                 cambiosGlobales[key] = val;
             });
@@ -1914,6 +1959,14 @@ window.limpiarFormulario = function () {
 
     // 3. Recalcular dinámicamente las sumas en pantalla
     calcularTablaUnificada();
+
+    // Sincronizar deserción calculada del semestre actual en cambiosGlobales
+    document.querySelectorAll('#tabla-body .span-desercion-calculada').forEach(span => {
+        const valD = parseInt(span.dataset.valor ?? span.textContent.replace(/,/g, ''), 10) || 0;
+        const keyD = `${semestreActual}|Deserción|${span.dataset.turno}|${span.dataset.sexo}`;
+        cambiosGlobales[keyD] = valD;
+    });
+
     renderizarSeccionTotales();
 
     // 4. Notificación visual
