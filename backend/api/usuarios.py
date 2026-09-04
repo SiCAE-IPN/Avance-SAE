@@ -194,6 +194,12 @@ async def registrar_usuario_view(
     try:
         user = UsuarioCreate(**data)
 
+        if not user.Email.endswith("@ipn.mx"):
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "El correo no cuenta con las características necesarias. Solo se permiten registros con correos @ipn.mx."}
+            )
+
         formatos_ids = [int(x) for x in (data.get("Id_Formatos") or [])]
         if user.Id_Rol == ROL_CAPTURISTA and not formatos_ids:
             return JSONResponse(
@@ -285,6 +291,13 @@ async def editar_usuario_ajax(
 ):
     try:
         data = await request.json()
+        
+        email = data.get("Email")
+        if email and not email.endswith("@ipn.mx"):
+            return JSONResponse(
+                status_code=400,
+                content={"mensaje": "El correo no cuenta con las características necesarias. Solo se permiten correos @ipn.mx."}
+            )
         formatos_ids = [int(x) for x in (data.get("Id_Formatos") or [])]
         data["Id_Formatos"] = formatos_ids
         

@@ -263,6 +263,10 @@
 
                 const data = await respuesta.json();
 
+                if (typeof window.forceHideLoadingBanner === 'function') {
+                    window.forceHideLoadingBanner();
+                }
+
                 //Si el periodo ya está registrado, no mostrar mensaje de creado exitosamente  
                     if (data.status === "success") {
                         divMensaje.innerHTML = `
@@ -285,6 +289,9 @@
                     btnGuardar.textContent = "Registrar Nuevo Periodo";
                 }
             } catch (error) {
+                if (typeof window.forceHideLoadingBanner === 'function') {
+                    window.forceHideLoadingBanner();
+                }
                 divMensaje.innerHTML = `
                     <p style="color: #dc3545; font-weight: bold; margin-top: 10px;">
                         ❌ Error de conexión: ${error.message}

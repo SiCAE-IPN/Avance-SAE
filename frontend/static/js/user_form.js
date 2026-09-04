@@ -424,6 +424,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('usuario').classList.remove('input-error');
                 marcarErrorFormatos(false);
                 
+                if (typeof window.forceHideLoadingBanner === 'function') {
+                    window.forceHideLoadingBanner();
+                }
+
                 if (response.ok && (result.Id_Usuario || result.mensaje)) {
                     document.getElementById("mensaje").innerHTML = `<p style='color:green;'>${editando ? '✅ Usuario actualizado' : '✅ Usuario registrado con ID ' + result.Id_Usuario}</p>`;
                     setTimeout(() => { location.reload(); }, 1200);
@@ -446,6 +450,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById("mensaje").innerHTML = `<p style='color:red;'>❌ ${detail}</p>`;
                 }
             } catch (err) {
+                if (typeof window.forceHideLoadingBanner === 'function') {
+                    window.forceHideLoadingBanner();
+                }
                 document.getElementById("mensaje").innerHTML = `<p style='color:red;'>⚠️ Error de conexión: ${err.message}</p>`;
             }
         });
