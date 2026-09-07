@@ -299,17 +299,31 @@ async def consulta_titulados(
 
     boletas = []
     try:
-        boleta = contexto.get("Boleta")
+        # Extraer boletas únicas directamente desde los datos del SP
+        boletas_raw = sorted(
+            set(
+                int(r["Boleta"])
+                for r in filas
+                if r.get("Boleta") is not None and str(r["Boleta"]).strip() != ""
+            ),
+            reverse=True  # Descendente (más reciente primero)
+        )
+        boletas = boletas_raw
 
-        if boleta:
-            boleta = int(boleta)
-            boletas = list(range(boleta + 12, boleta , -1))
+        # Fallback: si el SP no retornó boletas, calcular aritméticamente desde el contexto
+        if not boletas:
+            boleta_base = contexto.get("Boleta")
+            if boleta_base:
+                boleta_base = int(boleta_base)
+                boletas = list(range(boleta_base + 12, boleta_base, -1))
+                print(f"Boletas calculadas (fallback aritmético): {boletas}")
+            else:
+                boletas = []
 
-        print(f"Boletas obtenidas: {boletas}")
+        print(f"Boletas obtenidas desde SP ({len(boletas)}): {boletas}")
 
     except Exception as e:
-
-        print(f"Error calculando boletas: {e}")
+        print(f"Error obteniendo boletas: {e}")
         boletas = []
 
     try:

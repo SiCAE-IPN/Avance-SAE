@@ -1194,11 +1194,16 @@
         opciones.forEach(opcion => {
             const opt = document.createElement('option');
             if (typeof opcion === 'object' && opcion !== null) {
-                opt.value = opcion.id !== undefined ? opcion.id : (opcion.nombre || '');
-                opt.textContent = opcion.nombre !== undefined ? opcion.nombre : (opcion.id || '');
+                const rawYear = opcion.nombre !== undefined ? String(opcion.nombre) : String(opcion.id ?? '');
+                opt.value = opcion.id !== undefined ? opcion.id : rawYear;
+                // Mostrar "Años Anteriores" si la boleta es "0"; de lo contrario el nombre normal
+                opt.textContent = rawYear === '0' ? 'Años Anteriores' : (rawYear || String(opt.value));
+                opt.dataset.spYear = rawYear;  // Valor raw del SP para comparaciones con datosFilas
             } else {
-                opt.value = opcion;
-                opt.textContent = opcion;
+                const rawVal = String(opcion);
+                opt.value = rawVal;
+                opt.textContent = rawVal === '0' ? 'Años Anteriores' : rawVal;
+                opt.dataset.spYear = rawVal;
             }
             select.appendChild(opt);
         });
@@ -1679,10 +1684,12 @@
 
             // === AUTOCOMPLETADO DE DATOS DESDE datosFilas ===
             const progNom = programa.options[programa.selectedIndex].text.trim();
-            const modNom = modalidad.options[modalidad.selectedIndex].text.trim();
-            const bolNom = boleta.options[boleta.selectedIndex].text.trim();
-            const genNom = generacion.options[generacion.selectedIndex].text.trim();
-            const edNom = edadNombre.trim();
+            const modNom  = modalidad.options[modalidad.selectedIndex].text.trim();
+            const bolNom  = boleta.options[boleta.selectedIndex].text.trim();  // Texto display (puede ser "Años Anteriores")
+            // Valor raw del SP (ej. "0" o "2023") almacenado en data-sp-year por llenarSelect
+            const bolRaw  = boleta.options[boleta.selectedIndex].dataset?.spYear ?? bolNom;
+            const genNom  = generacion.options[generacion.selectedIndex].text.trim();
+            const edNom   = edadNombre.trim();
 
             // Inicializar turnos precargando datos guardados si existen
             const turnosInit = {};
@@ -1694,9 +1701,9 @@
                     d &&
                     (d.Nombre_Programa || '').trim() === progNom &&
                     (d.Modalidad || '').trim() === modNom &&
-                    String(d.Boleta || '').trim() === bolNom &&
-                    (d.Generacion || '').trim() === genNom &&
-                    String(d.Grupo_Edad || d.Edad || '').trim() === edNom &&
+                    String(d.Boleta ?? '').trim() === bolRaw &&   // Comparar con valor raw ("0" o "2023")
+                    (d.Generacion ?? '').toString().trim() === genNom &&
+                    String(d.Grupo_Edad ?? d.Edad ?? '').trim() === edNom &&
                     (d.Turno || '').trim().toLowerCase() === turnoNom.toLowerCase() &&
                     (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
                 );
@@ -1705,9 +1712,9 @@
                     d &&
                     (d.Nombre_Programa || '').trim() === progNom &&
                     (d.Modalidad || '').trim() === modNom &&
-                    String(d.Boleta || '').trim() === bolNom &&
-                    (d.Generacion || '').trim() === genNom &&
-                    String(d.Grupo_Edad || d.Edad || '').trim() === edNom &&
+                    String(d.Boleta ?? '').trim() === bolRaw &&   // Comparar con valor raw
+                    (d.Generacion ?? '').toString().trim() === genNom &&
+                    String(d.Grupo_Edad ?? d.Edad ?? '').trim() === edNom &&
                     (d.Turno || '').trim().toLowerCase() === turnoNom.toLowerCase() &&
                     (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
                 );
@@ -1728,7 +1735,7 @@
                 modalidad: modalidad.value,
                 modalidadNombre: modNom,
                 boleta: boleta.value,
-                boletaNombre: bolNom,
+                boletaNombre: bolRaw,   // SIEMPRE el valor raw del SP ("0" o "2023") para el backend
                 generacion: generacion.value,
                 generacionNombre: genNom,
                 edad: edadValor,
@@ -1808,7 +1815,7 @@
             if (index % 2 === 0) tr.style.background = '#fafafa';
 
             let celdas = `
-                <td style="padding:12px; text-align:center;">${fila.boletaNombre}</td>
+                <td style="padding:12px; text-align:center;">${String(fila.boletaNombre) === '0' ? 'Años Anteriores' : fila.boletaNombre}</td>
                 <td style="padding:12px; text-align:center;">${fila.generacionNombre}</td>
                 <td style="padding:12px; text-align:center; font-weight:600;">${fila.edadNombre}</td>`;
 
@@ -3112,7 +3119,7 @@
                 <td style="padding:10px; border:1px solid #ddd;">${fila.Nombre_Programa}</td>
                 <td style="padding:10px; border:1px solid #ddd;">${fila.Modalidad}</td>
                 <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Turno}</td>
-                <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Boleta}</td>
+                <td style="padding:10px; text-align:center; border:1px solid #ddd;">${String(fila.Boleta) === '0' ? 'Años Anteriores' : fila.Boleta}</td>
                 <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Generacion}</td>
                 <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Grupo_Edad}</td>
                 <td style="padding:10px; text-align:center; border:1px solid #ddd;">${Number(fila.Hombres || 0).toLocaleString('en-US')}</td>
@@ -3344,22 +3351,22 @@
 
                         const registroHombre = (datosFilas || []).find(d =>
                             d &&
-                            d.Nombre_Programa === progName &&
-                            d.Modalidad === modName &&
-                            String(d.Boleta) === String(bolName) &&
-                            d.Generacion === genName &&
-                            (d.Grupo_Edad === edadVal || d.Edad === edadVal) &&
+                            (d.Nombre_Programa || '').trim() === progName.trim() &&
+                            (d.Modalidad || '').trim() === modName.trim() &&
+                            String(d.Boleta ?? '').trim() === String(bolName).trim() &&
+                            (d.Generacion ?? '').toString().trim() === genName.trim() &&
+                            (String(d.Grupo_Edad ?? '').trim() === edadVal.trim() || String(d.Edad ?? '').trim() === edadVal.trim()) &&
                             (d.Turno || '').trim().toLowerCase() === turnoNom.trim().toLowerCase() &&
                             (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
                         );
 
                         const registroMujer = (datosFilas || []).find(d =>
                             d &&
-                            d.Nombre_Programa === progName &&
-                            d.Modalidad === modName &&
-                            String(d.Boleta) === String(bolName) &&
-                            d.Generacion === genName &&
-                            (d.Grupo_Edad === edadVal || d.Edad === edadVal) &&
+                            (d.Nombre_Programa || '').trim() === progName.trim() &&
+                            (d.Modalidad || '').trim() === modName.trim() &&
+                            String(d.Boleta ?? '').trim() === String(bolName).trim() &&
+                            (d.Generacion ?? '').toString().trim() === genName.trim() &&
+                            (String(d.Grupo_Edad ?? '').trim() === edadVal.trim() || String(d.Edad ?? '').trim() === edadVal.trim()) &&
                             (d.Turno || '').trim().toLowerCase() === turnoNom.trim().toLowerCase() &&
                             (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
                         );
@@ -3375,9 +3382,14 @@
 
                     const selectBoleta = document.getElementById('filtro-boleta');
                     let bolVal = bolName;
+                    // Obtener el valor raw del SP (data-sp-year) para comparaciones y para guardar
+                    let bolRawEdit = bolName;  // fallback = el nombre de la boleta (ej. "2023" o "0")
                     if (selectBoleta) {
                         const opt = Array.from(selectBoleta.options).find(o => o.text.trim() === bolName.trim());
-                        if (opt) bolVal = opt.value;
+                        if (opt) {
+                            bolVal = opt.value;
+                            bolRawEdit = opt.dataset?.spYear ?? bolName;
+                        }
                     }
 
                     const selectGen = document.getElementById('filtro-generacion');
@@ -3394,7 +3406,7 @@
                         modalidad: selectModalidad ? selectModalidad.value : '',
                         modalidadNombre: modName,
                         boleta: bolVal,
-                        boletaNombre: bolName,
+                        boletaNombre: bolRawEdit,  // Valor raw del SP ("0" o "2023") para el backend
                         generacion: genVal,
                         generacionNombre: genName,
                         edad: edadVal,

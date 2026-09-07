@@ -99,13 +99,14 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
                     programa_modalidad_turnos[key_pm] = set()
                 programa_modalidad_turnos[key_pm].add(str(row['Turno']))
         
-        if 'Boleta' in row and row['Boleta']:
+        # IMPORTANTE: usar 'is not None' en vez de truthy para no descartar el valor 0
+        if 'Boleta' in row and row['Boleta'] is not None:
             boletas_set.add(str(row['Boleta']))
         
-        if 'Generacion' in row and row['Generacion']:
+        if 'Generacion' in row and row['Generacion'] is not None:
             generaciones_set.add(str(row['Generacion']))
         
-        if 'Turno' in row and row['Turno']:
+        if 'Turno' in row and row['Turno'] is not None:
             turnos_set.add(str(row['Turno']))
         
         # Intentar extraer edad de diferentes columnas posibles
@@ -632,7 +633,22 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(validar_acuse
                         Boleta.Boleta.in_(boletas_sp),
                         Boleta.Id_Estatus == 1
                     ).order_by(Boleta.Boleta.desc()).all()
-                    boletas_formatted = [{"id": b.Id_Boleta, "nombre": b.Boleta} for b in boletas_db]
+
+                    # Construir mapa por nombre para lookup O(1)
+                    boletas_db_map = {str(b.Boleta).strip(): b for b in boletas_db}
+
+                    # Mantener el orden descendente del SP e incluir las que no están en BD
+                    boletas_formatted = []
+                    for sp_bol in boletas_sp:  # Ya viene ordenado descendente desde extract_unique_values
+                        sp_bol_str = str(sp_bol).strip()
+                        if sp_bol_str in boletas_db_map:
+                            b = boletas_db_map[sp_bol_str]
+                            boletas_formatted.append({"id": b.Id_Boleta, "nombre": str(b.Boleta)})
+                        else:
+                            # Boleta del SP sin entrada en Cat_Boleta → usar valor raw
+                            boletas_formatted.append({"id": sp_bol_str, "nombre": sp_bol_str})
+                            print(f"⚠️ Boleta '{sp_bol_str}' del SP no encontrada en Cat_Boleta → incluida con valor raw")
+
                     print(f"Boletas mapeadas ({len(boletas_formatted)}): {[b['nombre'] for b in boletas_formatted]}")
                 
                 # Mapear Generaciones
@@ -699,18 +715,23 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(validar_acuse
                 datos_precargados = {}
                 for reg in resultados_sp:
                     # Extraer textos limpios
+                    # IMPORTANTE: usar `if X is not None else ''` para no perder el valor 0 (falsy en Python)
                     prog_val = str(reg.get('Nombre_Programa') or '').strip()
-                    mod_val = str(reg.get('Modalidad') or '').strip()
-                    bol_val = str(reg.get('Boleta') or '').strip()
-                    gen_val = str(reg.get('Generacion') or '').strip()
-                    edad_val = str(reg.get('Grupo_Edad') or reg.get('Edad') or '').strip()
+                    mod_val  = str(reg.get('Modalidad') or '').strip()
+                    bol_raw  = reg.get('Boleta')
+                    bol_val  = str(bol_raw if bol_raw is not None else '').strip()
+                    gen_raw  = reg.get('Generacion')
+                    gen_val  = str(gen_raw if gen_raw is not None else '').strip()
+                    edad_raw = reg.get('Grupo_Edad') if reg.get('Grupo_Edad') is not None else reg.get('Edad')
+                    edad_val = str(edad_raw if edad_raw is not None else '').strip()
                     
                     # Llave única idéntica a la del Frontend
                     key = f"{prog_val}_{mod_val}_{bol_val}_{gen_val}_{edad_val}"
                     if key not in datos_precargados:
                         datos_precargados[key] = {}
                     
-                    turno_nombre = str(reg.get('Turno') or '').strip()
+                    turno_raw    = reg.get('Turno')
+                    turno_nombre = str(turno_raw if turno_raw is not None else '').strip()
                     if turno_nombre not in datos_precargados[key]:
                         datos_precargados[key][turno_nombre] = {'hombres': '', 'mujeres': ''}
                     

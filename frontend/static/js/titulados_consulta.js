@@ -89,7 +89,9 @@ function agregarFilasTitulados() {
         // 2. BUSCAR DATOS PREVIOS EN LA VARIABLE GLOBAL (datosFilas)
         const progNom = programa.options[programa.selectedIndex].text.trim();
         const modNom = modalidad.options[modalidad.selectedIndex].text.trim();
-        const bolNom = boleta.options[boleta.selectedIndex].text.trim();
+        const bolNom  = boleta.options[boleta.selectedIndex].text.trim();   // Texto display
+        // Valor raw del SP ("0" o "2023") almacenado en data-sp-year por llenarSelect
+        const bolRaw  = boleta.options[boleta.selectedIndex].dataset?.spYear ?? bolNom;
         const tipoNom = tipoTitulacion.options[tipoTitulacion.selectedIndex].text.trim();
         const edNom = edadNombre.trim();
 
@@ -106,9 +108,9 @@ function agregarFilasTitulados() {
                 d &&
                 (d.Nombre_Programa || '').trim() === progNom &&
                 (d.Modalidad || '').trim() === modNom &&
-                String(d.Boleta || '').trim() === bolNom &&
+                String(d.Boleta ?? '').trim() === bolRaw &&   // Comparar con valor raw del SP
                 (d.Tipo_Titulacion || '').trim() === tipoNom &&
-                String(d.Grupo_Edad || d.Edad || '').trim() === edNom &&
+                String(d.Grupo_Edad ?? d.Edad ?? '').trim() === edNom &&
                 (d.Turno || '').trim() === turno &&
                 (d.Sexo === 'Hombre' || d.Sexo === 'H' || d.Sexo === 'HOMBRE')
             );
@@ -118,9 +120,9 @@ function agregarFilasTitulados() {
                 d &&
                 (d.Nombre_Programa || '').trim() === progNom &&
                 (d.Modalidad || '').trim() === modNom &&
-                String(d.Boleta || '').trim() === bolNom &&
+                String(d.Boleta ?? '').trim() === bolRaw &&   // Comparar con valor raw del SP
                 (d.Tipo_Titulacion || '').trim() === tipoNom &&
-                String(d.Grupo_Edad || d.Edad || '').trim() === edNom &&
+                String(d.Grupo_Edad ?? d.Edad ?? '').trim() === edNom &&
                 (d.Turno || '').trim() === turno &&
                 (d.Sexo === 'Mujer' || d.Sexo === 'M' || d.Sexo === 'MUJER')
             );
@@ -143,7 +145,7 @@ function agregarFilasTitulados() {
             modalidad: modalidad.value,
             modalidadNombre: modalidad.options[modalidad.selectedIndex].text,
             boleta: boleta.value,
-            boletaNombre: boleta.options[boleta.selectedIndex].text,
+            boletaNombre: bolRaw,   // SIEMPRE el valor raw del SP para el backend
             tipoTitulacion: tipoTitulacion.value,
             tipoTitulacionNombre: tipoTitulacion.options[tipoTitulacion.selectedIndex].text,
             edad: edadValor,
@@ -253,7 +255,7 @@ function renderizarTablaTituladosCaptura() {
         if (index % 2 === 0) tr.style.background = '#fafafa';
 
         let celdas = `
-            <td style="padding:12px; text-align:center;">${fila.boletaNombre}</td>
+            <td style="padding:12px; text-align:center;">${String(fila.boletaNombre) === '0' ? 'Años Anteriores' : fila.boletaNombre}</td>
             <td style="padding:12px; text-align:center;">${fila.tipoTitulacionNombre}</td>
             <td style="padding:12px; text-align:center; font-weight:600;">${fila.edadNombre}</td>`;
 
@@ -999,7 +1001,7 @@ function renderizarTablaTitulados(datosFilas) {
             <td style="padding:10px; border:1px solid #ddd;">${fila.Nombre_Programa}</td>
             <td style="padding:10px; border:1px solid #ddd;">${fila.Modalidad}</td>
             <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Turno}</td>
-            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Boleta}</td>
+            <td style="padding:10px; text-align:center; border:1px solid #ddd;">${String(fila.Boleta) === '0' ? 'Años Anteriores' : fila.Boleta}</td>
             <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Tipo_Titulacion}</td>
             <td style="padding:10px; text-align:center; border:1px solid #ddd;">${fila.Grupo_Edad}</td>
             <td style="padding:10px; text-align:center; border:1px solid #ddd;">${Number(fila.Hombres || 0).toLocaleString('en-US')}</td>
@@ -1613,8 +1615,10 @@ function calculateDynamicDropdownWidth(values, headerElement) {
         if (!select) return;
         opciones.forEach(opcion => {
             const opt = document.createElement('option');
-            opt.value = opcion;
-            opt.textContent = opcion;
+            const rawVal = String(opcion);
+            opt.value = rawVal;
+            opt.textContent = rawVal === '0' ? 'Años Anteriores' : rawVal;
+            opt.dataset.spYear = rawVal;  // Valor raw del SP para comparaciones
             select.appendChild(opt);
         });
     }
@@ -1753,7 +1757,38 @@ function calculateDynamicDropdownWidth(values, headerElement) {
             resetSelect(selectTipoTitulacion, '-- Seleccione Tipo de Titulación --');
 
             if (!this.value) return;
-            const tipoTitulacion = [...new Set(datosFilas.map(f => f.Tipo_Titulacion))];
+
+            // Filtrar por programa, modalidad Y boleta seleccionada
+            const progSeleccionado = selectPrograma ? selectPrograma.value : '';
+            const modSeleccionada  = selectModalidad ? selectModalidad.value : '';
+            const boletaSel = (this.options[this.selectedIndex].dataset?.spYear ?? this.options[this.selectedIndex].text).trim();
+
+            let tipoTitulacion = [...new Set(
+                datosFilas
+                    .filter(f =>
+                        (!progSeleccionado || (f.Nombre_Programa || '').trim() === progSeleccionado.trim()) &&
+                        (!modSeleccionada  || (f.Modalidad || '').trim()       === modSeleccionada.trim())  &&
+                        String(f.Boleta ?? '').trim() === boletaSel
+                    )
+                    .map(f => f.Tipo_Titulacion)
+                    .filter(t => t)
+            )];
+
+            // Fallback: si no hay coincidencias exactas de boleta, cargar todos los tipos
+            // del programa+modalidad para no dejar el select vacío
+            if (tipoTitulacion.length === 0) {
+                console.warn(`⚠️ Sin Tipos de Titulación para boleta="${boletaSel}" — mostrando todos del programa/modalidad`);
+                tipoTitulacion = [...new Set(
+                    datosFilas
+                        .filter(f =>
+                            (!progSeleccionado || (f.Nombre_Programa || '').trim() === progSeleccionado.trim()) &&
+                            (!modSeleccionada  || (f.Modalidad || '').trim()       === modSeleccionada.trim())
+                        )
+                        .map(f => f.Tipo_Titulacion)
+                        .filter(t => t)
+                )];
+            }
+
             llenarSelect(selectTipoTitulacion, tipoTitulacion);
             selectTipoTitulacion.disabled = false;
         });
@@ -1872,7 +1907,11 @@ function cargarFilaParaEditar(programaNombre, modalidadNombre, boletaNombre, tip
 
         // Esperar otro instante a que se carguen las boletas y tipos de titulación
         setTimeout(() => {
-            let boletaOpcion = Array.from(boleta.options).find(opt => opt.text.trim() === String(boletaNombre).trim());
+            // Buscar la opción por data-sp-year (valor raw) o por texto visible
+            let boletaOpcion = Array.from(boleta.options).find(opt =>
+                (opt.dataset.spYear ?? opt.text).trim() === String(boletaNombre).trim() ||
+                opt.text.trim() === String(boletaNombre).trim()
+            );
             if (boletaOpcion) {
                 boleta.value = boletaOpcion.value;
                 boleta.dispatchEvent(new Event('change'));
