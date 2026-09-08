@@ -74,6 +74,8 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
     programa_modalidades = {}
     # Mapeo de (Programa, Modalidad) -> Turnos
     programa_modalidad_turnos = {}
+    # Mapeo de (Programa, Modalidad) -> Boletas
+    programa_modalidad_boletas = {}
     
     for row in rows_list:
         programa_nombre = None
@@ -98,6 +100,14 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
                 if key_pm not in programa_modalidad_turnos:
                     programa_modalidad_turnos[key_pm] = set()
                 programa_modalidad_turnos[key_pm].add(str(row['Turno']))
+            
+            # Mapeo (Programa, Modalidad) -> Boletas
+            boleta_val = row.get('Boleta')
+            if boleta_val is not None:
+                key_pm = f"{programa_nombre}_{modalidad_nombre}"
+                if key_pm not in programa_modalidad_boletas:
+                    programa_modalidad_boletas[key_pm] = set()
+                programa_modalidad_boletas[key_pm].add(str(boleta_val))
         
         # IMPORTANTE: usar 'is not None' en vez de truthy para no descartar el valor 0
         if 'Boleta' in row and row['Boleta'] is not None:
@@ -133,6 +143,13 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
     # Convertir sets de modalidades a listas ordenadas
     programa_modalidades_list = {prog: sorted(list(mods)) for prog, mods in programa_modalidades.items()}
     programa_modalidad_turnos_list = {k: sorted(list(v)) for k, v in programa_modalidad_turnos.items()}
+    # Ordenar boletas descendente dentro de cada clave
+    def _sort_boletas(boletas_set):
+        def _key(b):
+            try: return -int(b)
+            except ValueError: return 0
+        return sorted(list(boletas_set), key=_key)
+    programa_modalidad_boletas_list = {k: _sort_boletas(v) for k, v in programa_modalidad_boletas.items()}
     
     # Ordenar edades por valor numérico, ignorando símbolos de comparación
     def ordenar_edades(edad_str):
@@ -155,15 +172,15 @@ def extract_unique_values_egresados(rows_list: List[Dict[str, Any]]) -> Dict[str
     return {
         'programas': sorted(list(programas_set)),
         'modalidades': sorted(list(modalidades_set)),
-        'programa_modalidades': programa_modalidades_list,  # Nuevo mapeo
-        'programa_modalidad_turnos': programa_modalidad_turnos_list,  # Turnos por programa y modalidad
-        'boletas': sorted(list(boletas_set), reverse=True),  # Descendente
-        'generaciones': sorted(list(generaciones_set), reverse=True),  # Descendente
+        'programa_modalidades': programa_modalidades_list,
+        'programa_modalidad_turnos': programa_modalidad_turnos_list,
+        'programa_modalidad_boletas': programa_modalidad_boletas_list,  # NUEVO: boletas por programa+modalidad
+        'boletas': sorted(list(boletas_set), reverse=True),
+        'generaciones': sorted(list(generaciones_set), reverse=True),
         'turnos': sorted(list(turnos_set)),
-        'edades': edades_ordenadas,  # Ordenadas por lógica especial
+        'edades': edades_ordenadas,
         'sexos': sorted(list(sexos_set)),
         'semaforos': sorted(list(semaforos_set))
-
     }
 
 
@@ -500,7 +517,8 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(validar_acuse
     sexos_formatted = []
     programa_a_modalidades_json = "{}"  # Mapeo programa->modalidades para filtrado dinámico
     programa_modalidad_turnos_json = "{}"  # Mapeo (programa, modalidad) -> turnos
-    datos_precargados_json = "{}"  # Para precargar datos en el frontend (opcional, puede venir vacío y llenarse al consultar)
+    programa_modalidad_boletas_json = "{}"  # Mapeo (programa, modalidad) -> boletas
+    datos_precargados_json = "{}"
     
     # Para roles 4-9 (directores y superiores): cargar TODAS las modalidades y programas sin ejecutar SP
     if es_rol_director or es_rol_superior:
@@ -712,6 +730,9 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(validar_acuse
                 programa_modalidad_turnos_json = json.dumps(valores_unicos.get('programa_modalidad_turnos', {}))
                 print(f"Mapeo (Programa, Modalidad) -> Turnos: {programa_modalidad_turnos_json}")
 
+                programa_modalidad_boletas_json = json.dumps(valores_unicos.get('programa_modalidad_boletas', {}))
+                print(f"Mapeo (Programa, Modalidad) -> Boletas: {programa_modalidad_boletas_json}")
+
                 datos_precargados = {}
                 for reg in resultados_sp:
                     # Extraer textos limpios
@@ -763,6 +784,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(validar_acuse
                 edades_formatted = []
                 programa_a_modalidades_json = "{}"
                 programa_modalidad_turnos_json = "{}"
+                programa_modalidad_boletas_json = "{}"
                     
         except Exception as e:
             print(f"❌ Error al obtener metadatos del SP: {str(e)}")
@@ -872,6 +894,7 @@ async def captura_egresados_sp_view(request: Request, sess=Depends(validar_acuse
         "nivel_a_uas_json": nivel_a_uas_json,
         "programa_a_modalidades_json": programa_a_modalidades_json,
         "programa_modalidad_turnos_json": programa_modalidad_turnos_json,
+        "programa_modalidad_boletas_json": programa_modalidad_boletas_json,
         "semaforo_estados": semaforo_data,
         "periodos": periodos,
         "rechazo_info": rechazo_info,

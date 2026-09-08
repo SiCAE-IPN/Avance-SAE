@@ -1107,6 +1107,8 @@
 
     const catalogoBoletas = {{ boletas | tojson }};
     const catalogoGeneraciones = {{ generaciones | tojson }};
+    // Mapeo (Nombre_Programa_Nombre_Modalidad) -> [boletas] para filtrar por selección
+    const programaModalidadBoletas = {{ programa_modalidad_boletas_json | safe if programa_modalidad_boletas_json is defined else '{}' }};
 
     /**
      * Obtiene dinámicamente los turnos para un programa y modalidad dados
@@ -3840,7 +3842,18 @@
                 mostrarSeccionCaptura();
                 actualizarBannerSeleccion();
 
-                llenarSelect(selectBoleta, catalogoBoletas);
+                // Filtrar boletas por Programa + Modalidad seleccionados
+                const progNomBol = selectPrograma.options[selectPrograma.selectedIndex]?.text.trim() || '';
+                const modNomBol  = this.options[this.selectedIndex]?.text.trim() || '';
+                const keyBol     = `${progNomBol}_${modNomBol}`;
+                const boletasFiltradas = programaModalidadBoletas[keyBol]
+                    ? catalogoBoletas.filter(b => {
+                        const nombre = typeof b === 'object' ? String(b.nombre) : String(b);
+                        return programaModalidadBoletas[keyBol].includes(nombre);
+                    })
+                    : catalogoBoletas;  // fallback: todas si no hay mapeo
+
+                llenarSelect(selectBoleta, boletasFiltradas);
                 selectBoleta.disabled = false;
 
                 renderizarTablaEgresadosInforme(datosFilas);

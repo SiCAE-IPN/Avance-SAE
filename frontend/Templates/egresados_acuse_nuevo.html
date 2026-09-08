@@ -207,7 +207,7 @@
                                     {% set boleta_m = boleta_tot.regular.M + boleta_tot.extemporaneo.M %}
                                     {% set boleta_t = boleta_tot.regular.T + boleta_tot.extemporaneo.T %}
                                     <tr>
-                                        <td class="label-izq">{{ boleta }}</td>
+                                        <td class="label-izq">{{ 'Años Anteriores' if boleta|string == '0' else boleta }}</td>
                                         <td><strong>{{ boleta_h | miles }}</strong></td>
                                         <td><strong>{{ boleta_m | miles }}</strong></td>
                                         <td><strong>{{ boleta_t | miles }}</strong></td>

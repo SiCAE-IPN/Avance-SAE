@@ -51,11 +51,13 @@ function agregarFilasTitulados() {
         mostrarAlerta('Por favor seleccione una modalidad.');
         return;
     }
-    if (!boleta || !boleta.value || boleta.value === "" || boleta.value === "0") {
+    // Usamos selectedIndex > 0 para permitir el valor "0" (Años Anteriores) como boleta válida
+    if (!boleta || boleta.selectedIndex <= 0) {
         mostrarAlerta('Por favor seleccione una boleta.');
         return;
     }
-    if (!tipoTitulacion || !tipoTitulacion.value || tipoTitulacion.value === "" || tipoTitulacion.value === "0") {
+    // Mismo patrón: selectedIndex > 0 para no rechazar valores numéricos como "0"
+    if (!tipoTitulacion || tipoTitulacion.selectedIndex <= 0) {
         mostrarAlerta('Por favor seleccione un tipo de titulación.');
         return;
     }
@@ -1739,7 +1741,15 @@ function calculateDynamicDropdownWidth(values, headerElement) {
             if (btnFinalizar) btnFinalizar.style.display = 'inline-block';
             if (btnValidarTodos) btnValidarTodos.style.display = 'inline-block';
 
-            llenarSelect(selectBoleta, boletas);
+            // Filtrar boletas para el programa + modalidad seleccionados
+            const progNomBol = selectPrograma ? selectPrograma.options[selectPrograma.selectedIndex]?.text.trim() : '';
+            const modNomBol  = this.options[this.selectedIndex]?.text.trim() || '';
+            const keyBol     = `${progNomBol}_${modNomBol}`;
+            const boletasFiltradas = (programaModalidadBoletas && programaModalidadBoletas[keyBol] && programaModalidadBoletas[keyBol].length > 0)
+                ? boletas.filter(b => programaModalidadBoletas[keyBol].includes(String(b)))
+                : boletas;  // fallback: todas si no hay mapeo
+
+            llenarSelect(selectBoleta, boletasFiltradas);
             selectBoleta.disabled = false;
 
             if (typeof actualizarBarraTitulados === 'function') {
@@ -2109,12 +2119,19 @@ function editarFilasSeleccionadas() {
                     };
                 });
 
-                // Buscar boleta y tipoTitulacion ids desde los selectores si coinciden por texto
+                // Buscar boleta por data-sp-year (valor raw) o por texto visible
                 const selectBoleta = document.getElementById('filtro-boleta');
                 let bolVal = bolName;
+                let bolRawEdit = bolName;  // Valor raw del SP para el backend
                 if (selectBoleta) {
-                    const opt = Array.from(selectBoleta.options).find(o => o.text.trim() === bolName.trim());
-                    if (opt) bolVal = opt.value;
+                    const opt = Array.from(selectBoleta.options).find(o =>
+                        (o.dataset.spYear ?? o.text).trim() === bolName.trim() ||
+                        o.text.trim() === bolName.trim()
+                    );
+                    if (opt) {
+                        bolVal = opt.value;
+                        bolRawEdit = opt.dataset.spYear ?? bolName;
+                    }
                 }
 
                 const selectTipo = document.getElementById('filtro-generacion');
@@ -2131,7 +2148,7 @@ function editarFilasSeleccionadas() {
                     modalidad: selectModalidad.value,
                     modalidadNombre: modName,
                     boleta: bolVal,
-                    boletaNombre: bolName,
+                    boletaNombre: bolRawEdit,  // Siempre el valor raw del SP ("0" o "2024") para el backend
                     tipoTitulacion: tipoVal,
                     tipoTitulacionNombre: tipoName,
                     edad: edadVal,

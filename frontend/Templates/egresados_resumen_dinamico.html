@@ -994,7 +994,7 @@
                                         </td>
                                     {% endif %}
 
-                                    <td class="td-boleta sticky-col3">{{ row.boleta }}</td>
+                                    <td class="td-boleta sticky-col3">{{ 'Años Anteriores' if row.boleta|string == '0' else row.boleta }}</td>
 
                                     {% for modalidad in modalidades_columnas %}
                                         {% set v = row.modalidades.get(modalidad, {'H':0,'M':0,'T':0}) %}

@@ -297,6 +297,28 @@ async def consulta_titulados(
     programa_modalidad_turnos = {k: sorted(list(v)) for k, v in programa_modalidad_turnos.items()}
     programa_modalidad_turnos_json = json.dumps(programa_modalidad_turnos)
 
+    # Mapeo (Programa, Modalidad) -> Boletas para filtrado dinámico en el frontend
+    programa_modalidad_boletas_raw = {}
+    for r in filas:
+        prog  = r.get("Nombre_Programa")
+        mod   = r.get("Modalidad")
+        bol   = r.get("Boleta")
+        if prog and mod and bol is not None:
+            key = f"{str(prog).strip()}_{str(mod).strip()}"
+            if key not in programa_modalidad_boletas_raw:
+                programa_modalidad_boletas_raw[key] = set()
+            programa_modalidad_boletas_raw[key].add(str(bol).strip())
+
+    def _sort_bol(s):
+        try: return -int(v)
+        except: return 0
+
+    programa_modalidad_boletas = {
+        k: sorted(list(v), key=lambda b: (-int(b) if b.lstrip('-').isdigit() else 0))
+        for k, v in programa_modalidad_boletas_raw.items()
+    }
+    programa_modalidad_boletas_json = json.dumps(programa_modalidad_boletas)
+
     boletas = []
     try:
         # Extraer boletas únicas directamente desde los datos del SP
@@ -367,6 +389,7 @@ async def consulta_titulados(
              "edades" : edades_ordenadas,
              "turnos": turnos_sp,
              "programa_modalidad_turnos_json": programa_modalidad_turnos_json,
+             "programa_modalidad_boletas_json": programa_modalidad_boletas_json,
              "es_capturista": es_capturista,
              "es_validador": es_validador,
              "es_rol_superior": es_rol_superior,

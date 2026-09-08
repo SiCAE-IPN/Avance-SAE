@@ -346,7 +346,7 @@
                     <tbody>
                         {% for fila in tabla_boletas %}
                         <tr>
-                            <td>{{ fila.nombre }}</td>
+                            <td>{{ 'Años Anteriores' if fila.nombre|string == '0' else fila.nombre }}</td>
                             <td>{{ fila.hombres }}</td>
                             <td>{{ fila.mujeres }}</td>
                             <td><strong>{{ fila.total }}</strong></td>
