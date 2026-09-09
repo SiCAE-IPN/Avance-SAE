@@ -707,25 +707,25 @@
                         <td rowspan="3" class="celda-dimension-nombre">{{ fila.nombre }}</td>
                         <td class="celda-dimension-letra">H</td>
                         {% for val in fila.hombres %}
-                        <td>{{ val }}</td>
+                        <td>{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="celda-total-sub">{{ fila.total_h }}</td>
+                        <td class="celda-total-sub">{{ fila.total_h|miles }}</td>
                     </tr>
                     <!-- Subfila Mujer -->
                     <tr class="fila-mujer">
                         <td class="celda-dimension-letra">M</td>
                         {% for val in fila.mujeres %}
-                        <td>{{ val }}</td>
+                        <td>{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="celda-total-sub">{{ fila.total_m }}</td>
+                        <td class="celda-total-sub">{{ fila.total_m|miles }}</td>
                     </tr>
                     <!-- Subfila Subtotal -->
                     <tr class="fila-subtotal">
                         <td class="celda-dimension-letra celda-st-letra">ST</td>
                         {% for val in fila.subtotales %}
-                        <td class="total-celda">{{ val }}</td>
+                        <td class="total-celda">{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="total-celda celda-total-sub">{{ fila.total_st }}</td>
+                        <td class="total-celda celda-total-sub">{{ fila.total_st|miles }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -735,25 +735,25 @@
                         <td rowspan="2" class="celda-pie-dimension-nombre">Subtotal</td>
                         <td class="celda-pie-dimension-letra">H</td>
                         {% for val in tabla_programa.totales_h_col %}
-                        <td>{{ val }}</td>
+                        <td>{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="celda-total-sub">{{ tabla_programa.total_gen_h }}</td>
+                        <td class="celda-total-sub">{{ tabla_programa.total_gen_h|miles }}</td>
                     </tr>
                     <!-- Subtotal Mujer -->
                     <tr class="fila-pie-subtotal">
                         <td class="celda-pie-dimension-letra">M</td>
                         {% for val in tabla_programa.totales_m_col %}
-                        <td>{{ val }}</td>
+                        <td>{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="celda-total-sub">{{ tabla_programa.total_gen_m }}</td>
+                        <td class="celda-total-sub">{{ tabla_programa.total_gen_m|miles }}</td>
                     </tr>
                     <!-- Total General -->
                     <tr class="fila-pie-total">
                         <td colspan="2" class="celda-pie-total-label">Total</td>
                         {% for val in tabla_programa.totales_general_col %}
-                        <td class="total-celda">{{ val }}</td>
+                        <td class="total-celda">{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="total-celda celda-total-sub">{{ tabla_programa.total_general_t }}</td>
+                        <td class="total-celda celda-total-sub">{{ tabla_programa.total_general_t|miles }}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -804,25 +804,25 @@
                         <td rowspan="3" class="celda-dimension-nombre">{{ fila.nombre }}</td>
                         <td class="celda-dimension-letra">H</td>
                         {% for val in fila.hombres %}
-                        <td>{{ val }}</td>
+                        <td>{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="celda-total-sub">{{ fila.total_h }}</td>
+                        <td class="celda-total-sub">{{ fila.total_h|miles }}</td>
                     </tr>
                     <!-- Subfila Mujer -->
                     <tr class="fila-mujer">
                         <td class="celda-dimension-letra">M</td>
                         {% for val in fila.mujeres %}
-                        <td>{{ val }}</td>
+                        <td>{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="celda-total-sub">{{ fila.total_m }}</td>
+                        <td class="celda-total-sub">{{ fila.total_m|miles }}</td>
                     </tr>
                     <!-- Subfila Subtotal -->
                     <tr class="fila-subtotal">
                         <td class="celda-dimension-letra celda-st-letra">ST</td>
                         {% for val in fila.subtotales %}
-                        <td class="total-celda">{{ val }}</td>
+                        <td class="total-celda">{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="total-celda celda-total-sub">{{ fila.total_st }}</td>
+                        <td class="total-celda celda-total-sub">{{ fila.total_st|miles }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -832,25 +832,25 @@
                         <td rowspan="2" class="celda-pie-dimension-nombre">Subtotal</td>
                         <td class="celda-pie-dimension-letra">H</td>
                         {% for val in tabla_semestre.totales_h_col %}
-                        <td>{{ val }}</td>
+                        <td>{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="celda-total-sub">{{ tabla_semestre.total_gen_h }}</td>
+                        <td class="celda-total-sub">{{ tabla_semestre.total_gen_h|miles }}</td>
                     </tr>
                     <!-- Subtotal Mujer -->
                     <tr class="fila-pie-subtotal">
                         <td class="celda-pie-dimension-letra">M</td>
                         {% for val in tabla_semestre.totales_m_col %}
-                        <td>{{ val }}</td>
+                        <td>{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="celda-total-sub">{{ tabla_semestre.total_gen_m }}</td>
+                        <td class="celda-total-sub">{{ tabla_semestre.total_gen_m|miles }}</td>
                     </tr>
                     <!-- Total General -->
                     <tr class="fila-pie-total">
                         <td colspan="2" class="celda-pie-total-label">Total</td>
                         {% for val in tabla_semestre.totales_general_col %}
-                        <td class="total-celda">{{ val }}</td>
+                        <td class="total-celda">{{ val|miles }}</td>
                         {% endfor %}
-                        <td class="total-celda celda-total-sub">{{ tabla_semestre.total_general_t }}</td>
+                        <td class="total-celda celda-total-sub">{{ tabla_semestre.total_general_t|miles }}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -912,13 +912,13 @@
                     <tr>
                         <td>{{ fila.tipo }}</td>
                             {% for celda in fila.celdas %}
-                        <td>{{ celda.h }}</td>
-                        <td>{{ celda.m }}</td>
-                        <td class="total-celda">{{ celda.t }}</td>
+                        <td>{{ celda.h|miles }}</td>
+                        <td>{{ celda.m|miles }}</td>
+                        <td class="total-celda">{{ celda.t|miles }}</td>
                         {% endfor %}
-                        <td>{{ fila.total_h }}</td>
-                        <td>{{ fila.total_m }}</td>
-                        <td class="total-celda">{{ fila.total_t }}</td>
+                        <td>{{ fila.total_h|miles }}</td>
+                        <td>{{ fila.total_m|miles }}</td>
+                        <td class="total-celda">{{ fila.total_t|miles }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -926,13 +926,13 @@
                     <tr>
                         <td><strong>TOTAL GENERAL</strong></td>
                         {% for total_cat in tabla_modalidad.totales_por_columna %}
-                        <td>{{ total_cat.h }}</td>
-                        <td>{{ total_cat.m }}</td>
-                        <td class="total-celda">{{ total_cat.t }}</td>
+                        <td>{{ total_cat.h|miles }}</td>
+                        <td>{{ total_cat.m|miles }}</td>
+                        <td class="total-celda">{{ total_cat.t|miles }}</td>
                         {% endfor %}
-                        <td>{{ tabla_modalidad.total_general_h }}</td>
-                        <td>{{ tabla_modalidad.total_general_m }}</td>
-                        <td class="total-celda">{{ tabla_modalidad.total_general_t }}</td>
+                        <td>{{ tabla_modalidad.total_general_h|miles }}</td>
+                        <td>{{ tabla_modalidad.total_general_m|miles }}</td>
+                        <td class="total-celda">{{ tabla_modalidad.total_general_t|miles }}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -979,13 +979,13 @@
                     <tr>
                         <td>{{ fila.tipo }}</td>
                         {% for celda in fila.celdas %}
-                        <td>{{ celda.h }}</td>
-                        <td>{{ celda.m }}</td>
-                        <td class="total-celda">{{ celda.t }}</td>
+                        <td>{{ celda.h|miles }}</td>
+                        <td>{{ celda.m|miles }}</td>
+                        <td class="total-celda">{{ celda.t|miles }}</td>
                         {% endfor %}
-                        <td>{{ fila.total_h }}</td>
-                        <td>{{ fila.total_m }}</td>
-                        <td class="total-celda">{{ fila.total_t }}</td>
+                        <td>{{ fila.total_h|miles }}</td>
+                        <td>{{ fila.total_m|miles }}</td>
+                        <td class="total-celda">{{ fila.total_t|miles }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -993,13 +993,13 @@
                     <tr>
                         <td><strong>TOTAL GENERAL</strong></td>
                         {% for total_cat in tabla_turno.totales_por_columna %}
-                        <td>{{ total_cat.h }}</td>
-                        <td>{{ total_cat.m }}</td>
-                        <td class="total-celda">{{ total_cat.t }}</td>
+                        <td>{{ total_cat.h|miles }}</td>
+                        <td>{{ total_cat.m|miles }}</td>
+                        <td class="total-celda">{{ total_cat.t|miles }}</td>
                         {% endfor %}
-                        <td>{{ tabla_turno.total_general_h }}</td>
-                        <td>{{ tabla_turno.total_general_m }}</td>
-                        <td class="total-celda">{{ tabla_turno.total_general_t }}</td>
+                        <td>{{ tabla_turno.total_general_h|miles }}</td>
+                        <td>{{ tabla_turno.total_general_m|miles }}</td>
+                        <td class="total-celda">{{ tabla_turno.total_general_t|miles }}</td>
                     </tr>
                 </tfoot>
             </table>
