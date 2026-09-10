@@ -4403,6 +4403,7 @@ async def acuse_validacion_view(
             "puede_validar": puede_validar, "usuario_ya_valido": usuario_ya_valido, "usuario_ya_rechazo": usuario_ya_rechazo,
             "exportando_pdf": exportando_pdf,
             "estado_semaforo_actual": estado_semaforo_actual,
+            "estado_semaforo": estado_semaforo_actual,  # alias para el template
             "pendiente_validacion": pendiente_validacion,
             "no_validado": no_validado,
             "fecha_hoy": datetime.now().strftime("%d/%m/%Y"),

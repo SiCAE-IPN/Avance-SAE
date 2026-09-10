@@ -453,9 +453,11 @@
             <div class="estado-validacion estado-validado">
                 ✅ MATRÍCULA VALIDADA
             </div>
+            {% if estado_semaforo is not none and estado_semaforo < 9 %}
             <div class="estado-validacion estado-pendiente">
                 ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
             </div>
+            {% endif %}
         {% elif usuario_ya_rechazo %}
             <div class="estado-validacion estado-rechazado">
                 ❌ MATRÍCULA RECHAZADA
