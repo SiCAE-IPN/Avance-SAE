@@ -24,6 +24,7 @@ from backend.database.models.CatNivel import CatNivel
 from backend.database.models.CatSemaforo import CatSemaforo
 from backend.database.models.Validacion import Validacion
 from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcademica
+from backend.database.models.SemaforoSemestreUnidadAcademica import SemaforoSemestreUnidadAcademica
 from backend.database.models.CatRoles import CatRoles
 from backend.database.models.Usuario import Usuario
 from backend.services.nivel_service import get_niveles_by_unidad_academica
@@ -727,7 +728,8 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
                     semaforoUA = db.query(SemaforoUnidadAcademica).filter(
                         SemaforoUnidadAcademica.Id_Periodo == Id_Periodo_anterior,
                         SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
-                        SemaforoUnidadAcademica.Id_Formato == 2
+                        SemaforoUnidadAcademica.Id_Formato == 2,
+                        SemaforoUnidadAcademica.Id_Nivel == id_nivel
                     ).first()
                     db.commit()
                     if semaforoUA and semaforoUA.Id_Semaforo == 2:
@@ -1027,7 +1029,90 @@ async def finalizar_captura_semestre(request: Request, data: Dict[str, Any], ses
             "nivel": nivel
         })
         db.commit()
-        return {"status": "success", "message": "Proceso completado."}
+
+        # ── Verificar si TODOS los semestres de este nivel/UA/periodo quedaron en semáforo 3 ──
+        periodo_anterior_id, _ = get_periodo_anterior_al_ultimo(db)
+        ua_obj = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Sigla == unidad_sigla).first()
+        nivel_obj = db.query(CatNivel).filter(CatNivel.Nivel == nivel).first()
+        Id_Unidad_Academica = ua_obj.Id_Unidad_Academica if ua_obj else None
+        Id_Nivel = nivel_obj.Id_Nivel if nivel_obj else None
+
+        sp_finaliza_ejecutado = False
+        if periodo_anterior_id and Id_Unidad_Academica and Id_Nivel:
+            semestres_ua = db.query(SemaforoSemestreUnidadAcademica).filter(
+                SemaforoSemestreUnidadAcademica.Id_Periodo == periodo_anterior_id,
+                SemaforoSemestreUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
+                SemaforoSemestreUnidadAcademica.Id_Nivel == Id_Nivel,
+                SemaforoSemestreUnidadAcademica.Id_Formato == ID_FORMATO_APROVECHAMIENTO
+            ).all()
+            print(f"🔍 Semestres encontrados para UA={Id_Unidad_Academica}, Nivel={Id_Nivel}, Periodo={periodo_anterior_id}: {len(semestres_ua)}")
+            todos_en_tres = bool(semestres_ua) and all(s.Id_Semaforo == 3 for s in semestres_ua)
+            print(f"🔍 todos_en_tres = {todos_en_tres}")
+
+            if todos_en_tres:
+                semaforoUA = db.query(SemaforoUnidadAcademica).filter(
+                    SemaforoUnidadAcademica.Id_Periodo == periodo_anterior_id,
+                    SemaforoUnidadAcademica.Id_Unidad_Academica == Id_Unidad_Academica,
+                    SemaforoUnidadAcademica.Id_Formato == ID_FORMATO_APROVECHAMIENTO,
+                    SemaforoUnidadAcademica.Id_Nivel == Id_Nivel
+                ).first()
+                print(f"🔍 semaforoUA = {semaforoUA}, Id_Semaforo = {semaforoUA.Id_Semaforo if semaforoUA else 'N/A'}")
+
+                if semaforoUA and semaforoUA.Id_Semaforo == 2:
+                    print(f"🚀 Todos los semestres en 3. Ejecutando SP_Finaliza_Captura_Aprovechamiento...")
+                    # Obtener las combinaciones reales (Modalidad, Programa, Semestre) desde el SP de consulta
+                    result_aprov = db.execute(text("""
+                        SET NOCOUNT ON;
+                        EXEC dbo.SP_Consulta_Aprovechamiento_Unidad_Academica
+                            @UUnidad_Academica = :UUnidad_Academica,
+                            @PPeriodo = :PPeriodo,
+                            @NNivel = :NNivel,
+                            @UUsuario = :UUsuario,
+                            @HHost = :HHost;
+                    """), {
+                        "UUnidad_Academica": unidad_sigla,
+                        "PPeriodo": periodo,
+                        "NNivel": nivel,
+                        "UUsuario": usuario,
+                        "HHost": host,
+                    })
+                    aprov_rows = [dict(r) for r in result_aprov.mappings().all()] if result_aprov.returns_rows else []
+
+                    query_finaliza = text("""
+                        SET NOCOUNT ON;
+                        EXEC [dbo].[SP_Finaliza_Captura_Aprovechamiento]
+                            @PPeriodo = :PPeriodo,
+                            @UUnidad_Academica = :UUnidad_Academica,
+                            @MModalidad = :MModalidad,
+                            @PPrograma = :PPrograma,
+                            @SSemestre = :SSemestre,
+                            @UUsuario = :UUsuario,
+                            @HHost = :HHost,
+                            @NNivel = :NNivel;
+                    """)
+                    combinaciones_procesadas = set()
+                    for reg in aprov_rows:
+                        m_modalidad = reg.get("Modalidad", "")
+                        p_programa  = reg.get("Nombre_Programa", "")
+                        s_semestre  = reg.get("Semestre", "")
+                        combinacion_actual = (m_modalidad, p_programa, s_semestre)
+                        if combinacion_actual not in combinaciones_procesadas:
+                            combinaciones_procesadas.add(combinacion_actual)
+                            db.execute(query_finaliza, {
+                                "PPeriodo": periodo,
+                                "UUnidad_Academica": unidad_sigla,
+                                "MModalidad": m_modalidad,
+                                "PPrograma": p_programa,
+                                "SSemestre": s_semestre,
+                                "UUsuario": usuario,
+                                "HHost": host,
+                                "NNivel": nivel,
+                            })
+                    db.commit()
+                    sp_finaliza_ejecutado = True
+                    print(f"✅ SP_Finaliza_Captura_Aprovechamiento ejecutado exitosamente ({len(combinaciones_procesadas)} combinaciones)")
+
+        return {"status": "success", "message": "Proceso completado.", "sp_finaliza_ejecutado": sp_finaliza_ejecutado}
     except HTTPException:
         raise
     except Exception as e:
