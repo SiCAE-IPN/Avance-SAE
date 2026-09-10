@@ -1283,12 +1283,12 @@ async def validar_egresados(request: Request, sess=Depends(get_current_session),
 
         periodo_in = data.get('periodo')
         nota_in = (data.get('nota') or '').strip()
+        nivel_in = (data.get('nivel') or '').strip()    # Nivel que el validador está viendo en pantalla
+        unidad_in = (data.get('unidad') or '').strip()  # UA que el validador está viendo en pantalla
 
         # Sesión
         id_rol = int(sess.id_rol)
         usuario_sp = sess.usuario or 'sistema'  # LOGIN
-        unidad_sigla = (sess.sigla_unidad_academica or '').strip()
-        nivel_literal = (sess.nombre_nivel or '').strip()
         host_sp = get_request_host(request)
 
         # Roles permitidos
@@ -1305,8 +1305,10 @@ async def validar_egresados(request: Request, sess=Depends(get_current_session),
         else:
             periodo_literal = str(periodo_in)
 
+        # STRATEGY FALLBACK: priorizar lo que viene del body (el nivel/UA que se está viendo)
+        # Roles 6-9 no tienen nivel en sesión, así que hay que tomarlo del body
+        unidad_sigla = (unidad_in or (sess.sigla_unidad_academica or '').strip())
         if not unidad_sigla:
-            # Fallback: obtener sigla por id_unidad
             try:
                 ua = db.query(Unidad_Academica).filter(Unidad_Academica.Id_Unidad_Academica == int(sess.id_unidad_academica)).first()
                 unidad_sigla = ua.Sigla if ua else ''
@@ -1316,9 +1318,8 @@ async def validar_egresados(request: Request, sess=Depends(get_current_session),
         if not unidad_sigla:
             return {"success": False, "message": "No se pudo resolver la Unidad Académica."}
 
-        if not nivel_literal:
-            # En SP_Valida_Egresados se compara Cat_Nivel.nivel contra @NNivel
-            # Si tu sesión guarda el Id y no el nombre, aquí habría que mapearlo.
+        nivel_literal = (nivel_in or (sess.nombre_nivel or '').strip())
+        if not nivel_literal and hasattr(sess, 'id_nivel'):
             nivel_literal = str(sess.id_nivel)
 
         nota_sp = nota_in or f"Validado por {sess.nombre_completo}"
@@ -1444,6 +1445,8 @@ async def rechazar_egresados(request: Request, sess=Depends(get_current_session)
 
         periodo_in = data.get('periodo')
         motivo = (data.get('motivo') or '').strip()
+        nivel_in = (data.get('nivel') or '').strip()    # Nivel que el validador está viendo en pantalla
+        unidad_in = (data.get('unidad') or '').strip()  # UA que el validador está viendo en pantalla
 
         if not motivo:
             raise HTTPException(status_code=400, detail="Debe proporcionar un motivo de rechazo")
@@ -1455,8 +1458,6 @@ async def rechazar_egresados(request: Request, sess=Depends(get_current_session)
         # Sesión
         id_rol = int(sess.id_rol)
         usuario_sp = sess.usuario or 'sistema'
-        unidad_sigla = (sess.sigla_unidad_academica or '').strip()
-        nivel_literal = (sess.nombre_nivel or '').strip()
         host_sp = get_request_host(request)
 
         if id_rol not in [4, 5, 6, 7, 8, 9]:
@@ -1471,6 +1472,9 @@ async def rechazar_egresados(request: Request, sess=Depends(get_current_session)
         else:
             periodo_literal = str(periodo_in)
 
+        # STRATEGY FALLBACK: priorizar lo que viene del body (el nivel/UA que se está viendo)
+        # Roles 6-9 no tienen nivel en sesión, así que hay que tomarlo del body
+        unidad_sigla = (unidad_in or (sess.sigla_unidad_academica or '').strip())
         if not unidad_sigla:
             try:
                 ua = db.query(Unidad_Academica).filter(Unidad_Academica.Id_Unidad_Academica == int(sess.id_unidad_academica)).first()
@@ -1481,7 +1485,8 @@ async def rechazar_egresados(request: Request, sess=Depends(get_current_session)
         if not unidad_sigla:
             return {"success": False, "message": "No se pudo resolver la Unidad Académica."}
 
-        if not nivel_literal:
+        nivel_literal = (nivel_in or (sess.nombre_nivel or '').strip())
+        if not nivel_literal and hasattr(sess, 'id_nivel'):
             nivel_literal = str(sess.id_nivel)
 
         print(f"\n{'='*60}")

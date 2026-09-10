@@ -1332,9 +1332,13 @@
             },
             buildValidarPayload: () => ({
                 periodo,
+                nivel,
+                unidad,
             }),
             buildRechazarPayload: (motivo) => ({
                 periodo,
+                nivel,
+                unidad,
                 motivo
             }),
             htmlNoTurno: '<span style="font-size: 24px;">⏳</span> <strong>En espera de validación por: {{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>',
