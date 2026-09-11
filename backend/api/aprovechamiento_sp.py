@@ -504,7 +504,8 @@ async def obtener_contexto_aprovechamiento(
             if not puede_validar and not usuario_ya_valido and not usuario_ya_rechazo and estado_semaforo_actual > 0:
                 pendiente_validacion = True
 
-        resultado = db.execute(
+        connection = db.connection()
+        resultado = connection.execute(
             text("""
                 SET NOCOUNT ON;
                 EXEC [dbo].[SP_Consulta_Aprovechamiento_Unidad_Academica]
@@ -516,8 +517,26 @@ async def obtener_contexto_aprovechamiento(
             """),
             {"unidad": unidad, "periodo": periodo, "nivel": nivel, "usuario": usuario_login, "host": host}
         )
-        columnas = list(resultado.keys())
-        rows_raw = [dict(zip(columnas, row)) for row in resultado.fetchall()]
+        columnas = list(resultado.keys()) if resultado.returns_rows else []
+        rows_raw = [dict(zip(columnas, row)) for row in resultado.fetchall()] if resultado.returns_rows else []
+
+        nota_rechazo = None
+        try:
+            for r in rows_raw:
+                if "Nota" in r and r["Nota"] and str(r["Nota"]).strip().lower() not in ('none', 'null', ''):
+                    nota_rechazo = str(r["Nota"]).strip()
+                    break
+            if not nota_rechazo and hasattr(resultado, 'cursor') and hasattr(resultado.cursor, 'nextset'):
+                while resultado.cursor.nextset():
+                    n_rows = resultado.cursor.fetchall()
+                    if n_rows and len(n_rows) > 0:
+                        p_row = n_rows[0]
+                        val = p_row[0] if isinstance(p_row, (list, tuple)) else getattr(p_row, 'Nota', str(p_row))
+                        if val and str(val).strip().lower() not in ('none', 'null', ''):
+                            nota_rechazo = str(val).strip()
+                            break
+        except Exception as e_nextset:
+            print(f"⚠️ Error al capturar nota de rechazo en obtener_contexto_aprovechamiento: {e_nextset}")
 
         if not rows_raw:
             error = "No se encontraron datos para los filtros seleccionados."
@@ -557,6 +576,7 @@ async def obtener_contexto_aprovechamiento(
         "estado_semaforo_actual": estado_semaforo_actual,
         "esperando_por_rol": esperando_por_rol,
         "pendiente_validacion": pendiente_validacion,
+        "nota_rechazo": nota_rechazo,
     }
 
 # ============================================================================
@@ -614,6 +634,7 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
         
         try:
             # ---- Obtener datos del SP de aprovechamiento ----
+            connection = db.connection()
             query_aprov = text("""
                 SET NOCOUNT ON;
                 EXEC dbo.SP_Consulta_Aprovechamiento_Unidad_Academica
@@ -623,17 +644,42 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
                     @UUsuario = :UUsuario, 
                     @HHost = :HHost;
             """)
-            result_aprov = db.execute(query_aprov, {
+            result_aprov = connection.execute(query_aprov, {
                 "UUnidad_Academica": UUnidad_Academica,
                 "PPeriodo": PPeriodo,
                 "NNivel": NNivel,
                 "UUsuario": UUsuario,
                 "HHost": HHost
             })
-            if result_aprov.returns_rows:
-                aprovechamientos_raw = [dict(row) for row in result_aprov.mappings().all()]
-            else:
-                aprovechamientos_raw = []
+            
+            rows_aprov = result_aprov.fetchall() if result_aprov.returns_rows else []
+            cols_aprov = list(result_aprov.keys()) if result_aprov.returns_rows else []
+            aprovechamientos_raw = [dict(zip(cols_aprov, row)) for row in rows_aprov]
+
+            # Capturar nota de rechazo del SP (segundo result set o columna en datos)
+            nota_rechazo_sp = None
+            try:
+                for r in aprovechamientos_raw:
+                    if "Nota" in r and r["Nota"] and str(r["Nota"]).strip().lower() not in ('none', 'null', ''):
+                        nota_rechazo_sp = str(r["Nota"]).strip()
+                        break
+                if not nota_rechazo_sp and hasattr(result_aprov, 'cursor') and hasattr(result_aprov.cursor, 'nextset'):
+                    while result_aprov.cursor.nextset():
+                        nota_rows = result_aprov.cursor.fetchall()
+                        if nota_rows and len(nota_rows) > 0:
+                            p_row = nota_rows[0]
+                            if isinstance(p_row, (list, tuple)) and len(p_row) > 0:
+                                val = p_row[0]
+                            elif isinstance(p_row, dict):
+                                val = p_row.get("Nota") or next(iter(p_row.values()), None)
+                            else:
+                                val = getattr(p_row, "Nota", None) or str(p_row)
+                            if val and str(val).strip().lower() not in ('none', 'null', ''):
+                                nota_rechazo_sp = str(val).strip()
+                                print(f"📋 Nota de rechazo capturada del SP de Aprovechamiento: {nota_rechazo_sp}")
+                                break
+            except Exception as e_nextset:
+                print(f"⚠️ Error al obtener segundo resultset (nota rechazo) de Aprovechamiento: {e_nextset}")
 
             query_inscritos = text("""
                 SET NOCOUNT ON;
@@ -652,51 +698,41 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
             else:
                 inscritos_final = []
 
-
-            # ---- LÓGICA DE RECHAZO (similar a matrícula) ----
-            # Obtener periodo por defecto (ya existe PPeriodo)
-            
-            # Determinar si el último movimiento para esta UA/Periodo/Formato(2) fue rechazo
+            # ---- LÓGICA DE RECHAZO ----
             print(f"🔑 Parámetros para rechazo:")
             print(f"   periodo_anterior_id = {periodo_anterior_id}")
             print(f"   Id_Unidad_Academica = {Id_Unidad_Academica}")
             print(f"   id_nivel (entero) = {id_nivel}")
             print(f"   Id_Formato = 2 (Aprovechamiento)")
-            from backend.database.models.Usuario import Usuario
-            ultimo_movimiento_ua = (
-                db.query(Validacion)
-                .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
-                .filter(
-                    Validacion.Id_Periodo == periodo_anterior_id,
-                    Validacion.Id_Formato == 2,  # Formato de Aprovechamiento
-                    Usuario.Id_Unidad_Academica == Id_Unidad_Academica
-                )
-                .order_by(Validacion.Fecha.desc())
-                .first()
-            )
-            rechazo_vigente_ua = bool(ultimo_movimiento_ua and int(ultimo_movimiento_ua.Validado or 0) == 0)
+            print(f"   nota_rechazo_sp = {nota_rechazo_sp}")
 
-            # Construir rechazo_info solo para capturista
-            if rechazo_vigente_ua:
-                ultimo_rechazo = (
-                    db.query(Validacion)
-                    .join(Usuario, Usuario.Id_Usuario == Validacion.Id_Usuario)
-                    .filter(
-                        Validacion.Id_Periodo == periodo_anterior_id,
-                        Validacion.Id_Formato == 2,
-                        Validacion.Validado == 0,
-                        Usuario.Id_Unidad_Academica == Id_Unidad_Academica
-                    )
-                    .order_by(Validacion.Fecha.desc())
-                    .first()
+            from backend.services.notificacion import notificacion_rechazo
+            info_rechazo_db = notificacion_rechazo(
+                db=db,
+                periodo_anterior_id=periodo_anterior_id,
+                Id_Unidad_Academica=Id_Unidad_Academica,
+                id_formato=2,
+                id_nivel=id_nivel
+            )
+            if not info_rechazo_db:
+                info_rechazo_db = notificacion_rechazo(
+                    db=db,
+                    periodo_anterior_id=periodo_anterior_id,
+                    Id_Unidad_Academica=Id_Unidad_Academica,
+                    id_formato=2
                 )
-                if ultimo_rechazo:
-                    usuario_rechazo = db.query(Usuario).filter(Usuario.Id_Usuario == ultimo_rechazo.Id_Usuario).first()
-                    nombre_rechazo = f"{usuario_rechazo.Nombre} {usuario_rechazo.Paterno} {usuario_rechazo.Materno}".strip() if usuario_rechazo else "Validador"
+
+            rechazo_info = info_rechazo_db.copy() if info_rechazo_db else None
+
+            # Si el SP trajo nota de rechazo, tiene prioridad
+            if nota_rechazo_sp:
+                if rechazo_info:
+                    rechazo_info['motivo'] = nota_rechazo_sp
+                else:
                     rechazo_info = {
-                        'motivo': ultimo_rechazo.Nota or "Sin especificar motivo",
-                        'rechazado_por': nombre_rechazo,
-                        'fecha': ultimo_rechazo.Fecha.strftime("%d/%m/%Y %H:%M") if ultimo_rechazo.Fecha else ""
+                        'motivo': nota_rechazo_sp,
+                        'rechazado_por': 'Validador',
+                        'fecha': ''
                     }
 
             # Verificar si el capturista ya completó la captura (semáforo >= 3)
@@ -716,7 +752,7 @@ def aprovechamiento_view(request: Request, sess=Depends(validar_acuse), db: Sess
                 usuario_ya_rechazo = False
 
             # Determinar matricula_rechazada (para validación masiva)
-            matricula_rechazada = (not capturista_captura_completa) and rechazo_vigente_ua and (rechazo_info is not None)
+            matricula_rechazada = (not capturista_captura_completa) and (rechazo_info is not None)
 
             # ---- Procesamiento de datos de aprovechamiento (existente) ----
             if aprovechamientos_raw:
