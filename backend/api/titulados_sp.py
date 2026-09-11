@@ -16,7 +16,7 @@ from backend.crud.ConsultaTitulados import get_titulados, insertar_temp_titulado
 from backend.services.periodo_service import get_periodo_activo, get_periodo_anterior_al_ultimo, get_ultimo_periodo
 from backend.core.auth import get_current_session
 from backend.database.models.CatPeriodo import CatPeriodo as Periodo
-from backend.database.models.Temp_Titulados import Temp_Titulados as TituladosModel
+from backend.database.models.Temp_Titulados import Temp_Titulados
 from backend.database.models.CatUnidadAcademica import CatUnidadAcademica as Unidad_Academica
 from backend.database.models.Usuario import Usuario
 from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcademica
@@ -521,8 +521,104 @@ def finalizar_captura_titulados(
                 status_code=500
             )
 
+    # -------------------------------------------------------------------------
+    # SEMILLA EN '0': Si no hay datos del frontend, consultar el SP para obtener
+    # la estructura de filas del programa+modalidad y sembrar Temp_Titulados con
+    # Titulados=0. Esto permite finalizar directamente aunque no haya alumnos
+    # (igual que en el módulo de Egresados).
+    # -------------------------------------------------------------------------
+    if not registros:
+        try:
+            print(f"[finalizar-titulados] Sin datos del frontend → consultando SP para sembrar con 0s "
+                  f"(programa={programa}, modalidad={modalidad}, sigla={sigla}, nivel={nivel})")
+
+            # 1. Revisar si ya existen filas en Temp_Titulados para esta combinación
+            temp_existente = db.query(Temp_Titulados).filter(
+                Temp_Titulados.Sigla == sigla,
+                Temp_Titulados.Periodo == periodo,
+                Temp_Titulados.Nivel == nivel,
+                Temp_Titulados.Nombre_Programa == programa,
+                Temp_Titulados.Modalidad == modalidad,
+            ).all()
+
+            if temp_existente:
+                print(f"[finalizar-titulados] Temp_Titulados ya tiene {len(temp_existente)} filas; "
+                      f"se usarán tal cual (no se sobreescriben con 0s).")
+            else:
+                # 2. Consultar el SP para obtener la estructura de filas
+                filas_sp = get_titulados(
+                    db=db,
+                    unidad_academica=sigla,
+                    periodo=periodo_actual,
+                    nivel=nivel,
+                    usuario=sess.usuario or "sistema",
+                    host=host,
+                )
+
+                # Filtrar solo el programa+modalidad que se está finalizando
+                filas_sp_filtradas = [
+                    f for f in filas_sp
+                    if str(f.get("Nombre_Programa", "")).strip() == str(programa).strip()
+                    and str(f.get("Modalidad", "")).strip() == str(modalidad).strip()
+                ]
+
+                print(f"[finalizar-titulados] Filas SP filtradas para {programa}/{modalidad}: "
+                      f"{len(filas_sp_filtradas)}")
+
+                if filas_sp_filtradas:
+                    # Crear registros con los datos estructurales del SP y Titulados=0
+                    registros_cero = [
+                        Temp_Titulados(
+                            Periodo=periodo,
+                            Sigla=sigla,
+                            Nombre_Programa=str(f.get("Nombre_Programa", "") or ""),
+                            Nombre_Rama=str(f.get("Nombre_Rama", "") or ""),
+                            Nivel=str(f.get("Nivel", nivel) or nivel),
+                            Modalidad=str(f.get("Modalidad", "") or ""),
+                            Grupo_Edad=str(f.get("Grupo_Edad", "") or ""),
+                            Boleta=int(f["Boleta"]) if str(f.get("Boleta", "")).strip().lstrip("-").isdigit() else 0,
+                            Tipo_Titulacion=str(f.get("Tipo_Titulacion", "") or ""),
+                            Turno=str(f.get("Turno", "") or ""),
+                            Sexo=str(f.get("Sexo", "") or ""),
+                            Titulados=0,
+                        )
+                        for f in filas_sp_filtradas
+                    ]
+                    insertar_temp_titulados(db, registros_cero)
+                    print(f"[finalizar-titulados] Sembradas {len(registros_cero)} filas con Titulados=0 en Temp_Titulados.")
+                else:
+                    # 3. SP tampoco devuelve filas → crear un registro mínimo con 0s
+                    # para que el SP de finalización pueda procesar la combinación
+                    print(f"[finalizar-titulados] SP sin filas para {programa}/{modalidad}; "
+                          f"creando registros mínimos con Titulados=0.")
+                    registros_minimo = [
+                        Temp_Titulados(
+                            Periodo=periodo,
+                            Sigla=sigla,
+                            Nombre_Programa=str(programa),
+                            Nombre_Rama="",
+                            Nivel=str(nivel),
+                            Modalidad=str(modalidad),
+                            Grupo_Edad="",
+                            Boleta=0,
+                            Tipo_Titulacion="",
+                            Turno=turno,
+                            Sexo=sexo,
+                            Titulados=0,
+                        )
+                        for turno in ["Matutino", "Vespertino"]
+                        for sexo in ["Hombre", "Mujer"]
+                    ]
+                    insertar_temp_titulados(db, registros_minimo)
+                    print(f"[finalizar-titulados] Sembrados {len(registros_minimo)} registros mínimos con Titulados=0.")
+
+        except Exception as e_semilla:
+            traceback.print_exc()
+            print(f"[finalizar-titulados] ⚠️ No se pudo sembrar Temp_Titulados con 0s: {str(e_semilla)}")
+            # No bloqueamos: intentamos continuar con la finalización de todas formas
+
     try:
-        # 1. Insertar en Temp_Titulados si hay registros
+        # 1. Insertar en Temp_Titulados si hay registros del frontend
         if registros:
             insertar_temp_titulados(db, registros)
 
@@ -537,21 +633,18 @@ def finalizar_captura_titulados(
             db, periodo, sigla, nivel
         )
 
-
         # 4. Si todos están en 3, reinsertar y ejecutar SP de unidad académica
         if todos_finalizados:
             if registros:
-                db.expunge_all()  
+                db.expunge_all()
                 insertar_temp_titulados(db, registros)
-            
             else:
-                print("No hay registros para reinsertar antes de finalizar unidad académica.")
+                print("No hay registros del frontend para reinsertar antes de finalizar unidad académica.")
 
             finalizar_unidad_academica(
                 db, periodo, sigla, modalidad, programa,
                 sess.usuario, host, nivel
             )
-            
 
     except Exception as e:
         traceback.print_exc()
