@@ -3,137 +3,149 @@
 {% block title %}Acuse Validación - Matrícula{% endblock %}
 
 {% block styles %}
-    {# En el PDF, el CSS se inyecta desde Python. En la web, se carga normal. #}
-    {% if not exportando_pdf %}
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-        <link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
-        <style>
-            /* Confinar marca de agua dentro de la hoja y colocarla DELANTE de las tablas */
-            .contenedor-acuse {
-                position: relative !important;
-                overflow: hidden !important;
-                z-index: 1 !important;
-            }
-            .marca-agua {
-                position: absolute !important;
-                top: 50% !important;
-                left: 50% !important;
-                width: 140% !important;
-                text-align: center !important;
-                transform: translate(-50%, -50%) rotate(-45deg) !important;
-                font-size: 70px !important;
-                font-weight: bold !important;
-                color: rgba(120, 120, 120, 0.22) !important;
-                text-transform: uppercase !important;
-                pointer-events: none !important;
-                z-index: 10 !important;
-                white-space: nowrap !important;
-                user-select: none !important;
-            }
-            /* Botones y acciones del acuse accesibles */
-            .botones-accion, .panel-rechazo, .acuse-footer {
-                position: relative !important;
-                z-index: 15 !important;
-            }
-        </style>
-    {% else %}
-        <style>
-            /* === MARGEN DE PÁGINA PARA RESERVAR ESPACIO A LAS FIRMAS FIJAS === */
-            @page {
-                size: letter;
-                margin: 0.9cm 1.2cm 2.9cm 1.2cm;
-            }
+{# En el PDF, el CSS se inyecta desde Python. En la web, se carga normal. #}
+{% if not exportando_pdf %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<link rel="stylesheet" href="/static/css/components/matricula_acuse.css">
+<style>
+    /* Confinar marca de agua dentro de la hoja y colocarla DELANTE de las tablas */
+    .contenedor-acuse {
+        position: relative !important;
+        overflow: hidden !important;
+        z-index: 1 !important;
+    }
 
-            body {
-                font-family: Arial, sans-serif !important;
-                font-size: 9.5px !important;
-                color: #333 !important;
-                background: #fff !important;
-            }
+    .marca-agua {
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        width: 140% !important;
+        text-align: center !important;
+        transform: translate(-50%, -50%) rotate(-45deg) !important;
+        font-size: 70px !important;
+        font-weight: bold !important;
+        color: rgba(120, 120, 120, 0.22) !important;
+        text-transform: uppercase !important;
+        pointer-events: none !important;
+        z-index: 10 !important;
+        white-space: nowrap !important;
+        user-select: none !important;
+    }
 
-            .contenedor-acuse {
-                max-width: 100% !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                box-shadow: none !important;
-                overflow: visible !important;
-                position: relative !important;
-            }
+    /* Botones y acciones del acuse accesibles */
+    .botones-accion,
+    .panel-rechazo,
+    .acuse-footer {
+        position: relative !important;
+        z-index: 15 !important;
+    }
+</style>
+{% else %}
+<style>
+    /* === MARGEN DE PÁGINA PARA RESERVAR ESPACIO A LAS FIRMAS FIJAS === */
+    @page {
+        size: letter;
+        margin: 0.9cm 1.2cm 2.9cm 1.2cm;
+    }
 
-            .marca-agua {
-                position: fixed !important;
-                top: 40% !important;
-                left: -15% !important;
-                width: 130% !important;
-                text-align: center !important;
-                transform: rotate(-35deg) !important;
-                font-size: 60px !important;
-                font-weight: bold !important;
-                color: rgba(120, 120, 120, 0.22) !important;
-                text-transform: uppercase !important;
-                pointer-events: none !important;
-                z-index: 100 !important;
-                white-space: nowrap !important;
-            }
+    body {
+        font-family: Arial, sans-serif !important;
+        font-size: 9.5px !important;
+        color: #333 !important;
+        background: #fff !important;
+    }
 
-            /* === ESTRUCTURA DE FIRMAS REPETIDAS EN EL PIE DE PÁGINA DEL PDF === */
-            .firmas-container {
-                position: fixed !important;
-                bottom: -2.0cm !important;
-                left: 0 !important;
-                right: 0 !important;
-                margin: 0 !important;
-                display: table !important;
-                width: 100% !important;
-            }
+    .contenedor-acuse {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        position: relative !important;
+    }
 
-            .firma-box {
-                display: table-cell !important;
-                width: 33.33% !important;
-                text-align: center !important;
-                vertical-align: bottom !important;
-                padding: 0 10px !important;
-            }
+    .marca-agua {
+        position: fixed !important;
+        top: 40% !important;
+        left: -15% !important;
+        width: 130% !important;
+        text-align: center !important;
+        transform: rotate(-35deg) !important;
+        font-size: 60px !important;
+        font-weight: bold !important;
+        color: rgba(120, 120, 120, 0.22) !important;
+        text-transform: uppercase !important;
+        pointer-events: none !important;
+        z-index: 100 !important;
+        white-space: nowrap !important;
+    }
 
-            .firma-linea {
-                border-bottom: 1px solid #333 !important;
-                margin-bottom: 5px !important;
-                height: 1px !important;
-            }
+    /* === ESTRUCTURA DE FIRMAS REPETIDAS EN EL PIE DE PÁGINA DEL PDF === */
+    .firmas-container {
+        position: fixed !important;
+        bottom: -2.0cm !important;
+        left: 0 !important;
+        right: 0 !important;
+        margin: 0 !important;
+        display: table !important;
+        width: 100% !important;
+    }
 
-            .firma-nombre {
-                font-weight: bold !important;
-                font-size: 10px !important;
-                color: #000000 !important;
-                margin-bottom: 2px !important;
-            }
+    .firma-box {
+        display: table-cell !important;
+        width: 33.33% !important;
+        text-align: center !important;
+        vertical-align: bottom !important;
+        padding: 0 10px !important;
+    }
 
-            .firma-rol {
-                font-size: 9px !important;
-                color: #636569 !important;
-            }
+    .firma-linea {
+        border-bottom: 1px solid #333 !important;
+        margin-bottom: 5px !important;
+        height: 1px !important;
+    }
 
-            /* === TRUCO PARA MANTENER LAS 2 COLUMNAS SIN ROMPER EL PDF === */
-            .contenedor-columnas {
-                display: table;
-                width: 100%;
-                table-layout: fixed;
-            }
-            .columna-izq, .columna-der {
-                display: table-cell;
-                width: 50%;
-                vertical-align: top;
-            }
-            .columna-izq { padding-right: 15px; }
-            .columna-der { padding-left: 15px; }
+    .firma-nombre {
+        font-weight: bold !important;
+        font-size: 10px !important;
+        color: #000000 !important;
+        margin-bottom: 2px !important;
+    }
 
-            .tabla-seccion {
-                page-break-inside: avoid;
-                margin-bottom: 15px;
-            }
-        </style>
-    {% endif %}
+    .firma-rol {
+        font-size: 9px !important;
+        color: #636569 !important;
+    }
+
+    /* === TRUCO PARA MANTENER LAS 2 COLUMNAS SIN ROMPER EL PDF === */
+    .contenedor-columnas {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .columna-izq,
+    .columna-der {
+        display: table-cell;
+        width: 50%;
+        vertical-align: top;
+    }
+
+    .columna-izq {
+        padding-right: 15px;
+    }
+
+    .columna-der {
+        padding-left: 15px;
+    }
+
+    .tabla-seccion {
+        page-break-inside: avoid;
+        margin-bottom: 15px;
+    }
+</style>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -142,13 +154,14 @@
 <div class="header-usuarios no-print">
     <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario or session.nombre_completo }}</strong>
         {% if periodo_anterior_literal or periodo_default_literal or periodo %}
-            &nbsp;|&nbsp; Periodo: <strong>{{ periodo_anterior_literal or periodo_default_literal or periodo }}</strong>
+        &nbsp;|&nbsp; Periodo: <strong>{{ periodo_anterior_literal or periodo_default_literal or periodo }}</strong>
         {% endif %}
         {% if session.sigla_unidad_academica or sigla_unidad_academica or unidad_academica or unidad %}
-            &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or sigla_unidad_academica or unidad_academica or unidad }}</strong>
+        &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or sigla_unidad_academica or
+            unidad_academica or unidad }}</strong>
         {% endif %}
         {% if nombre_rol or session.nombre_rol %}
-            &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
+        &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
         {% endif %}
     </div>
     <a href="/matricula/resumen-seleccion" class="btn-volver">Regresar</a>
@@ -158,16 +171,12 @@
 <div class="contenedor-acuse">
 
     {% if no_validado %}
-        <div class="marca-agua"> Sin Validez Oficial </div>
-    {% endif %}
-
-    {% if estado_semaforo is defined and estado_semaforo >= 1 and estado_semaforo <= 8 %}
-        <div class="marca-agua">DOCUMENTO EN REVISIÓN</div>
+    <div class="marca-agua"> Sin Validez Oficial </div>
     {% endif %}
 
     <div class="acuse-header">
-        <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - MATRÍCULA</h1>  
-              
+        <h1>{{ '' if exportando_pdf else '📋 ' }}ACUSE DE VALIDACIÓN - MATRÍCULA</h1>
+
         <div style="text-align: center; font-size: 13px; margin-top: 12px; margin-bottom: 25px; color: #333;">
             <strong>Período:</strong> {{ periodo }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
             <strong>Nivel:</strong> {{ nivel }} &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
@@ -182,7 +191,7 @@
     </div>
 
     <div class="contenedor-columnas">
-        
+
         <div class="columna-izq">
             {% if tabla_semestres %}
             <div class="tabla-seccion">
@@ -201,23 +210,26 @@
                         {% set total_sem_m = 0 %}
                         {% set total_sem_t = 0 %}
                         {% for fila in tabla_semestres %}
-                            {% set total_sem_h = total_sem_h + fila.hombres %}
-                            {% set total_sem_m = total_sem_m + fila.mujeres %}
-                            {% set total_sem_t = total_sem_t + fila.total %}
-                            <tr>
-                                <td>{{ fila.nombre }}</td>
-                                <td>{{ fila.hombres | miles }}</td>
-                                <td>{{ fila.mujeres | miles }}</td>
-                                <td><strong>{{ fila.total | miles }}</strong></td>
-                            </tr>
+                        {% set total_sem_h = total_sem_h + fila.hombres %}
+                        {% set total_sem_m = total_sem_m + fila.mujeres %}
+                        {% set total_sem_t = total_sem_t + fila.total %}
+                        <tr>
+                            <td>{{ fila.nombre }}</td>
+                            <td>{{ fila.hombres | miles }}</td>
+                            <td>{{ fila.mujeres | miles }}</td>
+                            <td><strong>{{ fila.total | miles }}</strong></td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td>TOTALES</td>
-                            <td><strong>{{ (totales_semestres.hombres if totales_semestres is defined else total_sem_h) | miles }}</strong></td>
-                            <td><strong>{{ (totales_semestres.mujeres if totales_semestres is defined else total_sem_m) | miles }}</strong></td>
-                            <td><strong>{{ (totales_semestres.total if totales_semestres is defined else total_sem_t) | miles }}</strong></td>
+                            <td><strong>{{ (totales_semestres.hombres if totales_semestres is defined else total_sem_h)
+                                    | miles }}</strong></td>
+                            <td><strong>{{ (totales_semestres.mujeres if totales_semestres is defined else total_sem_m)
+                                    | miles }}</strong></td>
+                            <td><strong>{{ (totales_semestres.total if totales_semestres is defined else total_sem_t) |
+                                    miles }}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -241,23 +253,26 @@
                         {% set total_edad_m = 0 %}
                         {% set total_edad_t = 0 %}
                         {% for fila in tabla_edades %}
-                            {% set total_edad_h = total_edad_h + fila.hombres %}
-                            {% set total_edad_m = total_edad_m + fila.mujeres %}
-                            {% set total_edad_t = total_edad_t + fila.total %}
-                            <tr>
-                                <td>{{ fila.nombre }}</td>
-                                <td>{{ fila.hombres | miles }}</td>
-                                <td>{{ fila.mujeres | miles }}</td>
-                                <td><strong>{{ fila.total | miles }}</strong></td>
-                            </tr>
+                        {% set total_edad_h = total_edad_h + fila.hombres %}
+                        {% set total_edad_m = total_edad_m + fila.mujeres %}
+                        {% set total_edad_t = total_edad_t + fila.total %}
+                        <tr>
+                            <td>{{ fila.nombre }}</td>
+                            <td>{{ fila.hombres | miles }}</td>
+                            <td>{{ fila.mujeres | miles }}</td>
+                            <td><strong>{{ fila.total | miles }}</strong></td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td>TOTALES</td>
-                            <td><strong>{{ (totales_edades.hombres if totales_edades is defined else total_edad_h) | miles }}</strong></td>
-                            <td><strong>{{ (totales_edades.mujeres if totales_edades is defined else total_edad_m) | miles }}</strong></td>
-                            <td><strong>{{ (totales_edades.total if totales_edades is defined else total_edad_t) | miles }}</strong></td>
+                            <td><strong>{{ (totales_edades.hombres if totales_edades is defined else total_edad_h) |
+                                    miles }}</strong></td>
+                            <td><strong>{{ (totales_edades.mujeres if totales_edades is defined else total_edad_m) |
+                                    miles }}</strong></td>
+                            <td><strong>{{ (totales_edades.total if totales_edades is defined else total_edad_t) | miles
+                                    }}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -283,23 +298,26 @@
                         {% set total_mod_m = 0 %}
                         {% set total_mod_t = 0 %}
                         {% for fila in tabla_modalidades %}
-                            {% set total_mod_h = total_mod_h + fila.hombres %}
-                            {% set total_mod_m = total_mod_m + fila.mujeres %}
-                            {% set total_mod_t = total_mod_t + fila.total %}
-                            <tr>
-                                <td>{{ fila.nombre }}</td>
-                                <td>{{ fila.hombres | miles }}</td>
-                                <td>{{ fila.mujeres | miles }}</td>
-                                <td><strong>{{ fila.total | miles }}</strong></td>
-                            </tr>
+                        {% set total_mod_h = total_mod_h + fila.hombres %}
+                        {% set total_mod_m = total_mod_m + fila.mujeres %}
+                        {% set total_mod_t = total_mod_t + fila.total %}
+                        <tr>
+                            <td>{{ fila.nombre }}</td>
+                            <td>{{ fila.hombres | miles }}</td>
+                            <td>{{ fila.mujeres | miles }}</td>
+                            <td><strong>{{ fila.total | miles }}</strong></td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td>TOTALES</td>
-                            <td><strong>{{ (totales_modalidades.hombres if totales_modalidades is defined else total_mod_h) | miles }}</strong></td>
-                            <td><strong>{{ (totales_modalidades.mujeres if totales_modalidades is defined else total_mod_m) | miles }}</strong></td>
-                            <td><strong>{{ (totales_modalidades.total if totales_modalidades is defined else total_mod_t) | miles }}</strong></td>
+                            <td><strong>{{ (totales_modalidades.hombres if totales_modalidades is defined else
+                                    total_mod_h) | miles }}</strong></td>
+                            <td><strong>{{ (totales_modalidades.mujeres if totales_modalidades is defined else
+                                    total_mod_m) | miles }}</strong></td>
+                            <td><strong>{{ (totales_modalidades.total if totales_modalidades is defined else
+                                    total_mod_t) | miles }}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -323,23 +341,26 @@
                         {% set total_turno_m = 0 %}
                         {% set total_turno_t = 0 %}
                         {% for fila in tabla_turnos %}
-                            {% set total_turno_h = total_turno_h + fila.hombres %}
-                            {% set total_turno_m = total_turno_m + fila.mujeres %}
-                            {% set total_turno_t = total_turno_t + fila.total %}
-                            <tr>
-                                <td>{{ fila.nombre }}</td>
-                                <td>{{ fila.hombres | miles }}</td>
-                                <td>{{ fila.mujeres | miles }}</td>
-                                <td><strong>{{ fila.total | miles }}</strong></td>
-                            </tr>
+                        {% set total_turno_h = total_turno_h + fila.hombres %}
+                        {% set total_turno_m = total_turno_m + fila.mujeres %}
+                        {% set total_turno_t = total_turno_t + fila.total %}
+                        <tr>
+                            <td>{{ fila.nombre }}</td>
+                            <td>{{ fila.hombres | miles }}</td>
+                            <td>{{ fila.mujeres | miles }}</td>
+                            <td><strong>{{ fila.total | miles }}</strong></td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td>TOTALES</td>
-                            <td><strong>{{ (totales_turnos.hombres if totales_turnos is defined else total_turno_h) | miles }}</strong></td>
-                            <td><strong>{{ (totales_turnos.mujeres if totales_turnos is defined else total_turno_m) | miles }}</strong></td>
-                            <td><strong>{{ (totales_turnos.total if totales_turnos is defined else total_turno_t) | miles }}</strong></td>
+                            <td><strong>{{ (totales_turnos.hombres if totales_turnos is defined else total_turno_h) |
+                                    miles }}</strong></td>
+                            <td><strong>{{ (totales_turnos.mujeres if totales_turnos is defined else total_turno_m) |
+                                    miles }}</strong></td>
+                            <td><strong>{{ (totales_turnos.total if totales_turnos is defined else total_turno_t) |
+                                    miles }}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -363,23 +384,26 @@
                         {% set total_concepto_m = 0 %}
                         {% set total_concepto_t = 0 %}
                         {% for fila in tabla_conceptos %}
-                            {% set total_concepto_h = total_concepto_h + fila.hombres %}
-                            {% set total_concepto_m = total_concepto_m + fila.mujeres %}
-                            {% set total_concepto_t = total_concepto_t + fila.total %}
-                            <tr>
-                                <td>{{ fila.nombre }}</td>
-                                <td>{{ fila.hombres | miles }}</td>
-                                <td>{{ fila.mujeres | miles }}</td>
-                                <td><strong>{{ fila.total | miles }}</strong></td>
-                            </tr>
+                        {% set total_concepto_h = total_concepto_h + fila.hombres %}
+                        {% set total_concepto_m = total_concepto_m + fila.mujeres %}
+                        {% set total_concepto_t = total_concepto_t + fila.total %}
+                        <tr>
+                            <td>{{ fila.nombre }}</td>
+                            <td>{{ fila.hombres | miles }}</td>
+                            <td>{{ fila.mujeres | miles }}</td>
+                            <td><strong>{{ fila.total | miles }}</strong></td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td>TOTALES</td>
-                            <td><strong>{{ (totales_conceptos.hombres if totales_conceptos is defined else total_concepto_h) | miles }}</strong></td>
-                            <td><strong>{{ (totales_conceptos.mujeres if totales_conceptos is defined else total_concepto_m) | miles }}</strong></td>
-                            <td><strong>{{ (totales_conceptos.total if totales_conceptos is defined else total_concepto_t) | miles }}</strong></td>
+                            <td><strong>{{ (totales_conceptos.hombres if totales_conceptos is defined else
+                                    total_concepto_h) | miles }}</strong></td>
+                            <td><strong>{{ (totales_conceptos.mujeres if totales_conceptos is defined else
+                                    total_concepto_m) | miles }}</strong></td>
+                            <td><strong>{{ (totales_conceptos.total if totales_conceptos is defined else
+                                    total_concepto_t) | miles }}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -403,30 +427,33 @@
                         {% set total_prog_m = 0 %}
                         {% set total_prog_t = 0 %}
                         {% for fila in tabla_programas %}
-                            {% set total_prog_h = total_prog_h + fila.hombres %}
-                            {% set total_prog_m = total_prog_m + fila.mujeres %}
-                            {% set total_prog_t = total_prog_t + fila.total %}
-                            <tr>
-                                <td>{{ fila.nombre }}</td>
-                                <td>{{ fila.hombres | miles }}</td>
-                                <td>{{ fila.mujeres | miles }}</td>
-                                <td><strong>{{ fila.total | miles }}</strong></td>
-                            </tr>
+                        {% set total_prog_h = total_prog_h + fila.hombres %}
+                        {% set total_prog_m = total_prog_m + fila.mujeres %}
+                        {% set total_prog_t = total_prog_t + fila.total %}
+                        <tr>
+                            <td>{{ fila.nombre }}</td>
+                            <td>{{ fila.hombres | miles }}</td>
+                            <td>{{ fila.mujeres | miles }}</td>
+                            <td><strong>{{ fila.total | miles }}</strong></td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td>TOTALES</td>
-                            <td><strong>{{ (totales_programas.hombres if totales_programas is defined else total_prog_h) | miles }}</strong></td>
-                            <td><strong>{{ (totales_programas.mujeres if totales_programas is defined else total_prog_m) | miles }}</strong></td>
-                            <td><strong>{{ (totales_programas.total if totales_programas is defined else total_prog_t) | miles }}</strong></td>
+                            <td><strong>{{ (totales_programas.hombres if totales_programas is defined else total_prog_h)
+                                    | miles }}</strong></td>
+                            <td><strong>{{ (totales_programas.mujeres if totales_programas is defined else total_prog_m)
+                                    | miles }}</strong></td>
+                            <td><strong>{{ (totales_programas.total if totales_programas is defined else total_prog_t) |
+                                    miles }}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
             {% endif %}
         </div>
-        
+
     </div>
 
     <div class="firmas-container">
@@ -448,83 +475,81 @@
     </div>
 
     <div class="acuse-footer">
-        
+
         {% if usuario_ya_valido %}
-            <div class="estado-validacion estado-validado">
-                ✅ MATRÍCULA VALIDADA
-            </div>
-            {% if estado_semaforo is not none and estado_semaforo < 9 %}
-            <div class="estado-validacion estado-pendiente">
-                ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
-            </div>
-            {% endif %}
-        {% elif usuario_ya_rechazo %}
-            <div class="estado-validacion estado-rechazado">
-                ❌ MATRÍCULA RECHAZADA
-            </div>
-        {% elif puede_validar or pendiente_validacion %}
-            <div class="estado-validacion estado-pendiente">
-                ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista" }}</strong>
-            </div>
-        {% else %}
-            <div class="estado-validacion estado-esperando">
-                ⏸️ EN ESPERA DE VALIDACIÓN
-            </div>
-        {% endif %}
-
-        {% if not exportando_pdf %}
-        <div class="acciones-validacion" id="acciones-validacion">
-            {% if id_rol in [4, 5, 6, 7, 8, 9] %}
-                <button class="btn btn-success" id="btn-validar" onclick="validarMatricula()"
-                        {% if not puede_validar or usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
-                    ✅ Validar Matrícula
-                </button>
-                <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarMatricula()"
-                        {% if not puede_validar or usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
-                    ❌ Rechazar Matrícula
-                </button>
-            {% endif %}
-            <button class="btn btn-info" onclick="exportarPdf()">
-                📄 Exportar a PDF
-            </button>
-            <button class="btn btn-info" onclick="exportarExcel()">
-                📊 Exportar a Excel
-            </button>
+        <div class="estado-validacion estado-validado">
+            ✅ MATRÍCULA VALIDADA
         </div>
-
-        {% if id_rol in [4, 5, 6, 7, 8, 9] %}
-        <div class="panel-rechazo" id="panel-rechazo">
-            <h4>
-                <i class="fas fa-exclamation-triangle"></i>
-                Motivo del Rechazo
-            </h4>
-            <textarea
-                id="motivo-rechazo"
-                placeholder="Por favor, describa el motivo del rechazo de esta matrícula (mínimo 10, máximo 250 caracteres)..."
-                maxlength="250"
-                oninput="actualizarContador()"
-            ></textarea>
-            <div class="panel-rechazo-footer">
-                <span class="contador-caracteres">
-                    <span id="contador-caracteres">0</span>/250 caracteres
-                </span>
-                <div class="panel-rechazo-botones">
-                    <button class="btn-cancelar-rechazo" onclick="cerrarPanelRechazo()">
-                        <i class="fas fa-times"></i>
-                        Cancelar
-                    </button>
-                    <button class="btn-confirmar-rechazo" onclick="confirmarRechazo()">
-                        <i class="fas fa-paper-plane"></i>
-                        Enviar Rechazo
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="mensaje-validacion" id="mensaje-validacion" style="display: none;"></div>
-        {% endif %}
-        {% endif %}
+        {% if estado_semaforo is not none and estado_semaforo < 9 %} <div class="estado-validacion estado-pendiente">
+            ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista"
+                }}</strong>
     </div>
+    {% endif %}
+    {% elif usuario_ya_rechazo %}
+    <div class="estado-validacion estado-rechazado">
+        ❌ MATRÍCULA RECHAZADA
+    </div>
+    {% elif puede_validar or pendiente_validacion %}
+    <div class="estado-validacion estado-pendiente">
+        ⏳ Pendiente De Validar Por: <strong>{{ esperando_por_rol if esperando_por_rol is not none else "Capturista"
+            }}</strong>
+    </div>
+    {% else %}
+    <div class="estado-validacion estado-esperando">
+        ⏸️ EN ESPERA DE VALIDACIÓN
+    </div>
+    {% endif %}
+
+    {% if not exportando_pdf %}
+    <div class="acciones-validacion" id="acciones-validacion">
+        {% if id_rol in [4, 5, 6, 7, 8, 9] %}
+        <button class="btn btn-success" id="btn-validar" onclick="validarMatricula()" {% if not puede_validar or
+            usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
+            ✅ Validar Matrícula
+        </button>
+        <button class="btn btn-danger" id="btn-rechazar" onclick="rechazarMatricula()" {% if not puede_validar or
+            usuario_ya_valido or usuario_ya_rechazo %}disabled{% endif %}>
+            ❌ Rechazar Matrícula
+        </button>
+        {% endif %}
+        <button class="btn btn-info" onclick="exportarPdf()">
+            📄 Exportar a PDF
+        </button>
+        <button class="btn btn-info" onclick="exportarExcel()">
+            📊 Exportar a Excel
+        </button>
+    </div>
+
+    {% if id_rol in [4, 5, 6, 7, 8, 9] %}
+    <div class="panel-rechazo" id="panel-rechazo">
+        <h4>
+            <i class="fas fa-exclamation-triangle"></i>
+            Motivo del Rechazo
+        </h4>
+        <textarea id="motivo-rechazo"
+            placeholder="Por favor, describa el motivo del rechazo de esta matrícula (mínimo 10, máximo 250 caracteres)..."
+            maxlength="250" oninput="actualizarContador()"></textarea>
+        <div class="panel-rechazo-footer">
+            <span class="contador-caracteres">
+                <span id="contador-caracteres">0</span>/250 caracteres
+            </span>
+            <div class="panel-rechazo-botones">
+                <button class="btn-cancelar-rechazo" onclick="cerrarPanelRechazo()">
+                    <i class="fas fa-times"></i>
+                    Cancelar
+                </button>
+                <button class="btn-confirmar-rechazo" onclick="confirmarRechazo()">
+                    <i class="fas fa-paper-plane"></i>
+                    Enviar Rechazo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="mensaje-validacion" id="mensaje-validacion" style="display: none;"></div>
+    {% endif %}
+    {% endif %}
+</div>
 
 </div>
 
@@ -779,15 +804,15 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         if (window.history && window.history.replaceState && window.location.search) {
             try {
                 const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
                 window.history.replaceState({}, document.title, cleanUrl);
-            } catch(e) {}
+            } catch (e) { }
         }
 
-        document.querySelectorAll('.tabla-seccion table tbody td:not(:first-child), .tabla-seccion table tfoot td:not(:first-child)').forEach(function(cell) {
+        document.querySelectorAll('.tabla-seccion table tbody td:not(:first-child), .tabla-seccion table tfoot td:not(:first-child)').forEach(function (cell) {
             const txt = cell.textContent.trim();
             if (/^\d+$/.test(txt)) {
                 cell.textContent = Number(txt).toLocaleString('en-US');
