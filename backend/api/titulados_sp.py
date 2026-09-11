@@ -629,9 +629,15 @@ def finalizar_captura_titulados(
         )
 
         # 3. Verificar si todos los programas-modalidad de la UA están en semáforo 3
+        # IMPORTANTE: SP_Actualiza_Titulados_Por_Semestre_AU escribe el semáforo
+        # usando periodo_actual, por lo que la verificación debe buscar en el periodo anterior al actual.
+        periodo_anterior_id, periodo_anterior = get_periodo_anterior_al_ultimo(db)
         todos_finalizados = verificar_todos_programas_finalizados(
-            db, periodo, sigla, nivel
+            db, periodo_anterior, sigla, nivel
         )
+
+        print(f"[finalizar-titulados] todos_finalizados={todos_finalizados} "
+              f"(verificando semáforos en periodo_actual='{periodo_actual}', sigla='{sigla}', nivel='{nivel}')")
 
         # 4. Si todos están en 3, reinsertar y ejecutar SP de unidad académica
         if todos_finalizados:
@@ -639,12 +645,16 @@ def finalizar_captura_titulados(
                 db.expunge_all()
                 insertar_temp_titulados(db, registros)
             else:
-                print("No hay registros del frontend para reinsertar antes de finalizar unidad académica.")
+                print("[finalizar-titulados] Sin registros del frontend para reinsertar; "
+                      "procediendo directamente a finalizar_unidad_academica.")
 
+            # SP_Finaliza_Captura_Titulados usa el periodo ANTERIOR (donde están los datos de Temp)
             finalizar_unidad_academica(
                 db, periodo, sigla, modalidad, programa,
                 sess.usuario, host, nivel
             )
+            print(f"[finalizar-titulados] SP_Finaliza_Captura_Titulados ejecutado para "
+                  f"sigla='{sigla}', periodo='{periodo}', nivel='{nivel}'")
 
     except Exception as e:
         traceback.print_exc()
