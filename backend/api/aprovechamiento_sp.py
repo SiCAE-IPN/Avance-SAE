@@ -1654,9 +1654,9 @@ async def exportar_aprovechamiento_excel(
     """
     # El SP de Aprovechamiento trabaja con el PERIODO ANTERIOR al último
     # (igual que la vista /consulta y /resumen-dinamico).
-    _, periodo_sp = get_periodo_anterior_al_ultimo(db)
+    _, periodo_sp = get_periodo_activo(db)
     if not periodo_sp:
-        raise HTTPException(404, "No se encontró el periodo anterior al último")
+        raise HTTPException(404, "No se encontró el periodo")
     print(f"[excel-aprovechamiento] periodo_sp='{periodo_sp}' | unidad='{unidad}' | nivel='{nivel}'")
     
     # 1. Obtener la sigla de la unidad académica (el SP espera sigla)
@@ -1712,8 +1712,9 @@ async def exportar_aprovechamiento_excel(
     ws_aprov = workbook.add_worksheet("Aprovechamiento")
     if rows_aprovechamiento:
         headers_aprov = [k for k in rows_aprovechamiento[0].keys() if str(k).lower() not in ('id_semaforo', 'id_semaforo_actual')]
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#750946', 'font_color': '#FFFFFF'})
         for col, h in enumerate(headers_aprov):
-            ws_aprov.write(0, col, h)
+            ws_aprov.write(0, col, h, header_format)
         for row_idx, row in enumerate(rows_aprovechamiento, start=1):
             for col_idx, key in enumerate(headers_aprov):
                 ws_aprov.write(row_idx, col_idx, row.get(key, ''))
