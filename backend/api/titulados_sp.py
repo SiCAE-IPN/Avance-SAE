@@ -629,11 +629,10 @@ def finalizar_captura_titulados(
         )
 
         # 3. Verificar si todos los programas-modalidad de la UA están en semáforo 3
-        # IMPORTANTE: SP_Actualiza_Titulados_Por_Semestre_AU escribe el semáforo
-        # usando periodo_actual, por lo que la verificación debe buscar en el periodo anterior al actual.
-        periodo_anterior_id, periodo_anterior = get_periodo_anterior_al_ultimo(db)
+        # SP_Actualiza_Titulados_Por_Semestre_AU escribe semáforos usando periodo_actual,
+        # por lo que la verificación también debe buscar en periodo_actual.
         todos_finalizados = verificar_todos_programas_finalizados(
-            db, periodo_anterior, sigla, nivel
+            db, periodo_actual, sigla, nivel
         )
 
         print(f"[finalizar-titulados] todos_finalizados={todos_finalizados} "
@@ -717,10 +716,6 @@ async def acuse_titulados_view(
     print ("Muchas tablas")
 
     id_rol = int(sess.id_rol)
-    nombre_capturista = "No definido."
-    nombre_ceget = "No definido."
-    nombre_titular = "No definido."
-
     Id_Unidad_Academica = db.query(Unidad_Academica.Id_Unidad_Academica).filter(
         Unidad_Academica.Sigla == unidad,
         Unidad_Academica.Id_Estatus == 1
@@ -728,27 +723,15 @@ async def acuse_titulados_view(
 
     print("ID unidad academica", Id_Unidad_Academica)
 
-    # 2. Hacemos la consulta agregando Usuario.Id_Rol
-    usuarios = db.query(Usuario.Nombre, Usuario.Paterno, Usuario.Materno, Usuario.Id_Rol).filter(
-        Usuario.Id_Unidad_Academica == Id_Unidad_Academica,
-        Usuario.Id_Estatus == 1
-    ).all()
-
+    # Obtenemos encargados filtrando por formato 4 (Titulados) para que el capturista
+    # corresponda al usuario con permiso asignado en Formato_Usuario para este formato.
     encargados = obtener_encargados(db, Id_Unidad_Academica, 4)
- 
-    print("Encargados Obtenidos : ",encargados)
 
-    # 3. Recorremos los resultados y asignamos según el Id_Rol
-    for u in usuarios:
-        # Construimos el nombre completo de una vez
-        nombre_completo = f"{u.Nombre} {u.Paterno} {u.Materno}".strip()
-        
-        if u.Id_Rol == 3:
-            nombre_capturista = nombre_completo
-        elif u.Id_Rol == 4:
-            nombre_ceget = nombre_completo
-        elif u.Id_Rol == 5:
-            nombre_titular = nombre_completo
+    nombre_capturista = encargados["nombre_capturista"]
+    nombre_ceget      = encargados["nombre_ceget"]
+    nombre_titular    = encargados["nombre_titular"]
+
+    print("Encargados Obtenidos : ", encargados)
     print("EK* id:", id_periodo_req)
     
     id_nivel = db.query(Nivel.Id_Nivel).filter(Nivel.Nivel == nivel).scalar()

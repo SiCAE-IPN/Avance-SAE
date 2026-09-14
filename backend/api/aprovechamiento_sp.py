@@ -1243,9 +1243,6 @@ async def acuse_validacion_aprovechamiento_view(
     db: Session = Depends(get_db),
     exportando_pdf: bool = False,
     no_validado: bool = False,
-    nombre_capturista: str = None,
-    nombre_ceget: str = None,
-    nombre_titular: str = None
 ):
     """
     Vista de Acuse de Validación - Aprovechamiento.
@@ -1270,14 +1267,12 @@ async def acuse_validacion_aprovechamiento_view(
     print(f"Exportando PDF: {exportando_pdf}")
     print(f"{'='*70}")
 
+    # obtener_contexto_aprovechamiento ya llama a obtener_encargados(db, Id_UA, 2)
+    # y pone nombre_capturista/ceget/titular correctamente en el context.
+    # No se deben sobreescribir aquí.
     context = await obtener_contexto_aprovechamiento(
-        request, periodo, nivel, unidad, sess, db, exportando_pdf=exportando_pdf, no_validado=no_validado, 
+        request, periodo, nivel, unidad, sess, db, exportando_pdf=exportando_pdf, no_validado=no_validado,
     )
-    if isinstance(context, dict):
-        context["no_validado"] = no_validado
-        context["nombre_capturista"] = nombre_capturista
-        context["nombre_ceget"] = nombre_ceget       
-        context["nombre_titular"] = nombre_titular
     return templates.TemplateResponse("aprovechamiento_resumen_dinamico.html", context)
 
 
@@ -1646,7 +1641,6 @@ import io
 @router.get("/exportar-excel-aprovechamiento")
 async def exportar_aprovechamiento_excel(
     request: Request,
-    periodo: str,
     nivel: str,
     unidad: str,
     sess=Depends(validar_acuse),
@@ -1658,6 +1652,12 @@ async def exportar_aprovechamiento_excel(
     - SP_Consulta_Inscritos_Aprovechamiento
     según los filtros proporcionados.
     """
+    # El SP de Aprovechamiento trabaja con el PERIODO ANTERIOR al último
+    # (igual que la vista /consulta y /resumen-dinamico).
+    _, periodo_sp = get_periodo_anterior_al_ultimo(db)
+    if not periodo_sp:
+        raise HTTPException(404, "No se encontró el periodo anterior al último")
+    print(f"[excel-aprovechamiento] periodo_sp='{periodo_sp}' | unidad='{unidad}' | nivel='{nivel}'")
     
     # 1. Obtener la sigla de la unidad académica (el SP espera sigla)
     ua_obj = db.query(CatUnidadAcademica).filter(
@@ -1682,7 +1682,7 @@ async def exportar_aprovechamiento_excel(
     """)
     result_aprov = db.execute(query_aprov, {
         "sigla": sigla_unidad,
-        "periodo": periodo,
+        "periodo": periodo_sp,
         "nivel": nivel,
         "usuario": usuario_login,
         "host": host
@@ -1698,7 +1698,7 @@ async def exportar_aprovechamiento_excel(
             @NNivel = :nivel;
     """)
     result_inscritos = db.execute(query_inscritos, {
-        "periodo": periodo,
+        "periodo": periodo_sp,
         "sigla": sigla_unidad,
         "nivel": nivel
     })
@@ -1736,7 +1736,7 @@ async def exportar_aprovechamiento_excel(
     output.seek(0)
 
     # Nombre del archivo
-    filename = f"Aprovechamiento_Inscritos_{sigla_unidad}_{nivel}_{periodo}.xlsx"
+    filename = f"Aprovechamiento_Inscritos_{sigla_unidad}_{nivel}_{periodo_sp}.xlsx"
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
