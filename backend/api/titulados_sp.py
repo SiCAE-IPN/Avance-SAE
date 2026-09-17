@@ -629,31 +629,56 @@ def finalizar_captura_titulados(
         )
 
         # 3. Verificar si todos los programas-modalidad de la UA están en semáforo 3
-        # SP_Actualiza_Titulados_Por_Semestre_AU escribe semáforos usando periodo_actual,
-        # por lo que la verificación también debe buscar en periodo_actual.
+        # REGLA: Los SPs se ejecutan con periodo_actual (ellos hacen -1 internamente),
+        # pero los semáforos quedan escritos en 'periodo' (el anterior al activo).
+        # → La consulta de semáforos en BD debe hacerse con 'periodo' (el anterior).
         todos_finalizados = verificar_todos_programas_finalizados(
-            db, periodo_actual, sigla, nivel
+            db, periodo, sigla, nivel
         )
 
         print(f"[finalizar-titulados] todos_finalizados={todos_finalizados} "
-              f"(verificando semáforos en periodo_actual='{periodo_actual}', sigla='{sigla}', nivel='{nivel}')")
+              f"(verificando semáforos en periodo='{periodo}' [anterior], sigla='{sigla}', nivel='{nivel}')")
 
         # 4. Si todos están en 3, reinsertar y ejecutar SP de unidad académica
         if todos_finalizados:
+            # SP_Finaliza_Captura_Titulados actualiza Semaforo_UA mediante un JOIN con
+            # Temp_Titulados. El SP anterior (SP_Actualiza_Titulados_Por_Semestre_AU) ya
+            # borró esa tabla, por lo que debemos sembrar al menos un registro antes de
+            # llamar al SP de finalización.
+            # IMPORTANTE: este SP NO hace periodo-1 internamente → recibe 'periodo' (anterior).
             if registros:
                 db.expunge_all()
                 insertar_temp_titulados(db, registros)
             else:
-                print("[finalizar-titulados] Sin registros del frontend para reinsertar; "
-                      "procediendo directamente a finalizar_unidad_academica.")
+                # Temp_Titulados fue borrada por el SP anterior; insertar registro mínimo
+                # con 'periodo' (anterior) para que el JOIN del SP funcione.
+                registro_seed = Temp_Titulados(
+                    Periodo=periodo,       # ← periodo ANTERIOR, donde están los datos
+                    Sigla=sigla,
+                    Nombre_Programa=programa,
+                    Nombre_Rama="",
+                    Nivel=nivel,
+                    Modalidad=modalidad,
+                    Grupo_Edad="",
+                    Boleta=0,
+                    Tipo_Titulacion="",
+                    Turno="Matutino",
+                    Sexo="Hombre",
+                    Titulados=0,
+                )
+                insertar_temp_titulados(db, [registro_seed])
+                print(f"[finalizar-titulados] Registro mínimo sembrado en Temp_Titulados "
+                      f"(periodo='{periodo}', sigla='{sigla}', nivel='{nivel}') "
+                      f"para que SP_Finaliza_Captura_Titulados pueda actualizar Semaforo_UA.")
 
-            # SP_Finaliza_Captura_Titulados usa el periodo ANTERIOR (donde están los datos de Temp)
+            # SP_Finaliza_Captura_Titulados NO hace periodo-1 internamente →
+            # recibe 'periodo' (el anterior) para coincidir con lo que hay en Temp_Titulados.
             finalizar_unidad_academica(
                 db, periodo, sigla, modalidad, programa,
                 sess.usuario, host, nivel
             )
             print(f"[finalizar-titulados] SP_Finaliza_Captura_Titulados ejecutado para "
-                  f"sigla='{sigla}', periodo='{periodo}', nivel='{nivel}'")
+                  f"sigla='{sigla}', periodo='{periodo}' [anterior], nivel='{nivel}'")
 
     except Exception as e:
         traceback.print_exc()
