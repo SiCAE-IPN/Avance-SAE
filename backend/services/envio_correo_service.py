@@ -109,7 +109,7 @@ def notificar_rechazo_global(
             <p style="color: #d9534f; font-weight: bold;">Por favor, ingrese al sistema para revisar las observaciones pertinentes.</p>
             <p style="margin-top: 20px;">Accede al sistema con el siguiente enlace:</p>
             <p style="text-align: center; margin: 30px 0;">
-                <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder a SiCAE</a>
+                <a href="https://desktop-2atnf0e.taile4a3e8.ts.net/" style="display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder a SiCAE</a>
             </p>
             <p style="margin-top: 30px; font-size: 12px; color: #777;">
                 Este es un mensaje automático generado por SiCAE. Por favor, no responda a este correo.<br>
@@ -383,4 +383,4 @@ def verificar_todos_modulos_validados_titular(
     except Exception as e:
         print(f"❌ Error verificando semáforos de la UA: {e}")
         return False
-
+
