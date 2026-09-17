@@ -432,6 +432,9 @@ async def obtener_contexto_aprovechamiento(
     usuario_ya_valido = False
     usuario_ya_rechazo = False
     periodo_anterior_literal = None
+    nombre_capturista = "No asignado"
+    nombre_ceget = "No asignado"
+    nombre_titular = "No asignado"
 
     try:
         periodo_obj = db.query(CatPeriodo).filter(CatPeriodo.Periodo == periodo).first()
@@ -446,6 +449,16 @@ async def obtener_contexto_aprovechamiento(
 
         ua_obj = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Sigla == unidad).first()
         Id_Unidad_Academica = ua_obj.Id_Unidad_Academica if ua_obj else None
+
+        # ===================================
+        # REPOSITORIO DE NOMBRES PARA FIRMAS
+        # ===================================
+        if Id_Unidad_Academica:
+            encargados = obtener_encargados(db, Id_Unidad_Academica, 2)
+            nombre_capturista = encargados["nombre_capturista"]
+            nombre_ceget      = encargados["nombre_ceget"]
+            nombre_titular    = encargados["nombre_titular"]
+            print(f"Capturista: {nombre_capturista}, CEGET: {nombre_ceget}, Titular: {nombre_titular}")
 
         estado_semaforo_actual = 0
         esperando_por_rol = "Capturista"
@@ -577,6 +590,9 @@ async def obtener_contexto_aprovechamiento(
         "esperando_por_rol": esperando_por_rol,
         "pendiente_validacion": pendiente_validacion,
         "nota_rechazo": nota_rechazo,
+        "nombre_capturista": nombre_capturista,
+        "nombre_ceget": nombre_ceget,
+        "nombre_titular": nombre_titular,
     }
 
 # ============================================================================
@@ -1286,12 +1302,9 @@ async def exportar_aprovechamiento_pdf(
     periodo: str,
     nivel: str,
     unidad: str,
-    no_validado: str = "false", 
+    no_validado: str = "false",
     sess=Depends(validar_acuse),
     db: Session = Depends(get_db),
-    nombre_capturista: str = None,
-    nombre_ceget: str = None,
-    nombre_titular: str = None
 ):
     try:
         import importlib
@@ -1299,21 +1312,20 @@ async def exportar_aprovechamiento_pdf(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"WeasyPrint no está instalado: {exc}")
 
-    # 2. Pasamos el valor convertido a booleano a la vista principal
+    # Convertimos el parámetro string a booleano
     es_no_validado = no_validado.lower() == 'true'
 
+    # Los nombres de capturista/CEGET/titular se obtienen internamente
+    # en obtener_contexto_aprovechamiento via obtener_encargados()
     resp = await acuse_validacion_aprovechamiento_view(
         request=request,
         periodo=periodo,
         nivel=nivel,
         unidad=unidad,
-        no_validado=es_no_validado, # 👈 3. Enviarlo al contexto del HTML
+        no_validado=es_no_validado,
         sess=sess,
         db=db,
         exportando_pdf=True,
-        nombre_capturista=nombre_capturista, 
-        nombre_ceget=nombre_ceget,          
-        nombre_titular=nombre_titular
     )
 
     if isinstance(resp, RedirectResponse):
