@@ -175,7 +175,7 @@ def _enviar_correo_bienvenida(
             <p style=\"color: #d9534f; font-weight: bold;\">Por seguridad, cambiala al iniciar sesion.</p>
             <p style=\"margin-top: 20px;\">Accede al sistema con el siguiente enlace:</p>
             <p style=\"text-align: center; margin: 30px 0;\">
-                <a href=\"http://148.204.107.39:50000\" style=\"display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;\">Acceder al SiCAE</a>
+                <a href=\"https://desktop-2atnf0e.taile4a3e8.ts.net/" style=\"display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;\">Acceder al SiCAE</a>
             </p>
             <p style=\"margin-top: 30px;\">Gracias,<br><strong>Equipo SiCAE</strong></p>
         </div>

@@ -203,10 +203,10 @@ def reset_password(db: Session, email: str, request = None, username: str = None
                 <p style="color: #d9534f; font-weight: bold;">⚠️ Por seguridad, cámbiela después de Iniciar Sesión.</p>
                 <p style="margin-top: 20px;">Para acceder al sistema, haz clic en el siguiente enlace:</p>
                 <p style="text-align: center; margin: 30px 0;">
-                    <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SiCAE</a>
+                    <a href="https://desktop-2atnf0e.taile4a3e8.ts.net/" style="display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SiCAE</a>
                 </p>
                 <p style="color: #636569; font-size: 12px;">O copia y pega este enlace en tu navegador:<br>
-                <a href="http://148.204.107.39:50000" style="color: #750946;">http://148.204.107.39:50000</a></p>
+                <a href="https://desktop-2atnf0e.taile4a3e8.ts.net/" style="color: #750946;">https://desktop-2atnf0e.taile4a3e8.ts.net/</a></p>
                 <p style="margin-top: 30px;">Gracias,<br><strong>Sistema SiCAE</strong></p>
             </div>
         </body>
@@ -445,10 +445,10 @@ def register_usuario(db: Session, user_dict: UsuarioCreate, generar_password_aut
                     </ul>
                     <p style="margin-top: 20px;">Para acceder al sistema, haz clic en el siguiente enlace:</p>
                     <p style="text-align: center; margin: 30px 0;">
-                        <a href="http://148.204.107.39:50000" style="display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SiCAE</a>
+                        <a href="https://desktop-2atnf0e.taile4a3e8.ts.net/" style="display: inline-block; padding: 12px 30px; background-color: #750946; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Acceder al Sistema SiCAE</a>
                     </p>
                     <p style="color: #636569; font-size: 12px;">O copia y pega este enlace en tu navegador:<br>
-                    <a href="http://148.204.107.39:50000" style="color: #750946;">http://148.204.107.39:50000</a></p>
+                    <a href="https://desktop-2atnf0e.taile4a3e8.ts.net/" style="color: #750946;">https://desktop-2atnf0e.taile4a3e8.ts.net/</a></p>
                     <p style="margin-top: 30px;">Gracias,<br><strong>Equipo del Sistema SiCAE</strong></p>
                 </div>
             </body>
