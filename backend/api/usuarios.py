@@ -183,19 +183,23 @@ async def usuarios_view(
     )
 
 
-# Endpoint para consultar formatos ya ocupados por capturistas de una UA
+# Endpoint para consultar formatos ya ocupados por capturistas de una UA (y opcionalmente un Nivel)
 @router.get("/formatos-ocupados/{id_unidad_academica}", response_class=JSONResponse)
 async def formatos_ocupados_por_ua(
     id_unidad_academica: int,
     sess=Depends(get_current_session),
     db: Session = Depends(get_db),
     id_usuario_excluir: int = None,
+    id_nivel: int = None,
 ):
     """
     Devuelve los IDs de formatos que ya están asignados a capturistas activos
-    de la Unidad Académica indicada. Opcionalmente excluye a un usuario (edición).
+    de la Unidad Académica + Nivel indicados.
+    Si id_nivel es None o 0 se ignora el filtro de nivel (comportamiento anterior).
+    Opcionalmente excluye a un usuario (modo edición).
     """
     try:
+        nivel_filtro = id_nivel if id_nivel and id_nivel > 0 else None
         query = text("""
             SELECT DISTINCT fu.Id_Formato
             FROM Formato_Usuario fu
@@ -205,11 +209,13 @@ async def formatos_ocupados_por_ua(
               AND u.Id_Estatus = 1
               AND fu.Id_Estatus = 1
               AND (:excluir IS NULL OR u.Id_Usuario <> :excluir)
+              AND (:id_nivel IS NULL OR u.Id_Nivel = :id_nivel)
         """)
         rows = db.execute(query, {
             "id_ua": id_unidad_academica,
             "rol_capturista": ROL_CAPTURISTA,
             "excluir": id_usuario_excluir,
+            "id_nivel": nivel_filtro,
         }).mappings().all()
         ids_ocupados = [int(r["Id_Formato"]) for r in rows]
         return JSONResponse(content={"formatos_ocupados": ids_ocupados})
@@ -245,15 +251,22 @@ async def registrar_usuario_view(
         data["Id_Formatos"] = formatos_ids
 
         # VALIDACIÓN FORMATOS: Si es Capturista, verificar que ningún formato ya esté asignado
-        # a otro capturista activo de la misma Unidad Académica
+        # a otro capturista activo de la misma Unidad Académica Y mismo Nivel
         if user.Id_Rol == ROL_CAPTURISTA and formatos_ids:
             id_ua_nuevo = int(data.get("Id_Unidad_Academica") or 0)
+            id_nivel_nuevo = data.get("Id_Nivel")  # puede ser None o entero
+            try:
+                id_nivel_nuevo = int(id_nivel_nuevo) if id_nivel_nuevo else None
+            except (TypeError, ValueError):
+                id_nivel_nuevo = None
+
             if id_ua_nuevo:
                 # Construir placeholders individuales para la cláusula IN (compatible con SQL Server)
                 fmt_placeholders = ", ".join(f":fmt{i}" for i in range(len(formatos_ids)))
                 fmt_params = {f"fmt{i}": v for i, v in enumerate(formatos_ids)}
                 fmt_params["id_ua"] = id_ua_nuevo
                 fmt_params["rol_capturista"] = ROL_CAPTURISTA
+                fmt_params["id_nivel"] = id_nivel_nuevo  # None si no aplica nivel
                 rows_ocupados = db.execute(
                     text(f"""
                         SELECT DISTINCT fu.Id_Formato, u.Nombre, u.Paterno, u.Materno
@@ -264,6 +277,7 @@ async def registrar_usuario_view(
                           AND u.Id_Estatus = 1
                           AND fu.Id_Estatus = 1
                           AND fu.Id_Formato IN ({fmt_placeholders})
+                          AND (:id_nivel IS NULL OR u.Id_Nivel = :id_nivel)
                     """),
                     fmt_params,
                 ).mappings().all()
@@ -277,7 +291,7 @@ async def registrar_usuario_view(
                     return JSONResponse(
                         status_code=400,
                         content={
-                            "detail": f"Uno o más formatos seleccionados ya están asignados a otro capturista de esta Unidad Académica ({nombres_unicos}). Por favor elige solo los formatos disponibles."
+                            "detail": f"Uno o más formatos seleccionados ya están asignados a otro capturista del mismo Nivel en esta Unidad Académica ({nombres_unicos}). Por favor elige solo los formatos disponibles."
                         },
                     )
 

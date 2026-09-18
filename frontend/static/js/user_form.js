@@ -9,8 +9,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const ROLES_SIN_NIVEL = new Set(['4', '5', '6', '7', '8', '9']);
     let _formatosOcupados = new Set(); // IDs de formatos ya tomados en la UA actual
 
-    // --- Consultar y aplicar formatos ya ocupados para una UA ---
-    async function actualizarFormatosOcupados(idUA, idUsuarioExcluir = null) {
+    // --- Consultar y aplicar formatos ya ocupados para una UA y Nivel ---
+    async function actualizarFormatosOcupados(idUA, idUsuarioExcluir = null, idNivel = null) {
         _formatosOcupados = new Set();
         // Restaurar todos los checkboxes antes de aplicar nuevos bloqueos
         formatoCheckboxes.forEach(cb => {
@@ -24,7 +24,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             let url = `/usuarios/formatos-ocupados/${idUA}`;
-            if (idUsuarioExcluir) url += `?id_usuario_excluir=${idUsuarioExcluir}`;
+            const params = new URLSearchParams();
+            if (idUsuarioExcluir) params.append('id_usuario_excluir', idUsuarioExcluir);
+            if (idNivel) params.append('id_nivel', idNivel);
+            if (params.toString()) url += '?' + params.toString();
+
             const resp = await fetch(url);
             if (!resp.ok) return;
             const data = await resp.json();
@@ -41,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (!label.querySelector('.badge-ocupado')) {
                             const badge = document.createElement('span');
                             badge.className = 'badge-ocupado';
-                            badge.title = 'Este formato ya está asignado a otro capturista de esta Unidad Académica';
+                            badge.title = 'Este formato ya está asignado a otro capturista del mismo Nivel en esta Unidad Académica';
                             badge.textContent = '🔒 Asignado';
                             label.appendChild(badge);
                         }
@@ -51,6 +55,13 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch(e) {
             // Si falla la consulta, no bloqueamos nada
         }
+    }
+
+    // Helper: obtiene el nivel actualmente seleccionado (select o hidden)
+    function getNivelActual() {
+        const hiddenNivel = document.getElementById('id_nivel_hidden');
+        if (hiddenNivel && hiddenNivel.value) return hiddenNivel.value;
+        return selectNivel && selectNivel.value ? selectNivel.value : null;
     }
 
 
@@ -210,9 +221,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Evento: UA cambia (usar 'input' además de 'change' para máxima compatibilidad)
         selectUA.addEventListener('change', async function() {
             habilitarRolPorUA();
-            // Si el rol actual es Capturista, actualizar formatos ocupados
+            // Si el rol actual es Capturista, actualizar formatos ocupados (con nivel actual)
             if (selectRol && selectRol.value === ROL_CAPTURISTA && this.value) {
-                await actualizarFormatosOcupados(this.value);
+                await actualizarFormatosOcupados(this.value, null, getNivelActual());
             } else {
                 // Limpiar bloqueos si cambia la UA
                 await actualizarFormatosOcupados(null);
@@ -228,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Si el nuevo rol es Capturista y hay UA seleccionada, cargar formatos ocupados
             const idUAActual = selectUA && selectUA.value;
             if (this.value === ROL_CAPTURISTA && idUAActual) {
-                await actualizarFormatosOcupados(idUAActual, editando ? idUsuarioEdit : null);
+                await actualizarFormatosOcupados(idUAActual, editando ? idUsuarioEdit : null, getNivelActual());
             } else {
                 await actualizarFormatosOcupados(null);
             }
@@ -238,10 +249,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
 
-        // Evento: Nivel cambia (sincronizar hidden si existe)
-        selectNivel.addEventListener('change', function() {
+        // Evento: Nivel cambia — re-consultar formatos ocupados si es Capturista
+        selectNivel.addEventListener('change', async function() {
             const hiddenNivel = document.getElementById('id_nivel_hidden');
             if (hiddenNivel) hiddenNivel.value = this.value;
+
+            // Si el rol actual es Capturista y hay UA seleccionada, actualizar formatos ocupados para este nivel
+            const idUAActual = selectUA && selectUA.value;
+            if (selectRol && selectRol.value === ROL_CAPTURISTA && idUAActual) {
+                await actualizarFormatosOcupados(idUAActual, editando ? idUsuarioEdit : null, this.value || null);
+            }
         });
     }
 
@@ -329,15 +346,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('id_nivel').value = idNivelUsuario;
             }
 
-            // --- Si el usuario es Capturista, cargar formatos ocupados de su UA (excluye al usuario actual)
+            // --- Si el usuario es Capturista, cargar formatos ocupados de su UA+Nivel (excluye al usuario actual)
             //     y luego re-aplicar sus formatos propios para que queden marcados ---
             const idRolUsuario = this.dataset.id_rol;
             if (String(idRolUsuario) === ROL_CAPTURISTA && idUA) {
-                await actualizarFormatosOcupados(idUA, idUsuarioEdit);
+                await actualizarFormatosOcupados(idUA, idUsuarioEdit, idNivelUsuario || null);
                 // Re-marcar los formatos propios del usuario (aunque estén 'ocupados' por él mismo)
                 // En este punto ya están desbloqueados para este usuario; solo marcarlos como checked
                 seleccionarFormatos(formatosSeleccionados);
             }
+
 
             // Aplicar lógica de nivel/formatos sin recargar niveles de nuevo
             habilitarNivelPorRol({ recargarNiveles: false });
