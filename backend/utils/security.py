@@ -5,11 +5,12 @@ import string
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-def generate_random_password(length: int = 12, use_symbols: bool = True) -> str:
+def generate_random_password(length: int = 12, use_symbols: bool = False) -> str:
     """Genera una contraseña aleatoria segura.
 
     length: longitud deseada (mínimo 8 recomendado)
-    use_symbols: si se incluyen símbolos de puntuación
+    use_symbols: si se incluyen símbolos de puntuación (desactivado por defecto
+                 para mayor compatibilidad con teclados y usuarios menos técnicos)
     """
     if length < 8:
         length = 8
@@ -18,7 +19,7 @@ def generate_random_password(length: int = 12, use_symbols: bool = True) -> str:
         # Filtrar símbolos conflictivos si se desea simplificar: Omitimos comillas y backslash
         symbols = ''.join(ch for ch in string.punctuation if ch not in {'"', "'", '\\','<', '>'})
         alphabet += symbols
-    # Garantizar al menos un dígito y una letra
+    # Garantizar al menos un dígito, una minúscula y una mayúscula
     pwd = [secrets.choice(string.ascii_lowercase), secrets.choice(string.ascii_uppercase), secrets.choice(string.digits)]
     remaining = length - len(pwd)
     pwd += [secrets.choice(alphabet) for _ in range(remaining)]
