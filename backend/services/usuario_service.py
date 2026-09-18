@@ -213,7 +213,17 @@ def reset_password(db: Session, email: str, request = None, username: str = None
         </html>
         """
         try:
-            send_email(correo_destino, "Recuperación de contraseña", cuerpo)
+            # Obtener la sigla de la Unidad Académica del usuario
+            try:
+                from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+                ua_obj = db.query(CatUnidadAcademica).filter(
+                    CatUnidadAcademica.Id_Unidad_Academica == user.Id_Unidad_Academica
+                ).first()
+                sigla_ua = ua_obj.Sigla if ua_obj else ""
+            except Exception:
+                sigla_ua = ""
+            ua_parte = f" [{sigla_ua}]" if sigla_ua else ""
+            send_email(correo_destino, f"Recuperación de contraseña{ua_parte}", cuerpo)
         except EmailSendError as e:
             # Revertir si falla envío
             db.rollback()
@@ -455,7 +465,17 @@ def register_usuario(db: Session, user_dict: UsuarioCreate, generar_password_aut
             </html>
             """
             try:
-                send_email(user.Email, "Credenciales de acceso - Sistema SiCAE", cuerpo)
+                # Obtener sigla de la UA para el asunto del correo
+                try:
+                    from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+                    ua_obj = db.query(CatUnidadAcademica).filter(
+                        CatUnidadAcademica.Id_Unidad_Academica == user.Id_Unidad_Academica
+                    ).first()
+                    sigla_ua = ua_obj.Sigla if ua_obj else ""
+                except Exception:
+                    sigla_ua = ""
+                ua_parte = f" [{sigla_ua}]" if sigla_ua else ""
+                send_email(user.Email, f"Credenciales de acceso - Sistema SiCAE{ua_parte}", cuerpo)
                 print(f"✅ Correo enviado exitosamente a {user.Email}")
             except EmailSendError as email_error:
                 print(f"❌ Error al enviar correo: {email_error}")

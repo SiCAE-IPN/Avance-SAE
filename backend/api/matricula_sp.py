@@ -3376,7 +3376,8 @@ async def rechazar_semestre_rol(request: Request, sess=Depends(get_current_sessi
         notificar_rechazo_global(
             modulo_rechazado="Matrícula",
             id_rol_que_rechaza=id_rol,
-            correos=diccionario_correos
+            correos=diccionario_correos,
+            unidad_academica=unidad_sigla,
         )
         # =========================================================
         return {

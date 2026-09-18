@@ -64,7 +64,8 @@ def notificar_rechazo_global(
     *,
     modulo_rechazado: str,
     id_rol_que_rechaza: int,
-    correos: Dict[str, str]
+    correos: Dict[str, str],
+    unidad_academica: str = "",
 ) -> None:
     """
     Evalúa quién rechazó el módulo (por su id_rol) y envía un correo a los involucrados.
@@ -97,7 +98,8 @@ def notificar_rechazo_global(
         return
 
     # 2. Plantilla HTML (adaptada a tu diseño del SiCAE)
-    asunto = f"Aviso Importante: Rechazo en el módulo de {modulo_rechazado}"
+    ua_parte = f" [{unidad_academica}]" if unidad_academica else ""
+    asunto = f"Aviso Importante: Rechazo en el módulo de {modulo_rechazado}{ua_parte}"
     cuerpo = f"""
     <html>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -292,7 +294,7 @@ def enviar_correo_acuse_titular(
             try:
                 send_email(
                     to_email=destinatarios_unicos,
-                    subject="Conclusión de Captura de Información - SiCAE",
+                    subject=f"Conclusión de Captura de Información - {unidad_sigla} - SiCAE",
                     html_body=html_correo_acuse(
                         nombre_completo=nombre_completo,
                         periodo_activo=periodo_literal,

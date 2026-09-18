@@ -1597,7 +1597,8 @@ async def rechazar_aprovechamiento(request: Request, sess=Depends(get_current_se
         notificar_rechazo_global(
            modulo_rechazado="Aprovechamiento Académico",
             id_rol_que_rechaza=id_rol,
-            correos=diccionario_correos
+            correos=diccionario_correos,
+            unidad_academica=unidad,
         )
 
 

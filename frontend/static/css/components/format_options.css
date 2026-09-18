@@ -76,6 +76,44 @@
     background: #ffebee;
 }
 
+/* Formato ya asignado a otro capturista de la misma UA */
+.format-option-card.formato-ocupado {
+    background: #f5f5f5;
+    border-color: #ccc;
+    cursor: not-allowed;
+    opacity: 0.65;
+    position: relative;
+}
+
+.format-option-card.formato-ocupado:hover {
+    background: #f5f5f5;
+    border-color: #ccc;
+}
+
+.format-option-card.formato-ocupado .format-checkbox {
+    border-color: #aaa;
+    cursor: not-allowed;
+}
+
+.format-option-card.formato-ocupado .format-option-text {
+    color: #999;
+    text-decoration: line-through;
+}
+
+.badge-ocupado {
+    display: inline-block;
+    margin-left: auto;
+    font-size: 0.72em;
+    font-weight: 600;
+    color: #b71c1c;
+    background: #ffebee;
+    border: 1px solid #ef9a9a;
+    border-radius: 4px;
+    padding: 1px 5px;
+    white-space: nowrap;
+    cursor: help;
+}
+
 @media (max-width: 900px) {
     .format-options-grid {
         grid-template-columns: repeat(2, minmax(150px, 1fr));

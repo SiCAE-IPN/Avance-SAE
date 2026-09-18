@@ -1362,7 +1362,9 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
         notificar_rechazo_global(
             modulo_rechazado="Titulados", 
             id_rol_que_rechaza= id_rol,
-            correos= correos)
+            correos= correos,
+            unidad_academica=unidad_in,
+        )
 
         db.commit()
 

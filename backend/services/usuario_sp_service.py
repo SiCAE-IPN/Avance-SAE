@@ -160,7 +160,9 @@ def _enviar_correo_bienvenida(
     nombre_completo: str,
     usuario: str,
     password_temporal: str,
+    sigla_unidad: str = "",
 ) -> None:
+    ua_parte = f" [{sigla_unidad}]" if sigla_unidad else ""
     cuerpo = f"""
     <html>
     <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">
@@ -183,7 +185,8 @@ def _enviar_correo_bienvenida(
     </html>
     """
 
-    send_email(email, "Credenciales de acceso - Sistema SiCAE", cuerpo)
+    send_email(email, f"Credenciales de acceso - Sistema SiCAE{ua_parte}", cuerpo)
+
 
 
 def _registrar_bitacora_password_temporal(
@@ -575,6 +578,7 @@ def registrar_usuario_sp(
                 nombre_completo=nombre_completo,
                 usuario=usuario_nuevo,
                 password_temporal=password_temporal,
+                sigla_unidad=unidad.Sigla,
             )
         except EmailSendError as email_error:
             raise ValueError(
@@ -656,6 +660,7 @@ def registrar_usuario_sp(
                 nombre_completo=nombre_completo,
                 usuario=usuario_nuevo,
                 password_temporal=password_temporal,
+                sigla_unidad=unidad.Sigla,
             )
         except EmailSendError as email_error:
             raise ValueError(
