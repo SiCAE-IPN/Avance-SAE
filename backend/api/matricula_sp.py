@@ -3639,8 +3639,8 @@ async def resumen_matricula_dinamico_view(
             'Octavo': 8, '8': 8, 8: 8,
             'Noveno': 9, '9': 9, 9: 9,
             'Decimo': 10, 'Décimo': 10, '10': 10, 10: 10,
-            'Decimo primero': 11, 'Once': 11, '11': 11, 11: 11,
-            'Decimo segundo': 12, 'Doce': 12, '12': 12, 12: 12
+            'Decimo primero': 11, 'Décimo primero': 11, 'Undecimo': 11, 'Undécimo': 11, 'Once': 11, '11': 11, 11: 11,
+            'Decimo segundo': 12, 'Décimo segundo': 12, 'Duodecimo': 12, 'Duodécimo': 12, 'Doce': 12, '12': 12, 12: 12
         }
         
         # Función para convertir semestre a número
