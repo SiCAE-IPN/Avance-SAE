@@ -29,7 +29,9 @@ function normalizarSemestre(semestre) {
     const mapa = {
         'primer': 1, 'primero': 1, 'segundo': 2, 'tercer': 3, 'tercero': 3,
         'cuarto': 4, 'quinto': 5, 'sexto': 6, 'septimo': 7,
-        'octavo': 8, 'noveno': 9, 'decimo': 10
+        'octavo': 8, 'noveno': 9, 'decimo': 10,
+        'decimo primero': 11, 'undecimo': 11,
+        'decimo segundo': 12, 'duodecimo': 12
     };
     const texto = String(semestre).toLowerCase().trim()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -38,9 +40,10 @@ function normalizarSemestre(semestre) {
 
 function semestreNumeroATexto(num) {
     const mapaInverso = {
-        1: 'Primero', 2: 'Segundo', 3: 'Tercero', 4: 'Cuarto',
-        5: 'Quinto',  6: 'Sexto',   7: 'Septimo', 8: 'Octavo',
-        9: 'Noveno',  10: 'Decimo'
+        1: 'Primero',  2: 'Segundo',       3: 'Tercero', 4: 'Cuarto',
+        5: 'Quinto',   6: 'Sexto',         7: 'Septimo', 8: 'Octavo',
+        9: 'Noveno',   10: 'Decimo',
+        11: 'Decimo primero', 12: 'Decimo segundo'
     };
     return mapaInverso[num] || num.toString();
 }
