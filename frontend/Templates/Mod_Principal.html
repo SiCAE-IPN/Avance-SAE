@@ -195,16 +195,10 @@
             window.location.href = '/titulados/consulta';
         });
 
-        // Navegar a la página del dashboard
         // Abrir dashboard de Power BI en una pestaña nueva
         document.getElementById('Btn_Dashboard').addEventListener('click', function() {
             if (this.classList.contains('bloqueado')) return;
-            
-            // URL directa de tu Power BI
-            const urlPowerBI = 'https://app.powerbi.com/reportEmbed?reportId=ca817673-ecd1-41e6-a17c-11e728b697bb&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563';
-            
-            // Abrir en una nueva pestaña
-            window.open(urlPowerBI, '_blank');
+            window.open('https://app.powerbi.com/reportEmbed?reportId=99973e83-df3a-446d-a227-0e5aa0254dd0&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563', '_blank');
         });
 
         // Navegar al tablero de Seguimiento a la Estadística

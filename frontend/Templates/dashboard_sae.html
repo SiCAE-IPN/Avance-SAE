@@ -4,26 +4,330 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard SiCAE</title>
+    <title>Dashboard SiCAE - Tablero General</title>
+    <meta name="description" content="Dashboard de análisis estadístico del Sistema de Captura y Análisis de la Estadística (SiCAE) del IPN.">
     <link rel="stylesheet" href="/static/css/fonts.css">
-    <link rel="stylesheet" href="/static/css/dashboard.css">
     <link rel="stylesheet" href="/static/css/components/loading_banner.css">
     <script src="/static/js/loading_banner.js"></script>
+    <style>
+        :root {
+            --color-primary: #6d1a2a;
+            --color-primary-dark: #4a1020;
+            --color-accent: #c0392b;
+            --color-gold: #d4a017;
+            --color-bg: #0f0f13;
+            --color-surface: #1a1a22;
+            --color-surface2: #22222e;
+            --color-border: rgba(255, 255, 255, 0.08);
+            --color-text: #f0f0f5;
+            --color-text-muted: #8888aa;
+            --radius: 16px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--color-bg);
+            color: var(--color-text);
+            font-family: 'Outfit', 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background:
+                radial-gradient(ellipse at 30% 20%, rgba(109,26,42,0.25) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(192,57,43,0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 10%, rgba(212,160,23,0.08) 0%, transparent 40%);
+            animation: bgShift 12s ease-in-out infinite alternate;
+            z-index: 0;
+        }
+
+        @keyframes bgShift {
+            0% { transform: translate(0,0) rotate(0deg); }
+            100% { transform: translate(2%,2%) rotate(2deg); }
+        }
+
+        .particles { position: fixed; top:0; left:0; right:0; bottom:0; z-index:0; overflow:hidden; }
+
+        .particle {
+            position: absolute;
+            width: 2px; height: 2px;
+            border-radius: 50%;
+            animation: float linear infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-10vh) translateX(30px); opacity: 0; }
+        }
+
+        .dashboard-wrapper {
+            position: relative; z-index: 1;
+            width: 100%; max-width: 860px;
+            display: flex; flex-direction: column;
+            align-items: center; gap: 2rem;
+        }
+
+        .dashboard-header { text-align: center; animation: fadeDown 0.7s ease both; }
+
+        @keyframes fadeDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .badge-label {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(109,26,42,0.3);
+            border: 1px solid rgba(109,26,42,0.5);
+            padding: 0.35rem 1rem; border-radius: 999px;
+            font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em;
+            text-transform: uppercase; color: #e88; margin-bottom: 1rem;
+        }
+
+        .badge-label .dot {
+            width: 7px; height: 7px; background: #e55; border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.7); }
+        }
+
+        .dashboard-header h1 {
+            font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800;
+            background: linear-gradient(135deg, #fff 0%, #ddd 40%, #c0392b 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; line-height: 1.2; margin-bottom: 0.6rem;
+        }
+
+        .dashboard-header p {
+            color: var(--color-text-muted); font-size: 1rem;
+            max-width: 500px; margin: 0 auto; line-height: 1.6;
+        }
+
+        .dashboard-card {
+            width: 100%; background: var(--color-surface);
+            border: 1px solid var(--color-border); border-radius: var(--radius);
+            padding: 2.5rem; position: relative; overflow: hidden;
+            animation: fadeUp 0.7s ease 0.2s both;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dashboard-card::before {
+            content: ''; position: absolute; top:0; left:0; right:0; height: 3px;
+            background: linear-gradient(90deg, var(--color-primary), var(--color-accent), var(--color-gold));
+        }
+
+        .preview-area {
+            background: var(--color-surface2);
+            border: 1px solid var(--color-border); border-radius: 12px;
+            padding: 2rem; display: flex; flex-direction: column;
+            align-items: center; gap: 1.5rem; margin-bottom: 2rem; text-align: center;
+        }
+
+        .preview-icon {
+            width: 80px; height: 80px;
+            background: linear-gradient(135deg, rgba(109,26,42,0.4), rgba(192,57,43,0.2));
+            border: 1px solid rgba(109,26,42,0.4); border-radius: 20px;
+            display: flex; align-items: center; justify-content: center; font-size: 2.2rem;
+        }
+
+        .preview-title { font-size: 1.3rem; font-weight: 700; color: var(--color-text); }
+
+        .preview-subtitle {
+            font-size: 0.9rem; color: var(--color-text-muted);
+            line-height: 1.5; max-width: 420px;
+        }
+
+        .stats-row {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 1rem; margin-bottom: 2rem;
+        }
+
+        .stat-item {
+            background: var(--color-surface2);
+            border: 1px solid var(--color-border); border-radius: 12px;
+            padding: 1.2rem; text-align: center;
+            transition: border-color 0.3s, transform 0.3s;
+        }
+
+        .stat-item:hover { border-color: rgba(109,26,42,0.4); transform: translateY(-2px); }
+
+        .stat-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 1.4rem; font-weight: 800; color: var(--color-text); }
+
+        .stat-label {
+            font-size: 0.75rem; color: var(--color-text-muted);
+            text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.2rem;
+        }
+
+        .btn-group { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+        .btn-primary {
+            flex: 1; min-width: 200px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+            color: white; font-size: 1rem; font-weight: 700;
+            padding: 1rem 2rem; border: none; border-radius: 12px;
+            cursor: pointer; text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(109,26,42,0.4);
+            position: relative; overflow: hidden;
+        }
+
+        .btn-primary::after {
+            content: ''; position: absolute; top:50%; left:50%;
+            width:0; height:0; background: rgba(255,255,255,0.2);
+            border-radius: 50%; transform: translate(-50%,-50%);
+            transition: width 0.4s, height 0.4s;
+        }
+
+        .btn-primary:hover::after { width: 300px; height: 300px; }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(192,57,43,0.5);
+        }
+
+        .btn-secondary {
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
+            background: transparent; color: var(--color-text-muted);
+            font-size: 0.95rem; font-weight: 600;
+            padding: 1rem 1.5rem; border: 1px solid var(--color-border);
+            border-radius: 12px; cursor: pointer; text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-surface2);
+            border-color: rgba(255,255,255,0.2); color: var(--color-text);
+        }
+
+        .info-note {
+            display: flex; align-items: flex-start; gap: 0.75rem;
+            background: rgba(212,160,23,0.08);
+            border: 1px solid rgba(212,160,23,0.2); border-radius: 10px;
+            padding: 1rem 1.2rem; margin-top: 1.5rem;
+            font-size: 0.85rem; color: rgba(212,160,23,0.9); line-height: 1.5;
+        }
+
+        .info-note span:first-child { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+        .dashboard-footer {
+            text-align: center; color: var(--color-text-muted);
+            font-size: 0.8rem; animation: fadeUp 0.7s ease 0.4s both;
+        }
+    </style>
 </head>
 
 <body>
-    <div class="dashboard-container">
+    <div class="particles" id="particles"></div>
+
+    <div class="dashboard-wrapper">
         <div class="dashboard-header">
-            <h1>Dashboard SiCAE - Tablero General</h1>
-            <button onclick="window.location.href='/mod_principal/'" class="btn-regresar">← Regresar</button>
+            <div class="badge-label">
+                <span class="dot"></span>
+                Power BI &middot; Tablero en vivo
+            </div>
+            <h1>Dashboard SiCAE</h1>
+            <p>Análisis estadístico integral del Instituto Politécnico Nacional</p>
         </div>
 
-        <div class="dashboard-content">
-            <iframe title="Tablero_SiCAE" width="1140" height="541.25" src="https://app.powerbi.com/reportEmbed?reportId=99973e83-df3a-446d-a227-0e5aa0254dd0&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563%22
-                frameborder=" 0" allowFullScreen="true">
-            </iframe>
+        <div class="dashboard-card">
+            <div class="preview-area">
+                <div class="preview-icon">📊</div>
+                <div class="preview-title">Tablero_SiCAE — Reporte General</div>
+                <div class="preview-subtitle">
+                    Visualiza matrículas, eficiencia terminal, egresados, titulados y más indicadores
+                    estadísticos actualizados al <strong style="color:#ddd">22/09/2026</strong>.
+                </div>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-item">
+                    <div class="stat-icon">🎓</div>
+                    <div class="stat-value">200,949</div>
+                    <div class="stat-label">Matrícula Total</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-value">70.58%</div>
+                    <div class="stat-label">Eficiencia Terminal</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon">🏆</div>
+                    <div class="stat-value">4,965</div>
+                    <div class="stat-label">Titulados</div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <a id="btn-open-dashboard"
+                   href="https://app.powerbi.com/reportEmbed?reportId=99973e83-df3a-446d-a227-0e5aa0254dd0&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563"
+                   target="_blank" rel="noopener noreferrer"
+                   class="btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                        <polyline points="17 6 23 6 23 12"></polyline>
+                    </svg>
+                    Abrir Tablero en Power BI
+                </a>
+                <a href="/mod_principal/" class="btn-secondary">← Regresar al inicio</a>
+            </div>
+
+            <div class="info-note">
+                <span>💡</span>
+                <span>
+                    El tablero se abrirá en una nueva pestaña. Asegúrate de haber iniciado sesión
+                    con tu cuenta institucional de Microsoft para visualizarlo correctamente.
+                </span>
+            </div>
+        </div>
+
+        <div class="dashboard-footer">
+            Sistema de Captura y Análisis de la Estadística &middot; IPN &nbsp;&middot;&nbsp;
+            Dirección de Información Institucional
         </div>
     </div>
+
+    <script>
+        (function () {
+            const container = document.getElementById('particles');
+            const count = 18;
+            for (let i = 0; i < count; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                const size = Math.random() * 3 + 1;
+                p.style.cssText = `
+                    left: ${Math.random() * 100}%;
+                    width: ${size}px; height: ${size}px;
+                    animation-duration: ${Math.random() * 15 + 10}s;
+                    animation-delay: ${Math.random() * 10}s;
+                    opacity: ${Math.random() * 0.5 + 0.2};
+                    background: rgba(${Math.random() > 0.5 ? '109,26,42' : '192,57,43'}, 0.5);
+                `;
+                container.appendChild(p);
+            }
+        })();
+    </script>
 </body>
 
 </html>

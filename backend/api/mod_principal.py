@@ -115,6 +115,12 @@ def dashboard_matricula_view(request: Request, sess=Depends(get_current_session)
     return templates.TemplateResponse("dashboard_matricula.html", {"request": request, "session": sess})
 
 
+@router.get("/dashboard_sae", response_class=HTMLResponse)
+def dashboard_sae_view(request: Request, sess=Depends(get_current_session)):
+    """Página del tablero general SiCAE con enlace a Power BI"""
+    return templates.TemplateResponse("dashboard_sae.html", {"request": request, "session": sess})
+
+
 # ==============================================================================
 # MÓDULO EXCLUSIVO DE AUDITORÍA Y SEGURIDAD (ADMINISTRADOR id_rol = 1)
 # ==============================================================================
