@@ -748,9 +748,14 @@ async def acuse_titulados_view(
 
     print("ID unidad academica", Id_Unidad_Academica)
 
+    id_nivel = db.query(Nivel.Id_Nivel).filter(Nivel.Nivel == nivel).scalar()
+
+    print("Nivel id:", id_nivel)
+
     # Obtenemos encargados filtrando por formato 4 (Titulados) para que el capturista
-    # corresponda al usuario con permiso asignado en Formato_Usuario para este formato.
-    encargados = obtener_encargados(db, Id_Unidad_Academica, 4)
+    # corresponda al usuario con permiso asignado en Formato_Usuario para este formato,
+    # filtrando además por nivel para no mezclar capturistas de distintos niveles.
+    encargados = obtener_encargados(db, Id_Unidad_Academica, 4, id_nivel)
 
     nombre_capturista = encargados["nombre_capturista"]
     nombre_ceget      = encargados["nombre_ceget"]
@@ -758,10 +763,6 @@ async def acuse_titulados_view(
 
     print("Encargados Obtenidos : ", encargados)
     print("EK* id:", id_periodo_req)
-    
-    id_nivel = db.query(Nivel.Id_Nivel).filter(Nivel.Nivel == nivel).scalar()
-
-    print("Nivle: ", id_nivel)
     
     # El semáforo de Titulados se almacena en el penúltimo periodo (anterior al último),
     # igual que en Egresados, ya que los SPs buscan internamente periodo_activo - 1

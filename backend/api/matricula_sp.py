@@ -4384,7 +4384,7 @@ async def acuse_validacion_view(
         # REPOSITORIO DE NOMBRES PARA FIRMAS
         # ===================================
 
-        usuarios_registrados = obtener_encargados(db, id_unidad_academica,1)
+        usuarios_registrados = obtener_encargados(db, id_unidad_academica, 1, id_nivel)
         nombre_capturista = usuarios_registrados["nombre_capturista"]
         nombre_ceget = usuarios_registrados["nombre_ceget"]
         nombre_titular = usuarios_registrados["nombre_titular"]

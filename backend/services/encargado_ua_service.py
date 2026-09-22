@@ -9,7 +9,7 @@ from fastapi import HTTPException, status
 
 
 
-def obtener_encargados(db: Session, Id_Unidad_Academica: int, Id_formato: int) -> Dict[str, str]:
+def obtener_encargados(db: Session, Id_Unidad_Academica: int, Id_formato: int, Id_Nivel: Optional[int] = None) -> Dict[str, str]:
     """
     Busca los nombres del Capturista (filtrado por el formato asignado en Formato_Usuario),
     así como del CEGET y del Titular encargados de la Unidad Académica.
@@ -18,6 +18,10 @@ def obtener_encargados(db: Session, Id_Unidad_Academica: int, Id_formato: int) -
         db (Session): Sesión de la base de datos.
         Id_Unidad_Academica (int): ID de la Unidad Académica.
         Id_formato (int): ID del formato (1 = Matrícula, 2 = Aprovechamiento, etc.)
+        Id_Nivel (int, optional): ID del nivel educativo para filtrar capturistas por nivel.
+                                  Si se proporciona, solo se retorna el capturista cuyo
+                                  Id_Nivel coincida, evitando mezclar capturistas de
+                                  distintos niveles (p.ej. posgrado vs. superior).
         
     Returns:
         Dict[str, str]: Diccionario con los nombres completos de los involucrados.
@@ -30,6 +34,13 @@ def obtener_encargados(db: Session, Id_Unidad_Academica: int, Id_formato: int) -
     }
 
     try:
+        # Filtro base de capturistas: Rol 3 con formato asignado
+        filtro_capturista = (Usuario.Id_Rol == 3) & (FormatoUsuario.Id_Formato == Id_formato)
+
+        # Si se proporciona un nivel, lo añadimos al filtro de capturistas
+        if Id_Nivel is not None:
+            filtro_capturista = filtro_capturista & (Usuario.Id_Nivel == Id_Nivel)
+
         # Construimos el query usando el ORM con un LEFT OUTER JOIN hacia FormatoUsuario
         usuarios = (
             db.query(
@@ -43,8 +54,8 @@ def obtener_encargados(db: Session, Id_Unidad_Academica: int, Id_formato: int) -
                 Usuario.Id_Unidad_Academica == Id_Unidad_Academica,
                 Usuario.Id_Estatus == 1,
                 or_(
-                    # Condición 1: Es capturista (Rol 3) y tiene asignado el formato solicitado
-                    (Usuario.Id_Rol == 3) & (FormatoUsuario.Id_Formato == Id_formato),
+                    # Condición 1: Es capturista (Rol 3) con formato asignado (y nivel si aplica)
+                    filtro_capturista,
                     # Condición 2: Es CEGET (Rol 4) o Titular (Rol 5) de la Unidad Académica
                     Usuario.Id_Rol.in_([4, 5])
                 )
@@ -69,7 +80,7 @@ def obtener_encargados(db: Session, Id_Unidad_Academica: int, Id_formato: int) -
             elif u.Id_Rol == 5:
                 encargados["nombre_titular"] = nombre_completo
 
-        print(f"📋 [DEBUG ENCARGADOS] UA: {Id_Unidad_Academica} | Formato: {Id_formato} -> {encargados}")
+        print(f"📋 [DEBUG ENCARGADOS] UA: {Id_Unidad_Academica} | Formato: {Id_formato} | Nivel: {Id_Nivel} -> {encargados}")
 
     except Exception as e:
         print(f"❌ [ERROR ENCARGADOS] Error al obtener encargados por ORM: {str(e)}")

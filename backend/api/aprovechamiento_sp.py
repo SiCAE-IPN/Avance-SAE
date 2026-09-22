@@ -454,7 +454,7 @@ async def obtener_contexto_aprovechamiento(
         # REPOSITORIO DE NOMBRES PARA FIRMAS
         # ===================================
         if Id_Unidad_Academica:
-            encargados = obtener_encargados(db, Id_Unidad_Academica, 2)
+            encargados = obtener_encargados(db, Id_Unidad_Academica, 2, Id_Nivel)
             nombre_capturista = encargados["nombre_capturista"]
             nombre_ceget      = encargados["nombre_ceget"]
             nombre_titular    = encargados["nombre_titular"]
@@ -1232,7 +1232,7 @@ async def resumen_aprovechamiento_dinamico_view(
     context["no_validado"] = no_validado
     context["unidad_id"] = Id_Unidad_Academica
 
-    encargados = obtener_encargados(db, Id_Unidad_Academica, 2)
+    encargados = obtener_encargados(db, Id_Unidad_Academica, 2, id_nivel)
     context["nombre_capturista"] = encargados['nombre_capturista'] 
     context["nombre_ceget"] = encargados['nombre_ceget']
     context["nombre_titular"] = encargados['nombre_titular']

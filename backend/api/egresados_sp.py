@@ -2493,7 +2493,7 @@ async def resumen_egresados_dinamico_view(
             if not id_unidad_academica:
                 id_unidad_academica = int(sess.id_unidad_academica) if getattr(sess, 'id_unidad_academica', None) else 0
 
-        usuarios_registrados = obtener_encargados(db, id_unidad_academica,3)
+        usuarios_registrados = obtener_encargados(db, id_unidad_academica, 3, id_nivel_evaluar)
         nombre_capturista = usuarios_registrados["nombre_capturista"]
         nombre_ceget = usuarios_registrados["nombre_ceget"]
         nombre_titular = usuarios_registrados["nombre_titular"]
