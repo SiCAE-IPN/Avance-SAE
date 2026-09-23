@@ -78,13 +78,24 @@ async def usuarios_view(
             "redirect_url": "/mod_principal/",
             "session": sess
         })
-    # Verificar si es super admin
-    es_super_admin = is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
-    
+    # En modo suplantación: el admin que opera NO es super admin bajo la identidad suplantada
+    # Usar el nombre de la identidad activa (puede ser el suplantado o el admin en modo contexto)
+    es_impersonando = bool(getattr(sess, "is_impersonating", False))
+    if es_impersonando:
+        # La sesión activa ya tiene los datos del suplantado → nunca es super admin
+        es_super_admin = False
+    else:
+        es_super_admin = is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
+
     # Verificar si tiene permisos administrativos
     tiene_permisos_admin = has_admin_permissions(db, id_rol)
 
-    usuario_operador = str(getattr(sess, "usuario", "") or "sistema")
+    # Para llamar al SP de consulta de usuarios, siempre usar el login del admin REAL
+    # (el SP valida permisos por login; el usuario suplantado puede no tener acceso al SP)
+    if es_impersonando:
+        usuario_operador = str(getattr(sess, "original_usuario", "") or getattr(sess, "usuario", "") or "sistema")
+    else:
+        usuario_operador = str(getattr(sess, "usuario", "") or "sistema")
     ua_obj = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Id_Unidad_Academica == id_unidad_academica).first()
     unidad_operador = ua_obj.Sigla if ua_obj else "-"
     _, periodo_literal = get_periodo_activo(db) or get_ultimo_periodo(db)
@@ -301,7 +312,8 @@ async def registrar_usuario_view(
         nombre_usuario = sess.nombre_usuario
         apellidoP_usuario = sess.apellidoP_usuario
         apellidoM_usuario = sess.apellidoM_usuario
-        es_super_admin = is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
+        # En suplantación, operar con los permisos del rol suplantado (nunca super admin)
+        es_super_admin = False if getattr(sess, "is_impersonating", False) else is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
         
         # VALIDACIÓN 1: Verificar que el usuario tenga permiso para crear este rol
         if not es_super_admin:
@@ -393,7 +405,8 @@ async def editar_usuario_ajax(
         nombre_usuario = sess.nombre_usuario
         apellidoP_usuario = sess.apellidoP_usuario
         apellidoM_usuario = sess.apellidoM_usuario
-        es_super_admin = is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
+        # En suplantación, operar con los permisos del rol suplantado (nunca super admin)
+        es_super_admin = False if getattr(sess, "is_impersonating", False) else is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
         
         # Obtener el usuario actual para comparar
         usuario_actual = db.query(Usuario).filter(Usuario.Id_Usuario == id_usuario).first()
@@ -488,7 +501,8 @@ async def eliminar_usuario(
     nombre_usuario = sess.nombre_usuario
     apellidoP_usuario = sess.apellidoP_usuario
     apellidoM_usuario = sess.apellidoM_usuario
-    es_super = is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
+    # En suplantación, operar con los permisos del rol suplantado (nunca super admin)
+    es_super = False if getattr(sess, "is_impersonating", False) else is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
     if not es_super and id_rol not in PERMISOS_CREACION_ROLES:
         return JSONResponse(status_code=403, content={"mensaje": "No tienes permisos para dar de baja usuarios."})
 

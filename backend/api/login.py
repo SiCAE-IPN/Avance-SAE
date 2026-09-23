@@ -119,7 +119,8 @@ async def login(
     )
 
 
-# --- MODO CAMALEÓN (SIMULACIÓN DE ROLES) ---
+
+# --- MODO CAMALEÓN (SIMULACIÓN / SUPLANTACIÓN DE ROLES) ---
 ROLES_SICAE = {
     3: "capturista",
     4: "ceget",
@@ -132,6 +133,153 @@ ROLES_SICAE = {
 
 ID_ROL_ADMINISTRADOR = 1
 
+
+def _buscar_candidatos(db: Session, id_rol: int, id_nivel: int, id_unidad: int):
+    """
+    Busca usuarios activos que coincidan con rol+nivel+UA.
+
+    Reglas de filtro de nivel:
+    - Rol 3 (Capturista): filtrar por Id_Nivel (pueden existir varios por UA/Nivel).
+    - Roles 4 (CEGET) y 5 (Titular): son únicos por UA y tienen Id_Nivel = NULL,
+      por lo que NO se filtra por nivel.
+    - Roles 6-9 superiores: únicos en todo el sistema, tampoco se filtra por nivel.
+    """
+    from backend.database.models.Usuario import Usuario as UsuarioModel
+    query = db.query(UsuarioModel).filter(
+        UsuarioModel.Id_Rol == id_rol,
+        UsuarioModel.Id_Unidad_Academica == id_unidad,
+        UsuarioModel.Id_Estatus == 1,
+    )
+    # Solo el Capturista (rol 3) usa nivel como criterio de búsqueda
+    if id_rol == 3 and id_nivel and id_nivel > 0:
+        query = query.filter(UsuarioModel.Id_Nivel == id_nivel)
+    return query.all()
+
+
+def _construir_sesion_suplantada(
+    current_session: SessionData,
+    usuario_target,         # Objeto ORM Usuario (o None)
+    rol_db,
+    nivel_db,
+    unidad_db,
+) -> SessionData:
+    """
+    Construye el SessionData suplantado.
+    Si usuario_target es None → solo cambia rol/nivel/UA (modo contexto previo).
+    Si usuario_target existe → suplantación total de identidad.
+    """
+    # Respaldar identidad original (solo si no estábamos ya suplantando)
+    orig_id_usuario   = current_session.original_id_usuario   if current_session.is_impersonating else current_session.id_usuario
+    orig_usuario      = current_session.original_usuario      if current_session.is_impersonating else current_session.usuario
+    orig_nombre       = current_session.original_nombre_usuario   if current_session.is_impersonating else current_session.nombre_usuario
+    orig_apellidoP    = current_session.original_apellidoP_usuario if current_session.is_impersonating else current_session.apellidoP_usuario
+    orig_apellidoM    = current_session.original_apellidoM_usuario if current_session.is_impersonating else current_session.apellidoM_usuario
+
+    orig_rol_id       = current_session.original_id_rol              if current_session.is_impersonating else current_session.id_rol
+    orig_rol_nom      = current_session.original_nombre_rol          if current_session.is_impersonating else current_session.nombre_rol
+    orig_nivel_id     = current_session.original_id_nivel            if current_session.is_impersonating else current_session.id_nivel
+    orig_nivel_nom    = current_session.original_nombre_nivel        if current_session.is_impersonating else current_session.nombre_nivel
+    orig_unidad_id    = current_session.original_id_unidad_academica if current_session.is_impersonating else current_session.id_unidad_academica
+    orig_unidad_sigla = current_session.original_sigla_unidad_academica if current_session.is_impersonating else current_session.sigla_unidad_academica
+
+    if usuario_target:
+        # --- SUPLANTACIÓN TOTAL: usar identidad real del usuario objetivo ---
+        new_id_usuario        = int(usuario_target.Id_Usuario)
+        new_usuario           = str(usuario_target.Usuario or "")
+        new_nombre_usuario    = str(usuario_target.Nombre or "")
+        new_apellidoP         = str(usuario_target.Paterno or "")
+        new_apellidoM         = str(usuario_target.Materno or "")
+    else:
+        # --- MODO CONTEXTO: mantener identidad personal del admin ---
+        new_id_usuario     = current_session.id_usuario
+        new_usuario        = current_session.usuario
+        new_nombre_usuario = current_session.nombre_usuario
+        new_apellidoP      = current_session.apellidoP_usuario
+        new_apellidoM      = current_session.apellidoM_usuario
+
+    return SessionData(
+        # Identidad activa (real del suplantado o del admin)
+        id_usuario=new_id_usuario,
+        usuario=new_usuario,
+        nombre_usuario=new_nombre_usuario,
+        apellidoP_usuario=new_apellidoP,
+        apellidoM_usuario=new_apellidoM,
+        requiere_cambio_password=False,
+
+        # Nueva identidad de rol/UA/nivel
+        id_rol=rol_db.Id_Rol,
+        nombre_rol=rol_db.Rol,
+        id_nivel=nivel_db.Id_Nivel,
+        nombre_nivel=nivel_db.Nivel,
+        id_unidad_academica=unidad_db.Id_Unidad_Academica,
+        sigla_unidad_academica=unidad_db.Sigla,
+
+        # Modo activo
+        is_impersonating=True,
+
+        # Respaldos de rol/UA/nivel originales
+        original_id_rol=orig_rol_id,
+        original_nombre_rol=orig_rol_nom,
+        original_id_nivel=orig_nivel_id,
+        original_nombre_nivel=orig_nivel_nom,
+        original_id_unidad_academica=orig_unidad_id,
+        original_sigla_unidad_academica=orig_unidad_sigla,
+
+        # Respaldos de identidad personal originales
+        original_id_usuario=orig_id_usuario,
+        original_usuario=orig_usuario,
+        original_nombre_usuario=orig_nombre,
+        original_apellidoP_usuario=orig_apellidoP,
+        original_apellidoM_usuario=orig_apellidoM,
+    )
+
+
+# ── GET /login/candidatos-simulacion ─────────────────────────────────────────
+@router.get("/candidatos-simulacion")
+async def candidatos_simulacion(
+    id_rol: int,
+    id_nivel: int,
+    id_unidad: int,
+    current_session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna la lista de usuarios activos que coinciden con rol+nivel+UA.
+    Solo accesible para el Administrador.
+    """
+    from fastapi.responses import JSONResponse as _JSONResponse
+    rol_real = current_session.original_id_rol if current_session.is_impersonating else current_session.id_rol
+    if rol_real != ID_ROL_ADMINISTRADOR:
+        return _JSONResponse(status_code=403, content={"detail": "No autorizado"})
+
+    from backend.database.models.CatRoles import CatRoles
+    from backend.database.models.CatNivel import CatNivel
+    from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+
+    rol_db    = db.query(CatRoles).filter(CatRoles.Id_Rol == id_rol).first()
+    nivel_db  = db.query(CatNivel).filter(CatNivel.Id_Nivel == id_nivel).first()
+    unidad_db = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Id_Unidad_Academica == id_unidad).first()
+
+    if not rol_db or not nivel_db or not unidad_db:
+        return _JSONResponse(status_code=404, content={"detail": "Rol, nivel o unidad no encontrada"})
+
+    candidatos = _buscar_candidatos(db, id_rol, id_nivel, id_unidad)
+    return _JSONResponse(content={
+        "rol_nombre": rol_db.Rol,
+        "nivel_nombre": nivel_db.Nivel,
+        "unidad_sigla": unidad_db.Sigla,
+        "candidatos": [
+            {
+                "id_usuario": int(u.Id_Usuario),
+                "usuario": u.Usuario or "",
+                "nombre_completo": f"{u.Nombre or ''} {u.Paterno or ''} {u.Materno or ''}".strip(),
+            }
+            for u in candidatos
+        ]
+    })
+
+
+# ── POST /login/simular ───────────────────────────────────────────────────────
 @router.post("/simular")
 async def simular_identidad(
     request: Request,
@@ -141,98 +289,215 @@ async def simular_identidad(
     current_session: SessionData = Depends(get_current_session),
     db: Session = Depends(get_db)
 ):
-    session_id = request.cookies.get("session_id")
+    """
+    Inicia el modo camaleón.
+    • 0 candidatos → modo contexto (solo cambia rol/UA/nivel, mantiene identidad del admin)
+    • 1 candidato  → suplantación automática
+    • N candidatos → retorna JSON 207 con la lista para que el frontend elija
+    """
+    from fastapi.responses import JSONResponse as _JSONResponse
+    from backend.core.security_logger import registrar_bloqueo_seguridad
 
-    # 1. Validar que el usuario real sea el Administrador
+    session_id = request.cookies.get("session_id")
     rol_real_id = current_session.original_id_rol if current_session.is_impersonating else current_session.id_rol
     if rol_real_id != ID_ROL_ADMINISTRADOR:
         return RedirectResponse(url="/mod_principal", status_code=303)
 
-    # 2. Consultar la Base de Datos para obtener los nombres reales
     from backend.database.models.CatRoles import CatRoles
     from backend.database.models.CatNivel import CatNivel
     from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
 
-    rol_db = db.query(CatRoles).filter(CatRoles.Id_Rol == target_id_rol).first()
-    nivel_db = db.query(CatNivel).filter(CatNivel.Id_Nivel == target_id_nivel).first()
+    rol_db    = db.query(CatRoles).filter(CatRoles.Id_Rol == target_id_rol).first()
+    nivel_db  = db.query(CatNivel).filter(CatNivel.Id_Nivel == target_id_nivel).first()
     unidad_db = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Id_Unidad_Academica == target_id_unidad).first()
 
-    # Si por alguna razón mandan un ID que no existe, abortamos
     if not rol_db or not nivel_db or not unidad_db:
         return RedirectResponse(url="/mod_principal", status_code=303)
 
-    # 3. Respaldar la identidad original (solo si no estamos simulando ya)
-    orig_rol_id = current_session.original_id_rol if current_session.is_impersonating else current_session.id_rol
-    orig_rol_nom = current_session.original_nombre_rol if current_session.is_impersonating else current_session.nombre_rol
-    
-    orig_nivel_id = current_session.original_id_nivel if current_session.is_impersonating else current_session.id_nivel
-    orig_nivel_nom = current_session.original_nombre_nivel if current_session.is_impersonating else current_session.nombre_nivel
-    
-    orig_unidad_id = current_session.original_id_unidad_academica if current_session.is_impersonating else current_session.id_unidad_academica
-    orig_unidad_sigla = current_session.original_sigla_unidad_academica if current_session.is_impersonating else current_session.sigla_unidad_academica
+    candidatos = _buscar_candidatos(db, target_id_rol, target_id_nivel, target_id_unidad)
 
-    # 4. Crear la nueva sesión clonada con los datos alterados
-    new_session_data = SessionData(
-        id_usuario=current_session.id_usuario,
-        usuario=current_session.usuario,
-        nombre_usuario=current_session.nombre_usuario,
-        apellidoP_usuario=current_session.apellidoP_usuario,
-        apellidoM_usuario=current_session.apellidoM_usuario,
-        requiere_cambio_password=current_session.requiere_cambio_password,
-        
-        # --- NUEVA IDENTIDAD SIMULADA ---
-        id_rol=target_id_rol,
-        nombre_rol=rol_db.Rol,
-        id_nivel=target_id_nivel,
-        nombre_nivel=nivel_db.Nivel,
-        id_unidad_academica=target_id_unidad,
-        sigla_unidad_academica=unidad_db.Sigla,
-        
-        # --- RESPALDOS ---
-        is_impersonating=True,
-        original_id_rol=orig_rol_id,
-        original_nombre_rol=orig_rol_nom,
-        original_id_nivel=orig_nivel_id,
-        original_nombre_nivel=orig_nivel_nom,
-        original_id_unidad_academica=orig_unidad_id,
-        original_sigla_unidad_academica=orig_unidad_sigla
+    # Admin que realiza la acción (siempre el original)
+    admin_usuario = current_session.original_usuario if current_session.is_impersonating else current_session.usuario
+    admin_nombre  = " ".join(filter(None, [
+        current_session.original_nombre_usuario   if current_session.is_impersonating else current_session.nombre_usuario,
+        current_session.original_apellidoP_usuario if current_session.is_impersonating else current_session.apellidoP_usuario,
+        current_session.original_apellidoM_usuario if current_session.is_impersonating else current_session.apellidoM_usuario,
+    ]))
+
+    if len(candidatos) > 1:
+        # N candidatos → devolver JSON 207 para que el sidebar muestre la lista
+        return _JSONResponse(status_code=207, content={
+            "accion": "seleccionar",
+            "rol_nombre": rol_db.Rol,
+            "nivel_nombre": nivel_db.Nivel,
+            "unidad_sigla": unidad_db.Sigla,
+            "candidatos": [
+                {
+                    "id_usuario": int(u.Id_Usuario),
+                    "usuario": u.Usuario or "",
+                    "nombre_completo": f"{u.Nombre or ''} {u.Paterno or ''} {u.Materno or ''}".strip(),
+                }
+                for u in candidatos
+            ]
+        })
+
+    # 0 o 1 candidato → procesar directo
+    usuario_target = candidatos[0] if len(candidatos) == 1 else None
+    new_sess = _construir_sesion_suplantada(current_session, usuario_target, rol_db, nivel_db, unidad_db)
+    session_store.update_data(session_id, new_sess)
+
+    # ── Registro en bitácora de auditoría ────────────────────────────────────
+    if usuario_target:
+        nombre_suplantado = f"{usuario_target.Nombre or ''} {usuario_target.Paterno or ''} {usuario_target.Materno or ''}".strip()
+        accion_log = (
+            f"SUPLANTACIÓN TOTAL → usuario real: {usuario_target.Usuario} "
+            f"({nombre_suplantado}) | Rol: {rol_db.Rol} | UA: {unidad_db.Sigla} | Nivel: {nivel_db.Nivel}"
+        )
+    else:
+        accion_log = (
+            f"SIMULACIÓN CONTEXTO (sin usuario real) | Rol: {rol_db.Rol} "
+            f"| UA: {unidad_db.Sigla} | Nivel: {nivel_db.Nivel}"
+        )
+    registrar_bloqueo_seguridad(
+        request=request,
+        usuario_objetivo=admin_usuario,
+        tipo_incidente="MODO_CAMALEON_INICIO",
+        accion_tomada=f"Admin '{admin_usuario}' ({admin_nombre}) inició — {accion_log}",
+        endpoint="/login/simular",
     )
 
-    session_store.update_data(session_id, new_session_data)
     return RedirectResponse(url="/mod_principal", status_code=303)
 
-@router.get("/restaurar-rol")
-async def restaurar_rol(request: Request, current_session: SessionData = Depends(get_current_session)):
+
+# ── POST /login/simular-usuario ───────────────────────────────────────────────
+@router.post("/simular-usuario")
+async def simular_usuario_especifico(
+    request: Request,
+    current_session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db),
+):
+    """
+    Suplanta un usuario específico (por id_usuario) cuando hay varios candidatos.
+    Espera JSON: { "id_usuario": int, "id_rol": int, "id_nivel": int, "id_unidad": int }
+    """
+    from fastapi.responses import JSONResponse as _JSONResponse
+    from backend.core.security_logger import registrar_bloqueo_seguridad
+    from backend.database.models.Usuario import Usuario as UsuarioModel
+
+    rol_real_id = current_session.original_id_rol if current_session.is_impersonating else current_session.id_rol
+    if rol_real_id != ID_ROL_ADMINISTRADOR:
+        return _JSONResponse(status_code=403, content={"detail": "No autorizado"})
+
     session_id = request.cookies.get("session_id")
-    
+    body = await request.json()
+    target_id_usuario = int(body.get("id_usuario", 0))
+    target_id_rol     = int(body.get("id_rol", 0))
+    target_id_nivel   = int(body.get("id_nivel", 0))
+    target_id_unidad  = int(body.get("id_unidad", 0))
+
+    from backend.database.models.CatRoles import CatRoles
+    from backend.database.models.CatNivel import CatNivel
+    from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+
+    usuario_target = db.query(UsuarioModel).filter(
+        UsuarioModel.Id_Usuario == target_id_usuario,
+        UsuarioModel.Id_Estatus == 1
+    ).first()
+    rol_db    = db.query(CatRoles).filter(CatRoles.Id_Rol == target_id_rol).first()
+    nivel_db  = db.query(CatNivel).filter(CatNivel.Id_Nivel == target_id_nivel).first()
+    unidad_db = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Id_Unidad_Academica == target_id_unidad).first()
+
+    if not usuario_target or not rol_db or not nivel_db or not unidad_db:
+        return _JSONResponse(status_code=404, content={"detail": "Usuario, rol, nivel o unidad no encontrada"})
+
+    new_sess = _construir_sesion_suplantada(current_session, usuario_target, rol_db, nivel_db, unidad_db)
+    session_store.update_data(session_id, new_sess)
+
+    # ── Registro en bitácora ──────────────────────────────────────────────────
+    admin_usuario = current_session.original_usuario if current_session.is_impersonating else current_session.usuario
+    admin_nombre  = " ".join(filter(None, [
+        current_session.original_nombre_usuario    if current_session.is_impersonating else current_session.nombre_usuario,
+        current_session.original_apellidoP_usuario if current_session.is_impersonating else current_session.apellidoP_usuario,
+        current_session.original_apellidoM_usuario if current_session.is_impersonating else current_session.apellidoM_usuario,
+    ]))
+    nombre_suplantado = f"{usuario_target.Nombre or ''} {usuario_target.Paterno or ''} {usuario_target.Materno or ''}".strip()
+    registrar_bloqueo_seguridad(
+        request=request,
+        usuario_objetivo=admin_usuario,
+        tipo_incidente="MODO_CAMALEON_INICIO",
+        accion_tomada=(
+            f"Admin '{admin_usuario}' ({admin_nombre}) suplantó a {usuario_target.Usuario} "
+            f"({nombre_suplantado}) | Rol: {rol_db.Rol} | UA: {unidad_db.Sigla} | Nivel: {nivel_db.Nivel}"
+        ),
+        endpoint="/login/simular-usuario",
+    )
+
+    return _JSONResponse(content={"ok": True, "redirect": "/mod_principal"})
+
+
+# ── GET /login/restaurar-rol ──────────────────────────────────────────────────
+@router.get("/restaurar-rol")
+async def restaurar_rol(
+    request: Request,
+    current_session: SessionData = Depends(get_current_session)
+):
+    from backend.core.security_logger import registrar_bloqueo_seguridad
+
+    session_id = request.cookies.get("session_id")
     if not current_session.is_impersonating:
         return RedirectResponse(url="/mod_principal", status_code=303)
 
-    restored_session_data = SessionData(
-        id_usuario=current_session.id_usuario,
-        usuario=current_session.usuario,
-        nombre_usuario=current_session.nombre_usuario,
-        apellidoP_usuario=current_session.apellidoP_usuario,
-        apellidoM_usuario=current_session.apellidoM_usuario,
+    # ── Registro en bitácora antes de restaurar ───────────────────────────────
+    admin_usuario = current_session.original_usuario or current_session.usuario
+    admin_nombre  = " ".join(filter(None, [
+        current_session.original_nombre_usuario or "",
+        current_session.original_apellidoP_usuario or "",
+        current_session.original_apellidoM_usuario or "",
+    ]))
+    registrar_bloqueo_seguridad(
+        request=request,
+        usuario_objetivo=admin_usuario,
+        tipo_incidente="MODO_CAMALEON_FIN",
+        accion_tomada=(
+            f"Admin '{admin_usuario}' ({admin_nombre}) detuvo la simulación "
+            f"(estaba como rol '{current_session.nombre_rol}' | UA: {current_session.sigla_unidad_academica})"
+        ),
+        endpoint="/login/restaurar-rol",
+    )
+
+    # ── Restaurar identidad completa del admin ────────────────────────────────
+    restored = SessionData(
+        # Restaurar identidad personal
+        id_usuario=current_session.original_id_usuario or current_session.id_usuario,
+        usuario=current_session.original_usuario or current_session.usuario,
+        nombre_usuario=current_session.original_nombre_usuario or current_session.nombre_usuario,
+        apellidoP_usuario=current_session.original_apellidoP_usuario or current_session.apellidoP_usuario,
+        apellidoM_usuario=current_session.original_apellidoM_usuario or current_session.apellidoM_usuario,
         requiere_cambio_password=current_session.requiere_cambio_password,
-        
-        # --- RESTAURAR VALORES DE FÁBRICA ---
+
+        # Restaurar rol/nivel/UA originales
         id_rol=current_session.original_id_rol,
         nombre_rol=current_session.original_nombre_rol,
         id_nivel=current_session.original_id_nivel,
         nombre_nivel=current_session.original_nombre_nivel,
         id_unidad_academica=current_session.original_id_unidad_academica,
         sigla_unidad_academica=current_session.original_sigla_unidad_academica,
-        
-        # --- APAGAR MODO ---
+
+        # Apagar modo suplantación y limpiar respaldos
         is_impersonating=False,
         original_id_rol=None,
         original_nombre_rol=None,
         original_id_nivel=None,
         original_nombre_nivel=None,
         original_id_unidad_academica=None,
-        original_sigla_unidad_academica=None
+        original_sigla_unidad_academica=None,
+        original_id_usuario=None,
+        original_usuario=None,
+        original_nombre_usuario=None,
+        original_apellidoP_usuario=None,
+        original_apellidoM_usuario=None,
     )
 
-    session_store.update_data(session_id, restored_session_data)
+    session_store.update_data(session_id, restored)
     return RedirectResponse(url="/mod_principal", status_code=303)
+

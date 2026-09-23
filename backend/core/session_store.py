@@ -31,6 +31,13 @@ class SessionData:
     original_id_unidad_academica: Optional[int] = None
     original_sigla_unidad_academica: Optional[str] = None
 
+    # -- Respaldo de la identidad personal del admin (para suplantación total) -- #
+    original_id_usuario: Optional[int] = None
+    original_usuario: Optional[str] = None
+    original_nombre_usuario: Optional[str] = None
+    original_apellidoP_usuario: Optional[str] = None
+    original_apellidoM_usuario: Optional[str] = None
+
     @property
     def nombre_completo(self) -> str:
         parts = [self.nombre_usuario, self.apellidoP_usuario, self.apellidoM_usuario]
