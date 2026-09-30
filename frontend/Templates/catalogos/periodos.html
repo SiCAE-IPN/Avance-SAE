@@ -89,6 +89,8 @@
                 <tr>
                     <th>Periodo</th>
                     <th>Descripción</th>
+                    <th>Fecha Inicio</th>
+                    <th>Fecha Final</th>
                 </tr>
             </thead>
             <tbody>
@@ -96,6 +98,8 @@
                 <tr class="fila-edit">
                     <td>{{ d.Periodo }}</td>
                     <td>{{ d.Descripcion }}</td>
+                    <td>{{ d.Fecha_Inicio_Periodo.strftime('%d/%m/%Y') if d.Fecha_Inicio_Periodo else '—' }}</td>
+                    <td>{{ d.Fecha_Final_Periodo.strftime('%d/%m/%Y') if d.Fecha_Final_Periodo else '—' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -40,7 +40,8 @@ def build_folio_acuse(*, periodo_literal: str, unidad_sigla: str, estatus_entreg
     sufijo = "ORDINARIA"
     if estatus_entrega and "extempor" in estatus_entrega.strip().lower():
         sufijo = "EXTEMPORANEA"
-    # Se arma usando la cadena literal del periodo para conservar formato como "2025-2026/2" en el PDF
+    #1.- Se arma usando la cadena literal del periodo para conservar formato como "2025-2026/2" en el PDF
+    #2.- EL folio soporta que una sigla de una unidad academica tenga acentos y los muestre correctamente en el acuse
     return f"{_safe_slug(unidad_sigla).upper()}-{periodo_literal.strip().upper()}"
 
 

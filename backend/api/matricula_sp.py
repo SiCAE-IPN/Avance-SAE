@@ -3584,8 +3584,10 @@ async def resumen_matricula_dinamico_view(
     # REDIRECCIÓN AUTOMÁTICA: Roles 4-9 → Nuevo Acuse de Validación
     if id_rol in [4, 5, 6, 7, 8, 9]:
         print(f"🔄 Rol {id_rol} ({nombre_rol}) redirigido a acuse-validacion")
+        from urllib.parse import urlencode
+        params = urlencode({"periodo": periodo, "nivel": nivel, "unidad": unidad})
         return RedirectResponse(
-            url=f"/matricula/acuse-validacion?periodo={periodo}&nivel={nivel}&unidad={unidad}",
+            url=f"/matricula/acuse-validacion?{params}",
             status_code=302
         )
 

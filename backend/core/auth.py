@@ -375,7 +375,10 @@ async def verificar_acceso_acuse_dep(
     sigla_sess = (getattr(sess, 'sigla_unidad_academica', '') or "").strip().lower()
     id_ua_sess = int(getattr(sess, 'id_unidad_academica', 0) or 0)
 
-    if search_unidad and sigla_sess and sigla_sess != search_unidad.lower():
+    # Normalizar eliminando espacios para tolerar "CMP L" == "CMPL" por efectos de URL encoding
+    sigla_sess_norm = sigla_sess.replace(" ", "")
+    search_unidad_norm = search_unidad.lower().replace(" ", "")
+    if search_unidad and sigla_sess and sigla_sess_norm != search_unidad_norm:
         print(f"[seguridad-IDOR] Bloqueado: {usuario_str} intentó cambiar URL a la unidad: {search_unidad} (Asignada: {sigla_sess})")
         
         try:

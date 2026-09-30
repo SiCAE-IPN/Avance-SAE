@@ -8,6 +8,7 @@ from backend.core.templates import templates
 from backend.core.auth import get_current_session
 from backend.services.periodo_service import get_ultimo_periodo, get_periodo_activo
 from backend.utils.request import get_request_host  # Importamos la utilidad del host
+from backend.database.models.CatPeriodo import CatPeriodo
 
 router = APIRouter()
 
@@ -60,6 +61,14 @@ def periodos_view(
 
         # Convertir el resultado a lista de diccionarios
         data = [dict(row) for row in resultado.mappings().all()]
+
+        # Enriquecer cada fila con las fechas del periodo (el SP no las incluye)
+        periodos_orm = {p.Periodo: p for p in db.query(CatPeriodo).all()}
+        for fila in data:
+            periodo_orm = periodos_orm.get(fila.get("Periodo"))
+            fila["Fecha_Inicio_Periodo"] = periodo_orm.Fecha_Inicio_Periodo if periodo_orm else None
+            fila["Fecha_Final_Periodo"] = periodo_orm.Fecha_Final_Periodo if periodo_orm else None
+
         print(data)
 
     except Exception as e:
