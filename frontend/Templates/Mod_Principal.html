@@ -6,226 +6,187 @@
 {% block title %}Módulo Principal - SiCAE{% endblock %}
 
 {% block styles %}
-    <link rel="stylesheet" href="/static/css/mod_principal.css?v=6.0">
+<link rel="stylesheet" href="/static/css/mod_principal.css?v=6.0">
 {% endblock %}
 
 {% block content %}
-    <header class="sicae-topbar">
-        <div class="user-greeting">
-            <div class="greeting-text">
-                <span class="greeting-title">Bienvenido al sistema</span>
-                <span class="greeting-name">{{ nombre_usuario }}</span>
-            </div>
+<header class="sicae-topbar">
+    <div class="user-greeting">
+        <div class="greeting-text">
+            <span class="greeting-title">Bienvenido al sistema</span>
+            <span class="greeting-name">{{ nombre_usuario }}</span>
         </div>
-        <form action="/login/logout" method="get">
-            <button type="submit" class="btn-cerrar-sesion">
-                <span>Cerrar Sesión</span> 
-            </button>
-        </form>
-    </header>
+    </div>
+    <form action="/login/logout" method="get">
+        <button type="submit" class="btn-cerrar-sesion">
+            <span>Cerrar Sesión</span>
+        </button>
+    </form>
+</header>
 
-    <main class="dashboard-container">
-        <div class="dashboard-header">
-            <h2 class="titulo-principal">SiCAE</h2>
-            <p class="subtitulo">Módulo Principal • Selecciona una opción para comenzar</p>
+<main class="dashboard-container">
+    <div class="dashboard-header">
+        <h2 class="titulo-principal">SiCAE</h2>
+        <p class="subtitulo">Módulo Principal • Selecciona una opción para comenzar</p>
+    </div>
+
+    {% set total_cards = 6 + (1 if (session.id_rol in [1] or es_super_admin) else 0) %}
+    <div class="grid-modulos {% if total_cards == 3 %}layout-6-cards{% else %}layout-7-cards{% endif %}"
+        id="gridModulos">
+        <div id="Btn_Catalogos" class="card-modulo {% if not es_admin %}bloqueado{% endif %}" {% if not es_admin %}
+            title="No tienes permisos para ver catálogos" {% endif %}>
+            <div class="card-icon">🗂️</div>
+            <h3 class="card-title">Catálogos</h3>
+            <p class="card-desc">Gestión de usuarios, Programas y Unidades Académicas.</p>
         </div>
 
-        {% set total_cards = 6 + (1 if (session.id_rol in [1] or es_super_admin) else 0) %}
-        <div class="grid-modulos {% if total_cards == 6 %}layout-6-cards{% else %}layout-7-cards{% endif %}" id="gridModulos">
-            <div id="Btn_Catalogos" class="card-modulo {% if not es_admin %}bloqueado{% endif %}" 
-                {% if not es_admin %} title="No tienes permisos para ver catálogos" {% endif %}>
-                <div class="card-icon">🗂️</div>
-                <h3 class="card-title">Catálogos</h3>
-                <p class="card-desc">Gestión de usuarios, Programas y Unidades Académicas.</p>
+        <div id="Btn_Matricula"
+            class="card-modulo {% if not es_admin and 'matricula' not in formatos_permitidos %}bloqueado{% endif %}{# {% if rechazos_por_modulo and rechazos_por_modulo.matricula %} card-con-rechazo{% endif %} #}"
+            {% if not es_admin and 'matricula' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+            {# --- INDICADOR DE RECHAZO PARA CAPTURISTAS (Descomentar para activar) ---
+            {% if rechazos_por_modulo and rechazos_por_modulo.matricula %}
+            <div class="card-rechazo-top-bar"></div>
+            <div class="badge-rechazo-modulo"
+                title="Rechazado por {{ rechazos_por_modulo.matricula.rechazado_por }}: {{ rechazos_por_modulo.matricula.motivo }}">
+                <span class="badge-rechazo-beacon"></span>
+                <span class="badge-rechazo-text">Rechazo</span>
+            </div>
+            {% endif %}
+            ------------------------------------------------------------------------ #}
+            <div class="card-icon">📚</div>
+            <h3 class="card-title">Matrícula</h3>
+            <p class="card-desc">Consulta y captura de información de la comunidad estudiantil.</p>
+        </div>
+
+        <div id="Btn_Aprovechamiento"
+            class="card-modulo {% if not es_admin and 'aprovechamiento' not in formatos_permitidos %}bloqueado{% endif %}"
+            {% if not es_admin and 'aprovechamiento' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+            <div class="card-icon">📈</div>
+            <h3 class="card-title">Aprovechamiento Académico</h3>
+            <p class="card-desc">Estadísticas y desempeño de la comunidad estudiantil.</p>
+        </div>
+
+        <div id="Btn_Egresados"
+            class="card-modulo {% if not es_admin and 'egresados' not in formatos_permitidos %}bloqueado{% endif %}"
+            {% if not es_admin and 'egresados' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+            <div class="card-icon">🎓</div>
+            <h3 class="card-title">Egresados</h3>
+            <p class="card-desc">Seguimiento y control de generaciones salientes.</p>
+        </div>
+
+        <div id="Btn_Titulados"
+            class="card-modulo {% if not es_admin and 'titulados' not in formatos_permitidos %}bloqueado{% endif %}"
+            {% if not es_admin and 'titulados' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+            <div class="card-icon">📜</div>
+            <h3 class="card-title">Titulados</h3>
+            <p class="card-desc">Registro de alumnos que han obtenido su título.</p>
+        </div>
+
+        <div class="card-modulo dual-card-wrapper">
+
+            <div id="Btn_Dashboard" class="split-side">
+                <div class="card-icon">📊</div>
+                <h3 class="card-title">Dashboard SiCAE</h3>
+                <p class="card-desc">Tablero interactivo.</p>
             </div>
 
-            <div id="Btn_Matricula" class="card-modulo {% if not es_admin and 'matricula' not in formatos_permitidos %}bloqueado{% endif %}{# {% if rechazos_por_modulo and rechazos_por_modulo.matricula %} card-con-rechazo{% endif %} #}" 
-                {% if not es_admin and 'matricula' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
-                {# --- INDICADOR DE RECHAZO PARA CAPTURISTAS (Descomentar para activar) ---
-                {% if rechazos_por_modulo and rechazos_por_modulo.matricula %}
-                    <div class="card-rechazo-top-bar"></div>
-                    <div class="badge-rechazo-modulo" title="Rechazado por {{ rechazos_por_modulo.matricula.rechazado_por }}: {{ rechazos_por_modulo.matricula.motivo }}">
-                        <span class="badge-rechazo-beacon"></span>
-                        <span class="badge-rechazo-text">Rechazo</span>
-                    </div>
-                {% endif %}
-                ------------------------------------------------------------------------ #}
-                <div class="card-icon">📚</div>
-                <h3 class="card-title">Matrícula</h3>
-                <p class="card-desc">Consulta y captura de información de la comunidad estudiantil.</p>
-            </div>
+            {% if session.id_rol in [1, 6, 7, 8, 9] %}
+            <div class="split-divider"></div>
 
-            <div id="Btn_Aprovechamiento" class="card-modulo {% if not es_admin and 'aprovechamiento' not in formatos_permitidos and 'aprovechamiento academico' not in formatos_permitidos %}bloqueado{% endif %}{# {% if rechazos_por_modulo and rechazos_por_modulo.aprovechamiento %} card-con-rechazo{% endif %} #}"
-                {% if not es_admin and 'aprovechamiento' not in formatos_permitidos and 'aprovechamiento academico' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
-                {# --- INDICADOR DE RECHAZO PARA CAPTURISTAS (Descomentar para activar) ---
-                {% if rechazos_por_modulo and rechazos_por_modulo.aprovechamiento %}
-                    <div class="card-rechazo-top-bar"></div>
-                    <div class="badge-rechazo-modulo" title="Rechazado por {{ rechazos_por_modulo.aprovechamiento.rechazado_por }}: {{ rechazos_por_modulo.aprovechamiento.motivo }}">
-                        <span class="badge-rechazo-beacon"></span>
-                        <span class="badge-rechazo-text">Rechazo</span>
-                    </div>
-                {% endif %}
-                ------------------------------------------------------------------------ #}
+            <div id="Btn_Seguimiento" class="split-side">
                 <div class="card-icon">📈</div>
-                <h3 class="card-title">Aprovechamiento Académico</h3>
-                <p class="card-desc">Estadísticas y desempeño de la comunidad estudiantil.</p>
-            </div>
-
-            <div id="Btn_Egresados" class="card-modulo {% if not es_admin and 'egresados' not in formatos_permitidos %}bloqueado{% endif %}{# {% if rechazos_por_modulo and rechazos_por_modulo.egresados %} card-con-rechazo{% endif %} #}"
-                {% if not es_admin and 'egresados' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
-                {# --- INDICADOR DE RECHAZO PARA CAPTURISTAS (Descomentar para activar) ---
-                {% if rechazos_por_modulo and rechazos_por_modulo.egresados %}
-                    <div class="card-rechazo-top-bar"></div>
-                    <div class="badge-rechazo-modulo" title="Rechazado por {{ rechazos_por_modulo.egresados.rechazado_por }}: {{ rechazos_por_modulo.egresados.motivo }}">
-                        <span class="badge-rechazo-beacon"></span>
-                        <span class="badge-rechazo-text">Rechazo</span>
-                    </div>
-                {% endif %}
-                ------------------------------------------------------------------------ #}
-                <div class="card-icon">🎓</div>
-                <h3 class="card-title">Egresados</h3>
-                <p class="card-desc">Seguimiento y control de generaciones salientes.</p>
-            </div>
-
-            <div id="Btn_Titulados" class="card-modulo {% if not es_admin and 'titulados' not in formatos_permitidos %}bloqueado{% endif %}{# {% if rechazos_por_modulo and rechazos_por_modulo.titulados %} card-con-rechazo{% endif %} #}"
-                {% if not es_admin and 'titulados' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
-                {# --- INDICADOR DE RECHAZO PARA CAPTURISTAS (Descomentar para activar) ---
-                {% if rechazos_por_modulo and rechazos_por_modulo.titulados %}
-                    <div class="card-rechazo-top-bar"></div>
-                    <div class="badge-rechazo-modulo" title="Rechazado por {{ rechazos_por_modulo.titulados.rechazado_por }}: {{ rechazos_por_modulo.titulados.motivo }}">
-                        <span class="badge-rechazo-beacon"></span>
-                        <span class="badge-rechazo-text">Rechazo</span>
-                    </div>
-                {% endif %}
-                ------------------------------------------------------------------------ #}
-                <div class="card-icon">📜</div>
-                <h3 class="card-title">Titulados</h3>
-                <p class="card-desc">Registro de alumnos que han obtenido su título.</p>
-            </div>
-
-            <div class="card-modulo dual-card-wrapper">
-                
-                <div id="Btn_Dashboard" class="split-side">
-                    <div class="card-icon">📊</div>
-                    <h3 class="card-title">Dashboard SiCAE</h3>
-                    <p class="card-desc">Tablero interactivo.</p>
-                </div>
-
-                {% if session.id_rol in [1, 6, 7, 8, 9] %}
-                    <div class="split-divider"></div>
-                    
-                    <div id="Btn_Seguimiento" class="split-side">
-                        <div class="card-icon">📈</div>
-                        <h3 class="card-title">Seguimiento Estadística</h3>
-                        <p class="card-desc">Tablero de control.</p>
-                    </div>
-                {% endif %}
-            </div>
-
-            {% if session.id_rol in [1] or es_super_admin %}
-            <div id="Btn_Seguridad" class="card-modulo">
-                <div class="card-icon">🛡️</div>
-                <h3 class="card-title">Auditoría y Seguridad</h3>
-                <p class="card-desc">Monitoreo de bloqueos, anomalías y exportación de bitácora CSV.</p>
+                <h3 class="card-title">Seguimiento Estadística</h3>
+                <p class="card-desc">Tablero de control.</p>
             </div>
             {% endif %}
         </div>
-    </main>
+
+        {% if session.id_rol in [1] or es_super_admin %}
+        <div id="Btn_Seguridad" class="card-modulo">
+            <div class="card-icon">🛡️</div>
+            <h3 class="card-title">Auditoría y Seguridad</h3>
+            <p class="card-desc">Monitoreo de bloqueos, anomalías y exportación de bitácora CSV.</p>
+        </div>
+        {% endif %}
+    </div>
+</main>
 {% endblock %}
 
 {% block scripts %}
-    <script>
-        // Navegar a la página de catálogos
-        document.getElementById('Btn_Catalogos').addEventListener('click', function() {
-            if (this.classList.contains('bloqueado')) return; // Bloquea la acción si no tiene permiso
-            if (window.showLoadingBanner) {
-                window.showLoadingBanner({
-                    moduleKey: 'catalogos',
-                    title: 'Cargando Catálogos'
-                });
-            }
-            window.location.href = '/usuarios/';
-        });
-
-        // Navegar a la página de captura de matrícula
-        document.getElementById('Btn_Matricula').addEventListener('click', function() {
-            if (this.classList.contains('bloqueado')) return;
-            if (window.showLoadingBanner) {
-                window.showLoadingBanner({
-                    moduleKey: 'matricula',
-                    title: 'Cargando Módulo de Matrícula'
-                });
-            }
-            window.location.href = '/matricula/consulta';
-        });
-
-        // Navegar a la página de aprovechamiento académico
-        document.getElementById('Btn_Aprovechamiento').addEventListener('click', function() {
-            if (this.classList.contains('bloqueado')) return;
-            if (window.showLoadingBanner) {
-                window.showLoadingBanner({
-                    moduleKey: 'aprovechamiento',
-                    title: 'Cargando Aprovechamiento Académico'
-                });
-            }
-            window.location.href = '/aprovechamiento/consulta';
-        });
-
-        // Navegar a la página de egresados
-        document.getElementById('Btn_Egresados').addEventListener('click', function() {
-            if (this.classList.contains('bloqueado')) return;
-            if (window.showLoadingBanner) {
-                window.showLoadingBanner({
-                    moduleKey: 'egresados',
-                    title: 'Cargando Módulo de Egresados'
-                });
-            }
-            window.location.href = '/egresados/consulta';
-        });
-
-        // Navegar a la página de titulados
-        document.getElementById('Btn_Titulados').addEventListener('click', function() {
-            if (this.classList.contains('bloqueado')) return;
-            if (window.showLoadingBanner) {
-                window.showLoadingBanner({
-                    moduleKey: 'titulados',
-                    title: 'Cargando Módulo de Titulados'
-                });
-            }
-            window.location.href = '/titulados/consulta';
-        });
-
-        // Abrir dashboard de Power BI en una pestaña nueva
-        document.getElementById('Btn_Dashboard').addEventListener('click', function() {
-            if (this.classList.contains('bloqueado')) return;
-            window.open('https://app.powerbi.com/reportEmbed?reportId=99973e83-df3a-446d-a227-0e5aa0254dd0&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563', '_blank');
-        });
-
-        // Navegar al tablero de Seguimiento a la Estadística
-        const btnSeguimiento = document.getElementById('Btn_Seguimiento');
-        if (btnSeguimiento) {
-            btnSeguimiento.addEventListener('click', function() {
-                if (this.classList.contains('bloqueado')) return;
-                const urlSeguimiento = 'https://app.powerbi.com/reportEmbed?reportId=edb81cbe-02ee-47fb-9339-174643c48f68&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563';
-                window.open(urlSeguimiento, '_blank');
+<script>
+    // Navegar a la página de catálogos
+    document.getElementById('Btn_Catalogos').addEventListener('click', function () {
+        if (this.classList.contains('bloqueado')) return; // Bloquea la acción si no tiene permiso
+        if (window.showLoadingBanner) {
+            window.showLoadingBanner({
+                moduleKey: 'catalogos',
+                title: 'Cargando Catálogos'
             });
         }
-        if (!btnSeguimiento) {
-            document.getElementById('Btn_Dashboard').style.flex = "100%";
-        }
+        window.location.href = '/usuarios/';
+    });
 
-        // Navegar a Auditoría de Seguridad (solo Admin)
-        const btnSeguridad = document.getElementById('Btn_Seguridad');
-        if (btnSeguridad) {
-            btnSeguridad.addEventListener('click', function() {
-                if (window.showLoadingBanner) {
-                    window.showLoadingBanner({
-                        moduleKey: 'seguridad',
-                        title: 'Cargando Auditoría y Seguridad'
-                    });
-                }
-                window.location.href = '/mod_principal/seguridad';
+    // Navegar a la página de captura de matrícula
+    document.getElementById('Btn_Matricula').addEventListener('click', function () {
+        if (this.classList.contains('bloqueado')) return;
+        if (window.showLoadingBanner) {
+            window.showLoadingBanner({
+                moduleKey: 'matricula',
+                title: 'Cargando Módulo de Matrícula'
             });
         }
-    </script>
+        window.location.href = '/matricula/consulta';
+    });
+
+    // Navegar a la página de aprovechamiento académico
+    document.getElementById('Btn_Aprovechamiento').addEventListener('click', function () {
+        if (this.classList.contains('bloqueado')) return;
+        window.location.href = '/aprovechamiento/consulta';
+    });
+
+    // Navegar a la página de egresados
+    document.getElementById('Btn_Egresados').addEventListener('click', function () {
+        if (this.classList.contains('bloqueado')) return;
+        window.location.href = '/egresados/consulta';
+    });
+
+    // Navegar a la página de titulados
+    document.getElementById('Btn_Titulados').addEventListener('click', function () {
+        if (this.classList.contains('bloqueado')) return;
+        window.location.href = '/titulados/consulta';
+    });
+
+    // Abrir dashboard de Power BI en una pestaña nueva
+    document.getElementById('Btn_Dashboard').addEventListener('click', function () {
+        if (this.classList.contains('bloqueado')) return;
+        window.open('https://app.powerbi.com/reportEmbed?reportId=99973e83-df3a-446d-a227-0e5aa0254dd0&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563', '_blank');
+    });
+
+    // Navegar al tablero de Seguimiento a la Estadística
+    const btnSeguimiento = document.getElementById('Btn_Seguimiento');
+    if (btnSeguimiento) {
+        btnSeguimiento.addEventListener('click', function () {
+            if (this.classList.contains('bloqueado')) return;
+            const urlSeguimiento = 'https://app.powerbi.com/reportEmbed?reportId=edb81cbe-02ee-47fb-9339-174643c48f68&autoAuth=true&ctid=f94bf4d9-8097-4794-adf6-a5466ca28563';
+            window.open(urlSeguimiento, '_blank');
+        });
+    }
+    if (!btnSeguimiento) {
+        document.getElementById('Btn_Dashboard').style.flex = "100%";
+    }
+
+    // Navegar a Auditoría de Seguridad (solo Admin)
+    const btnSeguridad = document.getElementById('Btn_Seguridad');
+    if (btnSeguridad) {
+        btnSeguridad.addEventListener('click', function () {
+            if (window.showLoadingBanner) {
+                window.showLoadingBanner({
+                    moduleKey: 'seguridad',
+                    title: 'Cargando Auditoría y Seguridad'
+                });
+            }
+            window.location.href = '/mod_principal/seguridad';
+        });
+    }
+</script>
 {% endblock %}

@@ -1006,12 +1006,41 @@ async def obtener_datos_existentes_sp(
         print(f"Total de filas: {len(rows_list)}")
         print(f"Metadatos extraídos: {metadata}")
 
+        # Deduplicar filas del SP: si hay duplicados para la misma clave lógica
+        # (Semestre + Turno + GrupoEdad + TipoIngreso + Sexo + Programa + Modalidad),
+        # conservar el registro con el valor de Matrícula más alto (el capturado por el usuario).
+        # Esto ocurre cuando la tabla Matricula tiene registros duplicados con valores 0 y N.
+        dedup_map = {}
+        for row in rows_list:
+            clave = (
+                row.get('Nombre_Programa', ''),
+                row.get('Modalidad', ''),
+                row.get('Semestre', ''),
+                row.get('Turno', ''),
+                row.get('Grupo_Edad', ''),
+                row.get('Tipo_de_Ingreso', ''),
+                row.get('Sexo', ''),
+            )
+            existing = dedup_map.get(clave)
+            if existing is None:
+                dedup_map[clave] = row
+            else:
+                # Conservar el de mayor matrícula (el valor real del usuario)
+                val_new = row.get('Matricula') or 0
+                val_old = existing.get('Matricula') or 0
+                if val_new > val_old:
+                    dedup_map[clave] = row
+
+        rows_dedup = list(dedup_map.values())
+        if len(rows_dedup) != len(rows_list):
+            print(f"⚠️  Deduplicación: {len(rows_list)} → {len(rows_dedup)} filas (se eliminaron {len(rows_list) - len(rows_dedup)} duplicados)")
+
         # Devolver resultado exitoso o error
         if "Error" in debug_msg:
             return {"error": debug_msg}
         else:
             return {
-                "rows": rows_list,
+                "rows": rows_dedup,
                 "metadata": metadata,
                 "debug": debug_msg
             }
@@ -1773,20 +1802,15 @@ async def guardar_captura_completa(request: Request, sess=Depends(get_current_se
                   f"(programa='{programa_obj.Nombre_Programa}', semestre='{semestre_obj.Semestre}', "
                   f"turno='{turno_obj.Turno}') — solo se conservará la modalidad actual")
 
-        # Obtener el semestre seleccionado como número
+        # Obtener el semestre seleccionado como número usando el ID directo de la BD
+        # IMPORTANTE: NO usar texto del nombre del semestre porque "Decimo primero" contiene
+        # "primer" y era detectado erróneamente como Semestre 1.
         semestre_numero = None
         if semestre_obj:
             try:
-                # Extraer el número del semestre (ej: "1" de "Primer Semestre", "2" de "Segundo Semestre")
-                semestre_text = semestre_obj.Semestre.lower()
-                if "primer" in semestre_text or semestre_text == "1":
-                    semestre_numero = 1
-                elif "segundo" in semestre_text or semestre_text == "2":
-                    semestre_numero = 2
-                elif "tercer" in semestre_text or semestre_text == "3":
-                    semestre_numero = 3
-                # Agregar más semestres según sea necesario
-            except:
+                # Usar el Id_Semestre de la BD directamente — siempre correcto y sin ambigüedades
+                semestre_numero = int(semestre_obj.Id_Semestre)
+            except Exception:
                 pass
         
         print(f"Semestre detectado: {semestre_numero} (de: {semestre_obj.Semestre if semestre_obj else 'N/A'})")
@@ -2062,7 +2086,7 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
         print(f"@HHost = '{host_sp}' (tipo: {type(host_sp).__name__})")
         print(f"@NNivel = '{nivel}' (tipo: {type(nivel).__name__})")
         print(f"========================")
-                    
+
         # Ejecutar el stored procedure (centralizado en el servicio)
         try:
             execute_sp_actualiza_matricula_por_unidad_academica(

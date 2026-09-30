@@ -14,3 +14,4 @@ menv
 venv
 .env
 backend/storage/acuses/
+logs/

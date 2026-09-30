@@ -20,6 +20,12 @@ const menuConfig = {
             { label: 'Consulta', icon: '🔍', url: '/aprovechamiento/consulta' },
         ]
     },
+    titulados: {
+        nombre: 'Titulados',
+        items: [
+            { label: 'Consulta', icon: '🔍', url: '/titulados/consulta' },
+        ]
+    },
     usuarios: {
         nombre: 'Catalogos',
         items: [
