@@ -2,7 +2,7 @@ from backend.api import unidad_academica
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import RedirectResponse, FileResponse, Response
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, or_
 import json
 from typing import List, Dict, Any
 from fastapi import HTTPException
@@ -1880,24 +1880,64 @@ async def guardar_captura_completa(request: Request, sess=Depends(get_current_se
             # Filtrar solo campos válidos
             filtered = {k: v for k, v in registro.items() if k in valid_fields}
 
-            # Cambiar condición para incluir valores de 0 (>= 0 en lugar de > 0)
-            if filtered and filtered.get('Matricula', 0) >= 0:
-                # Clave lógica para identificar un registro único en Temp_Matricula
-                # (sin incluir Matricula ni Salones)
-                filtro_unico = {k: v for k, v in filtered.items() if k not in ['Matricula', 'Salones']}
+            mat_val = int(dato.get('matricula', 0))
+            sal_val = int(dato.get('salones', total_grupos or 0))
 
-                # Eliminar cualquier registro previo que coincida con esta clave
-                # Esto evita problemas de múltiples filas coincidiendo en un UPDATE (StaleDataError)
-                if filtro_unico:
-                    db.query(Temp_Matricula).filter_by(**filtro_unico).delete(synchronize_session=False)
+            # Clave lógica para identificar un registro único en Temp_Matricula
+            filtro_unico = {k: v for k, v in filtered.items() if k not in ['Matricula', 'Salones']}
 
-                # Insertar el nuevo registro con la matrícula y salones actuales
-                temp_matricula = Temp_Matricula(**filtered)
-                
-                db.add(temp_matricula)
+            # Eliminar cualquier registro previo en Temp_Matricula que coincida con esta clave
+            if filtro_unico:
+                db.query(Temp_Matricula).filter_by(**filtro_unico).delete(synchronize_session=False)
 
+            if mat_val == 0:
+                # ── VALOR EN CERO: Actualizar directamente en la tabla Matricula y NO insertar en Temp_Matricula ──
+                id_periodo_num = periodo_obj.Id_Periodo if periodo_obj else None
+                if not id_periodo_num and str(periodo_input).isdigit():
+                    id_periodo_num = int(periodo_input)
+
+                if id_periodo_num and unidad_obj and programa_obj and nivel_obj and modalidad_obj and turno_obj and semestre_obj:
+                    mat_recs = (
+                        db.query(Matricula)
+                        .join(Grupo_Edad,    Matricula.Id_Grupo_Edad   == Grupo_Edad.Id_Grupo_Edad)
+                        .join(Tipo_Ingreso,  Matricula.Id_Tipo_Ingreso == Tipo_Ingreso.Id_Tipo_Ingreso)
+                        .join(Sexo_Cat,      Matricula.Id_Sexo         == Sexo_Cat.Id_Sexo)
+                        .filter(
+                            Matricula.Id_Periodo          == id_periodo_num,
+                            Matricula.Id_Unidad_Academica == unidad_obj.Id_Unidad_Academica,
+                            Matricula.Id_Programa         == programa_obj.Id_Programa,
+                            Matricula.Id_Nivel            == nivel_obj.Id_Nivel,
+                            Matricula.Id_Modalidad        == modalidad_obj.Id_Modalidad,
+                            Matricula.Id_Turno            == turno_obj.Id_Turno,
+                            Matricula.Id_Semestre         == semestre_obj.Id_Semestre,
+                            Grupo_Edad.Grupo_Edad             == grupo_edad_nombre,
+                            Tipo_Ingreso.Tipo_de_Ingreso      == tipo_ingreso_nombre,
+                            Sexo_Cat.Sexo                     == sexo_completo,
+                        )
+                        .all()
+                    )
+                    for mat_rec in mat_recs:
+                        db.query(Matricula).filter(
+                            Matricula.Id_Periodo          == mat_rec.Id_Periodo,
+                            Matricula.Id_Unidad_Academica == mat_rec.Id_Unidad_Academica,
+                            Matricula.Id_Programa         == mat_rec.Id_Programa,
+                            Matricula.Id_Rama             == mat_rec.Id_Rama,
+                            Matricula.Id_Nivel            == mat_rec.Id_Nivel,
+                            Matricula.Id_Modalidad        == mat_rec.Id_Modalidad,
+                            Matricula.Id_Turno            == mat_rec.Id_Turno,
+                            Matricula.Id_Semestre         == mat_rec.Id_Semestre,
+                            Matricula.Id_Grupo_Edad       == mat_rec.Id_Grupo_Edad,
+                            Matricula.Id_Tipo_Ingreso     == mat_rec.Id_Tipo_Ingreso,
+                            Matricula.Id_Sexo             == mat_rec.Id_Sexo,
+                        ).update({'Matricula': 0, 'Grupos': sal_val}, synchronize_session=False)
+                        print(f"✏️  MODIFICADO A 0 (Directo ORM): {grupo_edad_nombre}/{tipo_ingreso_nombre}/{sexo_completo} → Matrícula=0, Grupos={sal_val}")
                 registros_insertados += 1
-                print(f"Registro procesado (upsert lógico): {filtered}")
+            else:
+                # ── VALOR > 0: Insertar en Temp_Matricula para que sea procesado por el SP ──
+                temp_matricula = Temp_Matricula(**filtered)
+                db.add(temp_matricula)
+                registros_insertados += 1
+                print(f"Registro a Temp para SP: {filtered}")
         
         db.commit()
         invalidate_matricula_sp_cache(unidad_obj.Sigla if unidad_obj else None, periodo, nivel_obj.Nivel if nivel_obj else None)
@@ -2097,11 +2137,8 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
         print(f"@NNivel = '{nivel}' (tipo: {type(nivel).__name__})")
         print(f"========================")
 
-        # ── PRE-PASO: Actualizar a 0 los registros que el SP omite por la vista vw_Nivel_GrupoEdad_2 ──
-        # Usamos JOIN en la query ORM para Grupo_Edad, Tipo_Ingreso y Sexo, porque esas tablas
-        # pueden tener IDs duplicados o distintos a los que almacena la tabla Matricula.
+        # ── PRE-PASO: Procesar únicamente registros con Matrícula=0 y eliminarlos de Temp_Matricula ──
         try:
-            # 1. Obtener todos los Temp_Matricula con Matricula=0 para esta UA/Periodo/Nivel
             temps_a_cero = db.query(Temp_Matricula).filter(
                 Temp_Matricula.Sigla     == unidad_sigla,
                 Temp_Matricula.Periodo   == periodo,
@@ -2110,7 +2147,6 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
             ).all()
 
             if temps_a_cero:
-                # 2. Resolver IDs simples (sin duplicados) una sola vez
                 per_map  = {p.Periodo:         p.Id_Periodo          for p in db.query(Periodo).all()}
                 ua_map   = {u.Sigla:           u.Id_Unidad_Academica for u in db.query(Unidad_Academica).all()}
                 pro_map  = {p.Nombre_Programa: p.Id_Programa         for p in db.query(Programas).all()}
@@ -2119,7 +2155,7 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
                 tur_map  = {t.Turno:           t.Id_Turno            for t in db.query(Turno).all()}
                 sem_map  = {s.Semestre:        s.Id_Semestre         for s in db.query(Semestre).all()}
 
-                registros_a_cero = 0
+                registros_ceros = 0
                 for tmp in temps_a_cero:
                     id_periodo   = per_map.get(tmp.Periodo)
                     id_ua        = ua_map.get(tmp.Sigla)
@@ -2131,11 +2167,10 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
 
                     if not all([id_periodo, id_ua, id_programa, id_nivel,
                                 id_modalidad, id_turno, id_semestre]):
-                        print(f"⚠️ PRE-CERO: catálogo base no encontrado para {tmp.Grupo_Edad}/{tmp.Tipo_Ingreso}/{tmp.Sexo}")
                         continue
 
-                    # 3. Buscar en Matricula usando JOIN para Grupo_Edad, Tipo_Ingreso y Sexo
-                    #    (evita el problema de IDs duplicados en los catálogos)
+                    salones_val = tmp.Salones if tmp.Salones is not None else 0
+
                     mat_recs = (
                         db.query(Matricula)
                         .join(Grupo_Edad,    Matricula.Id_Grupo_Edad   == Grupo_Edad.Id_Grupo_Edad)
@@ -2152,16 +2187,11 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
                             Grupo_Edad.Grupo_Edad             == tmp.Grupo_Edad,
                             Tipo_Ingreso.Tipo_de_Ingreso      == tmp.Tipo_Ingreso,
                             Sexo_Cat.Sexo                     == tmp.Sexo,
-                            Matricula.Matricula               != 0
                         )
                         .all()
                     )
 
                     for mat_rec in mat_recs:
-                        # Usar update() con synchronize_session=False para evitar que SQLAlchemy
-                        # genere el UPDATE con PK incompleta (el modelo solo tiene 2 PKs definidas
-                        # pero la tabla real tiene 11 columnas como clave única).
-                        # Filtramos por TODOS los valores del registro encontrado.
                         filas = (
                             db.query(Matricula).filter(
                                 Matricula.Id_Periodo          == mat_rec.Id_Periodo,
@@ -2176,19 +2206,28 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
                                 Matricula.Id_Tipo_Ingreso     == mat_rec.Id_Tipo_Ingreso,
                                 Matricula.Id_Sexo             == mat_rec.Id_Sexo,
                             )
-                            .update({'Matricula': 0}, synchronize_session=False)
+                            .update({'Matricula': 0, 'Grupos': salones_val}, synchronize_session=False)
                         )
-                        registros_a_cero += filas
-                        print(f"✏️  PRE-CERO: {tmp.Grupo_Edad}/{tmp.Tipo_Ingreso}/{tmp.Sexo} → 0 ({filas} fila(s))")
+                        registros_ceros += filas
+                        print(f"✏️  PRE-CERO: {tmp.Grupo_Edad}/{tmp.Tipo_Ingreso}/{tmp.Sexo} → Matrícula=0, Grupos={salones_val} ({filas} fila(s))")
+
+                # Limpiar los registros con 0 de Temp_Matricula para que el SP solo procese los > 0
+                db.query(Temp_Matricula).filter(
+                    Temp_Matricula.Sigla     == unidad_sigla,
+                    Temp_Matricula.Periodo   == periodo,
+                    Temp_Matricula.Nivel     == nivel,
+                    Temp_Matricula.Matricula == 0
+                ).delete(synchronize_session=False)
 
                 db.commit()
-                print(f"✅ PRE-UPDATE ceros (ORM+JOIN): {registros_a_cero} registro(s) actualizados a 0")
+                if registros_ceros > 0:
+                    print(f"✅ PRE-CERO (ORM+JOIN): {registros_ceros} registro(s) actualizados a 0 y eliminados de Temp_Matricula")
             else:
-                print("ℹ️ PRE-UPDATE ceros: no hay registros con Matricula=0 que corregir")
+                print("ℹ️ PRE-CERO: no hay registros con Matricula=0 en Temp_Matricula")
 
         except Exception as cero_err:
             db.rollback()
-            print(f"⚠️ PRE-UPDATE ceros falló (continuando con SP): {cero_err}")
+            print(f"⚠️ PRE-CERO falló (continuando con SP): {cero_err}")
         # ── FIN PRE-PASO ──────────────────────────────────────────────────────────────────
 
         # Ejecutar el stored procedure (centralizado en el servicio)

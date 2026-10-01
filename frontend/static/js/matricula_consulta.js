@@ -556,7 +556,7 @@ function renderizarEncabezadoTabla(semestreNum, turnosList) {
 
         const input = document.createElement('input');
         input.type = 'number';
-        input.min = '1';
+        input.min = '0';
         input.step = '1';
         input.className = 'input-total-grupos-turno';
         input.setAttribute('data-turno-id', turno.id);
@@ -567,17 +567,11 @@ function renderizarEncabezadoTabla(semestreNum, turnosList) {
             if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '.') {
                 e.preventDefault();
             }
-            if (e.key === '0' && this.value === '') {
-                e.preventDefault();
-            }
         });
 
-        // NUEVO: Borramos letras y limitamos a 2 dígitos máximo
+        // Borramos letras y limitamos a 2 dígitos máximo
         input.addEventListener('input', function () {
-            // Borra todo lo que no sea número
             this.value = this.value.replace(/[^0-9]/g, '');
-
-            // Si escriben más de 2 números, lo corta a los primeros 2
             if (this.value.length > 2) {
                 this.value = this.value.slice(0, 2);
             }
@@ -596,14 +590,10 @@ function renderizarEncabezadoTabla(semestreNum, turnosList) {
         }
 
         const actualizarTotalGrupos = () => {
-            if (input.value !== "" && parseInt(input.value) < 1) {
-                input.value = '';
-            }
-
             const valor = input.value;
             const clave = `${semestreNum}_${turno.id}`;
 
-            if (valor === '' || isNaN(parseInt(valor)) || parseInt(valor) < 1) {
+            if (valor === '' || isNaN(parseInt(valor))) {
                 delete totalGruposPorSemestreYTurno[clave];
             } else {
                 totalGruposPorSemestreYTurno[clave] = parseInt(valor);
@@ -1009,8 +999,8 @@ function procesarTotalGruposDesdeSP(rows) {
             const valor = row[gruposKey];
             const num = parseInt(valor);
 
-            // Solo considerar valores numéricos positivos
-            if (isNaN(semestreId) || isNaN(turnoId) || isNaN(num) || num <= 0) {
+            // Considerar valores numéricos >= 0
+            if (isNaN(semestreId) || isNaN(turnoId) || isNaN(num) || num < 0) {
                 return;
             }
 
@@ -1937,7 +1927,7 @@ async function renderMatriculaFromSP(rows, datosMap) {
             if (isNaN(turnoId)) return;
             const gVal = r[gruposKey];
             const num = parseInt(gVal);
-            if (isNaN(num) || num <= 0) return;
+            if (isNaN(num) || num < 0) return;
             const clave = `${semestreActualId}_${turnoId}`;
             if (totalesTurno[clave] === undefined || num > totalesTurno[clave]) {
                 totalesTurno[clave] = num;
@@ -3258,7 +3248,7 @@ function guardarDatosSemestreActual() {
         if (semId === semestreActual && !isNaN(turnoId)) {
             const valor = input.value.trim();
             const clave = `${semestreActual}_${turnoId}`;
-            if (valor !== '' && !isNaN(parseInt(valor)) && parseInt(valor) > 0) {
+            if (valor !== '' && !isNaN(parseInt(valor)) && parseInt(valor) >= 0) {
                 totalGruposPorSemestreYTurno[clave] = parseInt(valor);
             } else {
                 delete totalGruposPorSemestreYTurno[clave];

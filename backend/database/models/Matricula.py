@@ -20,3 +20,4 @@ class Matricula(Base):
     Id_Tipo_Ingreso: Mapped[int] = mapped_column(Integer, ForeignKey("Cat_Tipo_Ingreso.Id_Tipo_Ingreso"), nullable=False)
     Id_Sexo: Mapped[int] = mapped_column(Integer, ForeignKey("Cat_Sexo.Id_Sexo"), nullable=False)
     Matricula: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    Grupos: Mapped[int] = mapped_column(Integer, default=0, nullable=True)
