@@ -1897,40 +1897,41 @@ async def guardar_captura_completa(request: Request, sess=Depends(get_current_se
                     id_periodo_num = int(periodo_input)
 
                 if id_periodo_num and unidad_obj and programa_obj and nivel_obj and modalidad_obj and turno_obj and semestre_obj:
-                    mat_recs = (
-                        db.query(Matricula)
-                        .join(Grupo_Edad,    Matricula.Id_Grupo_Edad   == Grupo_Edad.Id_Grupo_Edad)
-                        .join(Tipo_Ingreso,  Matricula.Id_Tipo_Ingreso == Tipo_Ingreso.Id_Tipo_Ingreso)
-                        .join(Sexo_Cat,      Matricula.Id_Sexo         == Sexo_Cat.Id_Sexo)
-                        .filter(
-                            Matricula.Id_Periodo          == id_periodo_num,
-                            Matricula.Id_Unidad_Academica == unidad_obj.Id_Unidad_Academica,
-                            Matricula.Id_Programa         == programa_obj.Id_Programa,
-                            Matricula.Id_Nivel            == nivel_obj.Id_Nivel,
-                            Matricula.Id_Modalidad        == modalidad_obj.Id_Modalidad,
-                            Matricula.Id_Turno            == turno_obj.Id_Turno,
-                            Matricula.Id_Semestre         == semestre_obj.Id_Semestre,
-                            Grupo_Edad.Grupo_Edad             == grupo_edad_nombre,
-                            Tipo_Ingreso.Tipo_de_Ingreso      == tipo_ingreso_nombre,
-                            Sexo_Cat.Sexo                     == sexo_completo,
-                        )
-                        .all()
+                    res_upd = db.execute(
+                        text("""
+                            UPDATE mat
+                            SET mat.Matricula = 0, mat.Grupos = :salones
+                            FROM Matricula mat
+                            JOIN Cat_Grupo_Edad ge ON mat.Id_Grupo_Edad = ge.Id_Grupo_Edad
+                            JOIN Cat_Tipo_Ingreso ti ON mat.Id_Tipo_Ingreso = ti.Id_Tipo_Ingreso
+                            JOIN Cat_Sexo sex ON mat.Id_Sexo = sex.Id_Sexo
+                            WHERE mat.Id_Periodo = :id_periodo
+                              AND mat.Id_Unidad_Academica = :id_ua
+                              AND mat.Id_Programa = :id_programa
+                              AND mat.Id_Nivel = :id_nivel
+                              AND mat.Id_Modalidad = :id_modalidad
+                              AND mat.Id_Turno = :id_turno
+                              AND mat.Id_Semestre = :id_semestre
+                              AND ge.Grupo_Edad = :grupo_edad
+                              AND ti.Tipo_de_Ingreso = :tipo_ingreso
+                              AND sex.Sexo = :sexo
+                        """),
+                        {
+                            "salones": sal_val,
+                            "id_periodo": id_periodo_num,
+                            "id_ua": unidad_obj.Id_Unidad_Academica,
+                            "id_programa": programa_obj.Id_Programa,
+                            "id_nivel": nivel_obj.Id_Nivel,
+                            "id_modalidad": modalidad_obj.Id_Modalidad,
+                            "id_turno": turno_obj.Id_Turno,
+                            "id_semestre": semestre_obj.Id_Semestre,
+                            "grupo_edad": grupo_edad_nombre,
+                            "tipo_ingreso": tipo_ingreso_nombre,
+                            "sexo": sexo_completo,
+                        }
                     )
-                    for mat_rec in mat_recs:
-                        db.query(Matricula).filter(
-                            Matricula.Id_Periodo          == mat_rec.Id_Periodo,
-                            Matricula.Id_Unidad_Academica == mat_rec.Id_Unidad_Academica,
-                            Matricula.Id_Programa         == mat_rec.Id_Programa,
-                            Matricula.Id_Rama             == mat_rec.Id_Rama,
-                            Matricula.Id_Nivel            == mat_rec.Id_Nivel,
-                            Matricula.Id_Modalidad        == mat_rec.Id_Modalidad,
-                            Matricula.Id_Turno            == mat_rec.Id_Turno,
-                            Matricula.Id_Semestre         == mat_rec.Id_Semestre,
-                            Matricula.Id_Grupo_Edad       == mat_rec.Id_Grupo_Edad,
-                            Matricula.Id_Tipo_Ingreso     == mat_rec.Id_Tipo_Ingreso,
-                            Matricula.Id_Sexo             == mat_rec.Id_Sexo,
-                        ).update({'Matricula': 0, 'Grupos': sal_val}, synchronize_session=False)
-                        print(f"✏️  MODIFICADO A 0 (Directo ORM): {grupo_edad_nombre}/{tipo_ingreso_nombre}/{sexo_completo} → Matrícula=0, Grupos={sal_val}")
+                    filas_upd = res_upd.rowcount if hasattr(res_upd, 'rowcount') else 1
+                    print(f"✏️  MODIFICADO A 0 (SQL Directo): {grupo_edad_nombre}/{tipo_ingreso_nombre}/{sexo_completo} → Matrícula=0, Grupos={sal_val} ({filas_upd} fila(s) actualizadas)")
                 registros_insertados += 1
             else:
                 # ── VALOR > 0: Insertar en Temp_Matricula para que sea procesado por el SP ──
@@ -2171,45 +2172,42 @@ async def actualizar_matricula(request: Request, sess=Depends(get_current_sessio
 
                     salones_val = tmp.Salones if tmp.Salones is not None else 0
 
-                    mat_recs = (
-                        db.query(Matricula)
-                        .join(Grupo_Edad,    Matricula.Id_Grupo_Edad   == Grupo_Edad.Id_Grupo_Edad)
-                        .join(Tipo_Ingreso,  Matricula.Id_Tipo_Ingreso == Tipo_Ingreso.Id_Tipo_Ingreso)
-                        .join(Sexo_Cat,      Matricula.Id_Sexo         == Sexo_Cat.Id_Sexo)
-                        .filter(
-                            Matricula.Id_Periodo          == id_periodo,
-                            Matricula.Id_Unidad_Academica == id_ua,
-                            Matricula.Id_Programa         == id_programa,
-                            Matricula.Id_Nivel            == id_nivel,
-                            Matricula.Id_Modalidad        == id_modalidad,
-                            Matricula.Id_Turno            == id_turno,
-                            Matricula.Id_Semestre         == id_semestre,
-                            Grupo_Edad.Grupo_Edad             == tmp.Grupo_Edad,
-                            Tipo_Ingreso.Tipo_de_Ingreso      == tmp.Tipo_Ingreso,
-                            Sexo_Cat.Sexo                     == tmp.Sexo,
-                        )
-                        .all()
+                    res_cero = db.execute(
+                        text("""
+                            UPDATE mat
+                            SET mat.Matricula = 0, mat.Grupos = :salones
+                            FROM Matricula mat
+                            JOIN Cat_Grupo_Edad ge ON mat.Id_Grupo_Edad = ge.Id_Grupo_Edad
+                            JOIN Cat_Tipo_Ingreso ti ON mat.Id_Tipo_Ingreso = ti.Id_Tipo_Ingreso
+                            JOIN Cat_Sexo sex ON mat.Id_Sexo = sex.Id_Sexo
+                            WHERE mat.Id_Periodo = :id_periodo
+                              AND mat.Id_Unidad_Academica = :id_ua
+                              AND mat.Id_Programa = :id_programa
+                              AND mat.Id_Nivel = :id_nivel
+                              AND mat.Id_Modalidad = :id_modalidad
+                              AND mat.Id_Turno = :id_turno
+                              AND mat.Id_Semestre = :id_semestre
+                              AND ge.Grupo_Edad = :grupo_edad
+                              AND ti.Tipo_de_Ingreso = :tipo_ingreso
+                              AND sex.Sexo = :sexo
+                        """),
+                        {
+                            "salones": salones_val,
+                            "id_periodo": id_periodo,
+                            "id_ua": id_ua,
+                            "id_programa": id_programa,
+                            "id_nivel": id_nivel,
+                            "id_modalidad": id_modalidad,
+                            "id_turno": id_turno,
+                            "id_semestre": id_semestre,
+                            "grupo_edad": tmp.Grupo_Edad,
+                            "tipo_ingreso": tmp.Tipo_Ingreso,
+                            "sexo": tmp.Sexo,
+                        }
                     )
-
-                    for mat_rec in mat_recs:
-                        filas = (
-                            db.query(Matricula).filter(
-                                Matricula.Id_Periodo          == mat_rec.Id_Periodo,
-                                Matricula.Id_Unidad_Academica == mat_rec.Id_Unidad_Academica,
-                                Matricula.Id_Programa         == mat_rec.Id_Programa,
-                                Matricula.Id_Rama             == mat_rec.Id_Rama,
-                                Matricula.Id_Nivel            == mat_rec.Id_Nivel,
-                                Matricula.Id_Modalidad        == mat_rec.Id_Modalidad,
-                                Matricula.Id_Turno            == mat_rec.Id_Turno,
-                                Matricula.Id_Semestre         == mat_rec.Id_Semestre,
-                                Matricula.Id_Grupo_Edad       == mat_rec.Id_Grupo_Edad,
-                                Matricula.Id_Tipo_Ingreso     == mat_rec.Id_Tipo_Ingreso,
-                                Matricula.Id_Sexo             == mat_rec.Id_Sexo,
-                            )
-                            .update({'Matricula': 0, 'Grupos': salones_val}, synchronize_session=False)
-                        )
-                        registros_ceros += filas
-                        print(f"✏️  PRE-CERO: {tmp.Grupo_Edad}/{tmp.Tipo_Ingreso}/{tmp.Sexo} → Matrícula=0, Grupos={salones_val} ({filas} fila(s))")
+                    filas = res_cero.rowcount if hasattr(res_cero, 'rowcount') else 1
+                    registros_ceros += filas
+                    print(f"✏️  PRE-CERO (SQL Directo): {tmp.Grupo_Edad}/{tmp.Tipo_Ingreso}/{tmp.Sexo} → Matrícula=0, Grupos={salones_val} ({filas} fila(s))")
 
                 # Limpiar los registros con 0 de Temp_Matricula para que el SP solo procese los > 0
                 db.query(Temp_Matricula).filter(
