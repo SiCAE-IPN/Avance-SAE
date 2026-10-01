@@ -1933,13 +1933,13 @@ async def guardar_captura_completa(request: Request, sess=Depends(get_current_se
                     }
                 )
                 filas_upd = res_upd.rowcount if hasattr(res_upd, 'rowcount') else 1
-                print(f"✏️  ACTUALIZADO (SQL Directo): {grupo_edad_nombre}/{tipo_ingreso_nombre}/{sexo_completo} → Matrícula={mat_val}, Grupos={sal_val} ({filas_upd} fila(s) actualizadas)")
+                #print(f"✏️  ACTUALIZADO (SQL Directo): {grupo_edad_nombre}/{tipo_ingreso_nombre}/{sexo_completo} → Matrícula={mat_val}, Grupos={sal_val} ({filas_upd} fila(s) actualizadas)")
 
             # ── 2. Si el valor es > 0, también se agrega a Temp_Matricula para que el SP lo procese ──
             if mat_val > 0:
                 temp_matricula = Temp_Matricula(**filtered)
                 db.add(temp_matricula)
-                print(f"Registro a Temp para SP: {filtered}")
+                #print(f"Registro a Temp para SP: {filtered}")
 
             registros_insertados += 1
         
