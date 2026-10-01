@@ -1890,55 +1890,58 @@ async def guardar_captura_completa(request: Request, sess=Depends(get_current_se
             if filtro_unico:
                 db.query(Temp_Matricula).filter_by(**filtro_unico).delete(synchronize_session=False)
 
-            if mat_val == 0:
-                # ── VALOR EN CERO: Actualizar directamente en la tabla Matricula y NO insertar en Temp_Matricula ──
-                id_periodo_num = periodo_obj.Id_Periodo if periodo_obj else None
-                if not id_periodo_num and str(periodo_input).isdigit():
-                    id_periodo_num = int(periodo_input)
+            # ── 1. Actualización directa en la tabla Matricula para TODOS los registros ──
+            # Garantiza que cambios hacia abajo (ej. de 3 a 1, o a 0) o hacia arriba se apliquen
+            # de inmediato en todas las filas coincidentes de la base de datos (incluyendo catálogos con duplicados).
+            id_periodo_num = periodo_obj.Id_Periodo if periodo_obj else None
+            if not id_periodo_num and str(periodo_input).isdigit():
+                id_periodo_num = int(periodo_input)
 
-                if id_periodo_num and unidad_obj and programa_obj and nivel_obj and modalidad_obj and turno_obj and semestre_obj:
-                    res_upd = db.execute(
-                        text("""
-                            UPDATE mat
-                            SET mat.Matricula = 0, mat.Grupos = :salones
-                            FROM Matricula mat
-                            JOIN Cat_Grupo_Edad ge ON mat.Id_Grupo_Edad = ge.Id_Grupo_Edad
-                            JOIN Cat_Tipo_Ingreso ti ON mat.Id_Tipo_Ingreso = ti.Id_Tipo_Ingreso
-                            JOIN Cat_Sexo sex ON mat.Id_Sexo = sex.Id_Sexo
-                            WHERE mat.Id_Periodo = :id_periodo
-                              AND mat.Id_Unidad_Academica = :id_ua
-                              AND mat.Id_Programa = :id_programa
-                              AND mat.Id_Nivel = :id_nivel
-                              AND mat.Id_Modalidad = :id_modalidad
-                              AND mat.Id_Turno = :id_turno
-                              AND mat.Id_Semestre = :id_semestre
-                              AND ge.Grupo_Edad = :grupo_edad
-                              AND ti.Tipo_de_Ingreso = :tipo_ingreso
-                              AND sex.Sexo = :sexo
-                        """),
-                        {
-                            "salones": sal_val,
-                            "id_periodo": id_periodo_num,
-                            "id_ua": unidad_obj.Id_Unidad_Academica,
-                            "id_programa": programa_obj.Id_Programa,
-                            "id_nivel": nivel_obj.Id_Nivel,
-                            "id_modalidad": modalidad_obj.Id_Modalidad,
-                            "id_turno": turno_obj.Id_Turno,
-                            "id_semestre": semestre_obj.Id_Semestre,
-                            "grupo_edad": grupo_edad_nombre,
-                            "tipo_ingreso": tipo_ingreso_nombre,
-                            "sexo": sexo_completo,
-                        }
-                    )
-                    filas_upd = res_upd.rowcount if hasattr(res_upd, 'rowcount') else 1
-                    print(f"✏️  MODIFICADO A 0 (SQL Directo): {grupo_edad_nombre}/{tipo_ingreso_nombre}/{sexo_completo} → Matrícula=0, Grupos={sal_val} ({filas_upd} fila(s) actualizadas)")
-                registros_insertados += 1
-            else:
-                # ── VALOR > 0: Insertar en Temp_Matricula para que sea procesado por el SP ──
+            if id_periodo_num and unidad_obj and programa_obj and nivel_obj and modalidad_obj and turno_obj and semestre_obj:
+                res_upd = db.execute(
+                    text("""
+                        UPDATE mat
+                        SET mat.Matricula = :matricula, mat.Grupos = :salones
+                        FROM Matricula mat
+                        JOIN Cat_Grupo_Edad ge ON mat.Id_Grupo_Edad = ge.Id_Grupo_Edad
+                        JOIN Cat_Tipo_Ingreso ti ON mat.Id_Tipo_Ingreso = ti.Id_Tipo_Ingreso
+                        JOIN Cat_Sexo sex ON mat.Id_Sexo = sex.Id_Sexo
+                        WHERE mat.Id_Periodo = :id_periodo
+                          AND mat.Id_Unidad_Academica = :id_ua
+                          AND mat.Id_Programa = :id_programa
+                          AND mat.Id_Nivel = :id_nivel
+                          AND mat.Id_Modalidad = :id_modalidad
+                          AND mat.Id_Turno = :id_turno
+                          AND mat.Id_Semestre = :id_semestre
+                          AND ge.Grupo_Edad = :grupo_edad
+                          AND ti.Tipo_de_Ingreso = :tipo_ingreso
+                          AND sex.Sexo = :sexo
+                    """),
+                    {
+                        "matricula": mat_val,
+                        "salones": sal_val,
+                        "id_periodo": id_periodo_num,
+                        "id_ua": unidad_obj.Id_Unidad_Academica,
+                        "id_programa": programa_obj.Id_Programa,
+                        "id_nivel": nivel_obj.Id_Nivel,
+                        "id_modalidad": modalidad_obj.Id_Modalidad,
+                        "id_turno": turno_obj.Id_Turno,
+                        "id_semestre": semestre_obj.Id_Semestre,
+                        "grupo_edad": grupo_edad_nombre,
+                        "tipo_ingreso": tipo_ingreso_nombre,
+                        "sexo": sexo_completo,
+                    }
+                )
+                filas_upd = res_upd.rowcount if hasattr(res_upd, 'rowcount') else 1
+                print(f"✏️  ACTUALIZADO (SQL Directo): {grupo_edad_nombre}/{tipo_ingreso_nombre}/{sexo_completo} → Matrícula={mat_val}, Grupos={sal_val} ({filas_upd} fila(s) actualizadas)")
+
+            # ── 2. Si el valor es > 0, también se agrega a Temp_Matricula para que el SP lo procese ──
+            if mat_val > 0:
                 temp_matricula = Temp_Matricula(**filtered)
                 db.add(temp_matricula)
-                registros_insertados += 1
                 print(f"Registro a Temp para SP: {filtered}")
+
+            registros_insertados += 1
         
         db.commit()
         invalidate_matricula_sp_cache(unidad_obj.Sigla if unidad_obj else None, periodo, nivel_obj.Nivel if nivel_obj else None)
