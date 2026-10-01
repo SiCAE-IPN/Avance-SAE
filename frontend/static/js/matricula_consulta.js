@@ -3622,6 +3622,9 @@ async function guardarMatricula() {
         return;
     }
 
+    // Detectar modo edición (datos cargados del SP)
+    const hayDatosDelSP_guardar = Array.from(inputs).some(inp => inp.hasAttribute('data-auto-filled'));
+
     const datosPorTurno = {};
     inputs.forEach(input => {
         if (!input.disabled) {
@@ -3634,7 +3637,8 @@ async function guardarMatricula() {
             const hasUserValue = inputValue !== '';
 
             if (isNaN(turnoId)) return;
-            if (hasUserValue || isAutoFilled) {
+            // En modo edición, incluir también campos con 0 explícito
+            if (hasUserValue || isAutoFilled || hayDatosDelSP_guardar) {
                 const valor = parseInt(inputValue) || 0;
                 if (valor >= 0) {
                     const key = `${tipoIngreso}_${grupoEdad}_${sexo}`;
@@ -3824,14 +3828,32 @@ async function guardarYActualizarMatricula() {
         }
     }
 
+    // Detectar si hay datos cargados del SP (modo edición)
+    const hayDatosDelSP = Array.from(inputs).some(inp => inp.hasAttribute('data-auto-filled'));
+
     if (totalAlumnosSemestre === 0) {
-        await Swal.fire({
+        if (!hayDatosDelSP) {
+            // No hay datos del SP cargados y el usuario no ha ingresado nada → bloquear
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Sin datos',
+                text: 'Por favor, ingrese datos de matrícula antes de guardar.',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
+        // Hay datos del SP cargados y el usuario los está poniendo a 0 → confirmar
+        const confirmacion = await Swal.fire({
             icon: 'warning',
-            title: 'Sin datos',
-            text: 'Por favor, ingrese datos de matrícula antes de guardar.',
-            confirmButtonText: 'Entendido'
+            title: '¿Guardar con matrícula en cero?',
+            html: 'Ha puesto <strong>todos los valores en 0</strong>. Esto actualizará la matrícula existente a cero en todos los campos.<br><br>¿Desea continuar?',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, guardar en cero',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d'
         });
-        return;
+        if (!confirmacion.isConfirmed) return;
     }
 
     // Mostrar overlay
@@ -3852,7 +3874,9 @@ async function guardarYActualizarMatricula() {
             const isAutoFilled = input.hasAttribute('data-auto-filled');
             const hasUserValue = inputValue !== '';
             if (isNaN(turnoId)) return;
-            if (hasUserValue || isAutoFilled) {
+            // Incluir si: el usuario escribió un valor, o fue auto-rellenado por SP,
+            // o hay datos del SP cargados (modo edición: enviar también los 0 explícitos)
+            if (hasUserValue || isAutoFilled || hayDatosDelSP) {
                 const valor = parseInt(inputValue) || 0;
                 if (valor >= 0) {
                     const key = `${tipoIngreso}_${grupoEdad}_${sexo}`;
