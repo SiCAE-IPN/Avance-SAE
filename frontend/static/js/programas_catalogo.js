@@ -2,13 +2,20 @@
 // Alta, modificación (Nivel/Rama/Semestre) y baja lógica mediante /catalogo_programas/*.
 // El nombre del programa es su identificador en los SP, por lo que no es editable.
 
-document.addEventListener('DOMContentLoaded', function () {
+function initProgramasCatalogo() {
     const panelProgramas = document.getElementById('tab-programas');
     if (!panelProgramas) return;
 
     // ---------- Pestañas ----------
     const tabs = document.querySelectorAll('.catalogo-tab');
     let programasCargados = false;
+
+    async function cargarDatosPestaña() {
+        if (programasCargados) return;
+        programasCargados = true;
+        await cargarOpciones();
+        await cargarProgramas();
+    }
 
     function activarTab(idPanel) {
         tabs.forEach(t => {
@@ -21,16 +28,16 @@ document.addEventListener('DOMContentLoaded', function () {
             p.classList.toggle('active', activo);
             p.hidden = !activo;
         });
-        if (idPanel === 'tab-programas' && !programasCargados) {
-            programasCargados = true;
-            cargarOpciones();
-            cargarProgramas();
+        if (idPanel === 'tab-programas') {
+            cargarDatosPestaña();
         }
         history.replaceState(null, '', idPanel === 'tab-programas' ? '#programas' : window.location.pathname + window.location.search);
     }
 
     tabs.forEach(t => t.addEventListener('click', () => activarTab(t.dataset.tab)));
-    if (window.location.hash === '#programas') activarTab('tab-programas');
+    if (window.location.hash && window.location.hash.includes('programas')) {
+        activarTab('tab-programas');
+    }
 
     // ---------- Elementos ----------
     const form = document.getElementById('prog-form');
@@ -79,32 +86,70 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function cargarOpciones() {
         try {
-            const resp = await fetch('/catalogo_programas/opciones');
+            const resp = await fetch('/catalogo_programas/opciones', {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+            if (resp.status === 401) {
+                console.warn('[programas] No autenticado en /opciones');
+                return false;
+            }
             if (!resp.ok) throw new Error();
             const data = await resp.json();
             llenarSelect(selNivel, data.niveles || [], '-- Seleccione un Nivel --');
             llenarSelect(selRama, data.ramas || [], '-- Seleccione una Rama --');
             llenarSelect(selSemestre, data.semestres || [], '-- Seleccione un Semestre --');
+            return true;
         } catch (e) {
             mostrarMensaje('No se pudieron cargar las opciones del formulario.', 'error');
+            return false;
         }
     }
 
-    async function cargarProgramas() {
+    async function cargarProgramas(reintentos = 2) {
         tbody.innerHTML = '<tr><td colspan="5" class="prog-vacio">Cargando programas…</td></tr>';
         try {
-            const resp = await fetch('/catalogo_programas/datos');
+            const resp = await fetch('/catalogo_programas/datos', {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+
+            if (resp.status === 401) {
+                if (reintentos > 0) {
+                    await new Promise(r => setTimeout(r, 600));
+                    return await cargarProgramas(reintentos - 1);
+                }
+                programasCargados = false;
+                tbody.innerHTML = '<tr><td colspan="5" class="prog-vacio" style="color:#dc3545;">Sesión no válida o expirada. <a href="/login" style="color:#750946; font-weight:bold; text-decoration:underline;">Iniciar sesión</a></td></tr>';
+                return;
+            }
+
             const data = await resp.json();
-            if (!resp.ok) throw new Error(data.mensaje || 'Error al consultar programas');
+            if (!resp.ok) throw new Error(data.mensaje || data.detail || 'Error al consultar programas');
             programas = data.programas || [];
             const estatus = [...new Set(programas.map(p => p.estatus).filter(Boolean))].sort();
             filtroEstatus.innerHTML = '<option value="">Todos los estatus</option>' +
                 estatus.map(e => `<option value="${esc(e)}">${esc(e)}</option>`).join('');
             pintarTabla();
         } catch (e) {
-            tbody.innerHTML = `<tr><td colspan="5" class="prog-vacio">${esc(e.message || 'Error al consultar programas')}</td></tr>`;
+            if (reintentos > 0) {
+                await new Promise(r => setTimeout(r, 600));
+                return await cargarProgramas(reintentos - 1);
+            }
+            programasCargados = false;
+            tbody.innerHTML = `<tr><td colspan="5" class="prog-vacio" style="color:#dc3545;">
+                ${esc(e.message || 'Error al consultar programas')}
+                <br><button type="button" id="btn-reint-prog" class="btn-filtros" style="margin-top:8px; padding:4px 12px; cursor:pointer;">Reintentar</button>
+            </td></tr>`;
+            const btnR = document.getElementById('btn-reint-prog');
+            if (btnR) btnR.addEventListener('click', () => { cargarProgramas(1); });
         }
     }
+
+    window.recargarProgramasCatalogo = function () {
+        programasCargados = false;
+        cargarDatosPestaña();
+    };
 
     // ---------- Tabla ----------
     function pintarTabla() {
@@ -211,6 +256,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const resp = await fetch(editando ? '/catalogo_programas/modificar' : '/catalogo_programas/alta', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
                 body: JSON.stringify(payload),
             });
             const data = await resp.json().catch(() => ({}));
@@ -225,6 +271,9 @@ document.addEventListener('DOMContentLoaded', function () {
             mostrarMensaje('Error de conexión: ' + err.message, 'error');
         } finally {
             btnGuardar.disabled = false;
+            if (typeof window.forceHideLoadingBanner === 'function') {
+                window.forceHideLoadingBanner();
+            }
         }
     });
 
@@ -247,6 +296,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const resp = await fetch('/catalogo_programas/baja', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
                 body: JSON.stringify({ nombre }),
             });
             const data = await resp.json().catch(() => ({}));
@@ -259,6 +309,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         } catch (err) {
             mostrarMensaje('Error de conexión: ' + err.message, 'error');
+        } finally {
+            if (typeof window.forceHideLoadingBanner === 'function') {
+                window.forceHideLoadingBanner();
+            }
         }
     });
 
@@ -270,4 +324,10 @@ document.addEventListener('DOMContentLoaded', function () {
         filtroEstatus.value = '';
         pintarTabla();
     });
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initProgramasCatalogo);
+} else {
+    initProgramasCatalogo();
+}

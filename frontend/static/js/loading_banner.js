@@ -454,6 +454,11 @@
         }
 
         const formAction = form.getAttribute('action') || '';
+        // Si no tiene action o es URL interna/javascript, es un form controlado por AJAX
+        if (!formAction || formAction.startsWith('#') || formAction.startsWith('javascript:')) {
+            return;
+        }
+
         if (isLogoutTarget(form, formAction) || isActionOrSPEndpoint(formAction, 'POST')) {
             return;
         }
@@ -466,6 +471,19 @@
             url: formAction,
             blocking: true
         });
+
+        // Si el evento fue cancelado por preventDefault() en listeners posteriores (AJAX),
+        // revertir el bloqueo para no dejar la pantalla congelada.
+        setTimeout(() => {
+            if (e.defaultPrevented) {
+                if (manualHoldCount > 0) {
+                    manualHoldCount = Math.max(0, manualHoldCount - 1);
+                    if (activeRequestsCount === 0 && manualHoldCount === 0) {
+                        forceHide();
+                    }
+                }
+            }
+        }, 30);
     }, true);
 
     // =========================================================================

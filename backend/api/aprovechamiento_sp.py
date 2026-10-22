@@ -210,24 +210,6 @@ def deduplicar_rows_aprovechamiento(rows):
             unicos.append(r)
     return unicos
 
-def deduplicar_rows_inscritos(rows):
-    """Deduplica filas de inscritos para evitar conteos repetidos."""
-    vistos = set()
-    unicos = []
-    for r in rows:
-        prog = str(r.get("Nombre_Programa") or "").strip().lower()
-        semestre = str(r.get("Semestre") or "").strip().lower()
-        modalidad = str(r.get("Modalidad") or "").strip().lower()
-        turno = str(r.get("Turno") or "").strip().lower()
-        sexo = normalizar_sexo(r.get("Sexo"))
-        matricula = int(r.get("alumnos") or r.get("Alumnos") or r.get("Matricula") or r.get("matricula") or 0)
-
-        clave = (prog, semestre, modalidad, turno, sexo, matricula)
-        if clave not in vistos:
-            vistos.add(clave)
-            unicos.append(r)
-    return unicos
-
 def sumar_hm(rows, clave_cantidad=None):
     """Suma alumnos por sexo. Devuelve {'h','m','t'}."""
     h = m = 0
@@ -633,7 +615,6 @@ async def obtener_contexto_aprovechamiento(
                         @NNivel = :NNivel;
                 """), {"PPeriodo": periodo, "UUnidad_Academica": unidad, "NNivel": nivel})
                 rows_insc = [dict(r) for r in res_insc.mappings().all()] if res_insc.returns_rows else []
-                rows_insc = deduplicar_rows_inscritos(rows_insc)
                 resumen_inscritos = sumar_hm(rows_insc)
             except Exception as e_insc:
                 print(f"⚠️ No se pudo obtener Inscritos para el acuse: {e_insc}")
@@ -1822,7 +1803,6 @@ async def exportar_aprovechamiento_excel(
         "nivel": nivel
     })
     rows_inscritos = [dict(row) for row in result_inscritos.mappings().all()] if result_inscritos.returns_rows else []
-    rows_inscritos = deduplicar_rows_inscritos(rows_inscritos)
 
     # 4. Crear archivo Excel en memoria
     output = io.BytesIO()
