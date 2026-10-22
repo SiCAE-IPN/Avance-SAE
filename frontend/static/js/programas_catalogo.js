@@ -1,5 +1,6 @@
 // Catálogo de Programas (pestaña dentro de Catálogos > Usuarios)
-// Alta y baja lógica mediante /catalogo_programas/*. La edición queda pendiente del SP de modificación.
+// Alta, modificación (Nivel/Rama/Semestre) y baja lógica mediante /catalogo_programas/*.
+// El nombre del programa es su identificador en los SP, por lo que no es editable.
 
 document.addEventListener('DOMContentLoaded', function () {
     const panelProgramas = document.getElementById('tab-programas');
@@ -139,8 +140,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ---------- Modo formulario ----------
-    function bloquearCampos(bloquear) {
-        [inNombre, selNivel, selRama, selSemestre].forEach(c => { c.disabled = bloquear; });
+    function bloquearCampos(bloquear, soloNombre = false) {
+        inNombre.disabled = bloquear || soloNombre;
+        [selNivel, selRama, selSemestre].forEach(c => { c.disabled = bloquear; });
     }
 
     function modoRegistro() {
@@ -148,6 +150,7 @@ document.addEventListener('DOMContentLoaded', function () {
         form.reset();
         bloquearCampos(false);
         btnGuardar.style.display = '';
+        btnGuardar.textContent = 'Registrar';
         btnEliminar.style.display = 'none';
         titulo.textContent = 'Registro Programa';
         pintarTabla();
@@ -162,10 +165,20 @@ document.addEventListener('DOMContentLoaded', function () {
             const opt = Array.from(sel.options).find(o => o.textContent.trim() === String(etiqueta ?? '').trim());
             sel.value = opt ? opt.value : '';
         });
-        bloquearCampos(true);
-        btnGuardar.style.display = 'none';
-        btnEliminar.style.display = esBaja(p) ? 'none' : 'inline-block';
-        titulo.textContent = esBaja(p) ? 'Programa dado de baja' : 'Consulta Programa';
+        if (esBaja(p)) {
+            // Programa dado de baja: solo consulta
+            bloquearCampos(true);
+            btnGuardar.style.display = 'none';
+            btnEliminar.style.display = 'none';
+            titulo.textContent = 'Programa dado de baja';
+        } else {
+            // Edición: todo editable excepto el nombre (identificador del programa)
+            bloquearCampos(false, true);
+            btnGuardar.style.display = '';
+            btnGuardar.textContent = 'Actualizar';
+            btnEliminar.style.display = 'inline-block';
+            titulo.textContent = 'Editar Programa';
+        }
         pintarTabla();
     }
 
@@ -174,13 +187,15 @@ document.addEventListener('DOMContentLoaded', function () {
         modoRegistro();
     });
 
-    // ---------- Alta ----------
+    // ---------- Alta / Modificación ----------
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
-        if (seleccionado) return;
+        const editando = !!seleccionado;
+        if (editando && esBaja(seleccionado)) return;
 
         const payload = {
-            nombre: inNombre.value.trim(),
+            // En edición el nombre está deshabilitado: se toma del programa seleccionado.
+            nombre: editando ? seleccionado.nombre : inNombre.value.trim(),
             nivel: selNivel.value,
             rama: selRama.value,
             semestre: selSemestre.value,
@@ -191,20 +206,20 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         btnGuardar.disabled = true;
-        mostrarMensaje('Registrando programa...', 'info');
+        mostrarMensaje(editando ? 'Actualizando programa...' : 'Registrando programa...', 'info');
         try {
-            const resp = await fetch('/catalogo_programas/alta', {
+            const resp = await fetch(editando ? '/catalogo_programas/modificar' : '/catalogo_programas/alta', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
             const data = await resp.json().catch(() => ({}));
             if (resp.ok && data.status === 'ok') {
-                mostrarMensaje(data.mensaje || 'Programa registrado correctamente.', 'ok');
-                form.reset();
+                if (editando) modoRegistro(); else form.reset();
+                mostrarMensaje(data.mensaje || (editando ? 'Programa modificado correctamente.' : 'Programa registrado correctamente.'), 'ok');
                 await cargarProgramas();
             } else {
-                mostrarMensaje(data.mensaje || data.detail || 'No se pudo registrar el programa.', 'error');
+                mostrarMensaje(data.mensaje || data.detail || (editando ? 'No se pudo modificar el programa.' : 'No se pudo registrar el programa.'), 'error');
             }
         } catch (err) {
             mostrarMensaje('Error de conexión: ' + err.message, 'error');

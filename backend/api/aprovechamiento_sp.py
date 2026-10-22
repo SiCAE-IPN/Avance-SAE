@@ -101,8 +101,13 @@ MAPA_APROVECHAMIENTO_CORTO = {
     'baja definitiva': 'B. D.',
     'deserción': 'D',
     'desercion': 'D',
+    'r': 'R',
     'reincorporados': 'R',
     'reincorporado': 'R',
+    'reincorporadas': 'R',
+    'reincorporada': 'R',
+    'reincorporación': 'R',
+    'reincorporacion': 'R',
     'reprobada 1 materia': 'R1',
     'reprobadas 1 materia': 'R1',
     'reprobadas 1': 'R1',
@@ -175,11 +180,53 @@ def obtener_tipos_aprovechamiento(rows):
         if apr:
             tipos.add(str(apr).strip())
     orden_base = ['Aprobados', 'Deserción', 'Baja Definitiva', 'Baja Temporal']
-    otros = sorted([t for t in tipos if t not in orden_base and normalizar_tipo_aprovechamiento(t) != 'R'])
+    otros = sorted([t for t in tipos if t not in orden_base and not es_reincorporado(t)])
     return orden_base + otros
 
 def es_reincorporado(apr_raw):
-    return normalizar_tipo_aprovechamiento(apr_raw) == 'R'
+    k = str(apr_raw or '').strip().lower()
+    return normalizar_tipo_aprovechamiento(apr_raw) == 'R' or 'reinc' in k or k == 'r'
+
+def deduplicar_rows_aprovechamiento(rows):
+    """
+    Deduplica filas devueltas por SP_Consulta_Aprovechamiento_Unidad_Academica.
+    Evita sumas dobles o triples causadas por joins con Semaforo_Semestre_Unidad_Academica
+    o uniones en el SP que retornan la misma fila con diferente Id_Semaforo.
+    """
+    vistos = set()
+    unicos = []
+    for r in rows:
+        prog = str(r.get("Nombre_Programa") or "").strip().lower()
+        modalidad = str(r.get("Modalidad") or "").strip().lower()
+        turno = str(r.get("Turno") or "").strip().lower()
+        semestre = str(r.get("Semestre") or "").strip().lower()
+        apr = normalizar_tipo_aprovechamiento(r.get("Aprovechamiento"))
+        sexo = normalizar_sexo(r.get("Sexo"))
+        alumnos = int(r.get("alumnos") or r.get("Alumnos") or 0)
+
+        clave = (prog, modalidad, turno, semestre, apr, sexo, alumnos)
+        if clave not in vistos:
+            vistos.add(clave)
+            unicos.append(r)
+    return unicos
+
+def deduplicar_rows_inscritos(rows):
+    """Deduplica filas de inscritos para evitar conteos repetidos."""
+    vistos = set()
+    unicos = []
+    for r in rows:
+        prog = str(r.get("Nombre_Programa") or "").strip().lower()
+        semestre = str(r.get("Semestre") or "").strip().lower()
+        modalidad = str(r.get("Modalidad") or "").strip().lower()
+        turno = str(r.get("Turno") or "").strip().lower()
+        sexo = normalizar_sexo(r.get("Sexo"))
+        matricula = int(r.get("alumnos") or r.get("Alumnos") or r.get("Matricula") or r.get("matricula") or 0)
+
+        clave = (prog, semestre, modalidad, turno, sexo, matricula)
+        if clave not in vistos:
+            vistos.add(clave)
+            unicos.append(r)
+    return unicos
 
 def sumar_hm(rows, clave_cantidad=None):
     """Suma alumnos por sexo. Devuelve {'h','m','t'}."""
@@ -571,7 +618,10 @@ async def obtener_contexto_aprovechamiento(
         if not rows_raw:
             error = "No se encontraron datos para los filtros seleccionados."
         else:
-            # Los Reincorporados ya no van en las tablas: se muestran en recuadros al inicio del acuse.
+            # Deduplicamos filas de aprovechamiento para prevenir sumas dobles por joins de semáforo
+            rows_raw = deduplicar_rows_aprovechamiento(rows_raw)
+
+            # Los Reincorporados ya no van en las tablas: se muestran en la tabla resumen al inicio del acuse.
             rows_tablas = [r for r in rows_raw if not es_reincorporado(r.get("Aprovechamiento"))]
             resumen_reincorporados = sumar_hm([r for r in rows_raw if es_reincorporado(r.get("Aprovechamiento"))])
             try:
@@ -583,10 +633,19 @@ async def obtener_contexto_aprovechamiento(
                         @NNivel = :NNivel;
                 """), {"PPeriodo": periodo, "UUnidad_Academica": unidad, "NNivel": nivel})
                 rows_insc = [dict(r) for r in res_insc.mappings().all()] if res_insc.returns_rows else []
+                rows_insc = deduplicar_rows_inscritos(rows_insc)
                 resumen_inscritos = sumar_hm(rows_insc)
             except Exception as e_insc:
                 print(f"⚠️ No se pudo obtener Inscritos para el acuse: {e_insc}")
                 resumen_inscritos = {"h": 0, "m": 0, "t": 0}
+
+            # Totales calculados para la tabla unificada (filas y columnas)
+            resumen_totales = {
+                "h": resumen_inscritos["h"] + resumen_reincorporados["h"],
+                "m": resumen_inscritos["m"] + resumen_reincorporados["m"],
+                "t": resumen_inscritos["t"] + resumen_reincorporados["t"]
+            }
+
             tabla_programas  = procesar_tabla_programa(rows_tablas)
             tabla_semestres  = procesar_tabla_semestre(rows_tablas)
             tabla_modalidades = procesar_tabla_modalidad(rows_tablas)
@@ -614,6 +673,7 @@ async def obtener_contexto_aprovechamiento(
         "tabla_turno": tabla_turnos,
         "resumen_inscritos": resumen_inscritos,
         "resumen_reincorporados": resumen_reincorporados,
+        "resumen_totales": resumen_totales,
         "periodo_activo": periodo_activo,
         "puede_validar": puede_validar,
         "usuario_ya_valido": usuario_ya_valido,
@@ -1746,6 +1806,7 @@ async def exportar_aprovechamiento_excel(
         "host": host
     })
     rows_aprovechamiento = [dict(row) for row in result_aprov.mappings().all()] if result_aprov.returns_rows else []
+    rows_aprovechamiento = deduplicar_rows_aprovechamiento(rows_aprovechamiento)
 
     # 3. Ejecutar SP de inscritos
     query_inscritos = text("""
@@ -1761,6 +1822,7 @@ async def exportar_aprovechamiento_excel(
         "nivel": nivel
     })
     rows_inscritos = [dict(row) for row in result_inscritos.mappings().all()] if result_inscritos.returns_rows else []
+    rows_inscritos = deduplicar_rows_inscritos(rows_inscritos)
 
     # 4. Crear archivo Excel en memoria
     output = io.BytesIO()

@@ -242,6 +242,109 @@ async def alta_programa(
     return {"status": "ok", "mensaje": f"Programa '{nombre}' registrado correctamente."}
 
 
+@router.post("/modificar", response_class=JSONResponse)
+async def modificar_programa(
+    request: Request,
+    sess=Depends(get_current_session),
+    db: Session = Depends(get_db),
+    _limit=Depends(limiter_sensible),
+):
+    """
+    Modifica Nivel, Rama y Semestre de un programa existente.
+    El SP identifica el programa por su nombre, por lo que el nombre no es editable.
+    """
+    if not puede_gestionar_programas(sess):
+        return _sin_permiso()
+
+    data = await request.json()
+    nombre = str(data.get("nombre") or "").strip()
+    nivel = str(data.get("nivel") or "").strip()
+    rama = str(data.get("rama") or "").strip()
+    try:
+        id_semestre = int(data.get("semestre"))
+    except (TypeError, ValueError):
+        id_semestre = None
+
+    if not nombre or not nivel or not rama or id_semestre is None:
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "mensaje": "Nombre, Nivel, Rama y Semestre son obligatorios."},
+        )
+
+    # El SP asigna subconsultas que pueden resultar NULL; validar antes de ejecutarlo.
+    nivel_row = db.query(CatNivel.Id_Nivel).filter(CatNivel.Nivel == nivel).first()
+    if not nivel_row:
+        return JSONResponse(status_code=400, content={"status": "error", "mensaje": "El Nivel seleccionado no existe."})
+    rama_row = db.query(CatRama.Id_Rama).filter(CatRama.Nombre_Rama == rama).first()
+    if not rama_row:
+        return JSONResponse(status_code=400, content={"status": "error", "mensaje": "La Rama seleccionada no existe."})
+    if not db.query(CatSemestre.Id_Semestre).filter(CatSemestre.Id_Semestre == id_semestre).first():
+        return JSONResponse(status_code=400, content={"status": "error", "mensaje": "El Semestre seleccionado no existe."})
+
+    programa = db.query(CatProgramas).filter(CatProgramas.Nombre_Programa == nombre).first()
+    if not programa:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "mensaje": f"El programa '{nombre}' no existe."},
+        )
+    if programa.Id_Estatus == ID_ESTATUS_BAJA:
+        return JSONResponse(
+            status_code=409,
+            content={"status": "error", "mensaje": f"El programa '{nombre}' está dado de baja y no puede modificarse."},
+        )
+
+    id_nivel, id_rama = int(nivel_row[0]), int(rama_row[0])
+    if (programa.Id_Nivel, programa.Id_Rama_Programa, programa.Id_Semestre) == (id_nivel, id_rama, id_semestre):
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "mensaje": "No hay cambios que guardar."},
+        )
+
+    try:
+        db.execute(
+            text(
+                """
+                EXEC [dbo].[SP_Modifica_Catalogo_Programa]
+                    @PPrograma = :PPrograma,
+                    @RRama = :RRama,
+                    @NNivel = :NNivel,
+                    @SSemestre = :SSemestre,
+                    @UUsuario = :UUsuario,
+                    @HHost = :HHost,
+                    @PPeriodo = :PPeriodo
+                """
+            ),
+            {
+                "PPrograma": nombre,
+                "RRama": rama,
+                "NNivel": nivel,
+                "SSemestre": id_semestre,
+                "UUsuario": _usuario_operador(sess),
+                "HHost": get_request_host(request),
+                "PPeriodo": _periodo_literal(db),
+            },
+        )
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print("Error al modificar programa:", e)
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "mensaje": "Error al modificar el programa."},
+        )
+
+    # El SP captura sus propios errores: confirmar que el cambio se aplicó.
+    db.expire_all()
+    actualizado = db.query(CatProgramas).filter(CatProgramas.Nombre_Programa == nombre).first()
+    if not actualizado or (actualizado.Id_Nivel, actualizado.Id_Rama_Programa, actualizado.Id_Semestre) != (id_nivel, id_rama, id_semestre):
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "mensaje": "No se pudo modificar el programa. Revisa la bitácora."},
+        )
+
+    return {"status": "ok", "mensaje": f"Programa '{nombre}' modificado correctamente."}
+
+
 @router.post("/baja", response_class=JSONResponse)
 async def baja_programa(
     request: Request,

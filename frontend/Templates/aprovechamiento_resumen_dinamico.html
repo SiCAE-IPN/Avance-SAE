@@ -31,61 +31,88 @@
         font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
     }
 
-    /* Recuadros resumen (Inscritos / Reincorporados) - maquetados con tablas para compatibilidad con PDF */
-    .resumen-recuadros {
+    /* Tabla Resumen Unificada (Inscritos / Reincorporados) */
+    .tabla-resumen-container {
         width: 100%;
-        border-collapse: separate;
-        border-spacing: 12px 0;
-        margin: 10px 0 0 0;
+        margin: 12px 0 16px 0;
         page-break-inside: avoid;
         break-inside: avoid;
     }
 
-    .resumen-recuadros > tbody > tr > td {
-        width: 50%;
-        padding: 0;
-        vertical-align: top;
-    }
-
-    .recuadro-resumen {
+    .tabla-resumen-unificada {
         width: 100%;
+        max-width: 650px;
+        margin: 0 auto;
         border-collapse: collapse;
-        border: 1px solid #e8d0db;
-        background: #fdf6fa;
+        border: 1px solid #c9b4c0;
+        background: #ffffff;
+        font-family: inherit;
+        font-size: 0.85rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
 
-    .recuadro-resumen th.recuadro-titulo {
+    .tabla-resumen-unificada th {
         background-color: #750946;
         color: #ffffff;
-        font-weight: bold;
-        font-size: 0.85rem;
-        padding: 5px 10px;
-        text-align: left;
-    }
-
-    .recuadro-resumen td {
-        width: 33.33%;
+        font-weight: 700;
+        padding: 6px 12px;
         text-align: center;
-        padding: 8px 4px;
+        border: 1px solid #5a0635;
+        font-size: 0.82rem;
+        letter-spacing: 0.3px;
     }
 
-    .recuadro-etiqueta {
-        display: block;
-        font-size: 0.65rem;
-        color: #636569;
-        font-weight: 600;
-        text-transform: uppercase;
+    .tabla-resumen-unificada th.col-concepto {
+        text-align: left;
+        width: 40%;
     }
 
-    .recuadro-valor {
-        display: block;
-        font-size: 1.15rem;
-        font-weight: bold;
+    .tabla-resumen-unificada th.col-num {
+        width: 20%;
+    }
+
+    .tabla-resumen-unificada td {
+        padding: 6px 12px;
+        border: 1px solid #e5d8e0;
         color: #1e293b;
     }
 
-    .recuadro-total .recuadro-valor {
+    .tabla-resumen-unificada td.td-concepto {
+        font-weight: 600;
+        color: #334155;
+        text-align: left;
+    }
+
+    .tabla-resumen-unificada td.td-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-weight: 500;
+    }
+
+    .tabla-resumen-unificada td.td-subtotal {
+        font-weight: 700;
         color: #750946;
+        background: #fbf5f8;
+    }
+
+    .tabla-resumen-unificada tfoot tr.fila-total td {
+        background-color: #f3e6ed;
+        font-weight: 800;
+        color: #750946;
+        border-top: 2px solid #750946;
+        border-bottom: 2px solid #750946;
+    }
+
+    .tabla-resumen-unificada tfoot td.td-concepto-total {
+        text-align: left;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+    }
+
+    .tabla-resumen-unificada tfoot td.td-total-gen {
+        font-size: 0.95rem;
+        color: #550431;
     }
 
     .submenu-categorias-box {
@@ -735,21 +762,41 @@
     <div class="alerta-error">{{ error }}</div>
     {% else %}
 
-    <!-- RECUADROS RESUMEN: INSCRITOS Y REINCORPORADOS -->
-    <table class="resumen-recuadros"><tbody><tr>
-        {% for titulo, datos in [('Inscritos', resumen_inscritos), ('Reincorporados', resumen_reincorporados)] %}
-        <td>
-            <table class="recuadro-resumen">
-                <thead><tr><th class="recuadro-titulo" colspan="3">{{ titulo }}</th></tr></thead>
-                <tbody><tr>
-                    <td><span class="recuadro-etiqueta">Hombres</span><span class="recuadro-valor">{{ datos.h|miles }}</span></td>
-                    <td><span class="recuadro-etiqueta">Mujeres</span><span class="recuadro-valor">{{ datos.m|miles }}</span></td>
-                    <td class="recuadro-total"><span class="recuadro-etiqueta">Total</span><span class="recuadro-valor">{{ datos.t|miles }}</span></td>
-                </tr></tbody>
-            </table>
-        </td>
-        {% endfor %}
-    </tr></tbody></table>
+    <!-- TABLA RESUMEN: INSCRITOS Y REINCORPORADOS -->
+    <div class="tabla-resumen-container">
+        <table class="tabla-resumen-unificada">
+            <thead>
+                <tr>
+                    <th class="col-concepto">Concepto</th>
+                    <th class="col-num">Hombres</th>
+                    <th class="col-num">Mujeres</th>
+                    <th class="col-num">Totales</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="td-concepto">Inscritos</td>
+                    <td class="td-num">{{ resumen_inscritos.h|miles }}</td>
+                    <td class="td-num">{{ resumen_inscritos.m|miles }}</td>
+                    <td class="td-num td-subtotal">{{ resumen_inscritos.t|miles }}</td>
+                </tr>
+                <tr>
+                    <td class="td-concepto">Reincorporados</td>
+                    <td class="td-num">{{ resumen_reincorporados.h|miles }}</td>
+                    <td class="td-num">{{ resumen_reincorporados.m|miles }}</td>
+                    <td class="td-num td-subtotal">{{ resumen_reincorporados.t|miles }}</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr class="fila-total">
+                    <td class="td-concepto-total">Total</td>
+                    <td class="td-num td-total-col">{{ (resumen_totales.h if resumen_totales else (resumen_inscritos.h + resumen_reincorporados.h))|miles }}</td>
+                    <td class="td-num td-total-col">{{ (resumen_totales.m if resumen_totales else (resumen_inscritos.m + resumen_reincorporados.m))|miles }}</td>
+                    <td class="td-num td-total-gen">{{ (resumen_totales.t if resumen_totales else (resumen_inscritos.t + resumen_reincorporados.t))|miles }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
 
     <!-- TABLA 1: PROGRAMA ACADÉMICO -->
     <div class="tabla-seccion" id="sec-programa">
