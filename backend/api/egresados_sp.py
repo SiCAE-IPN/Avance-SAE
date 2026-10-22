@@ -1498,6 +1498,7 @@ async def rechazar_egresados(request: Request, sess=Depends(get_current_session)
         print(f"{'='*60}\n")
 
         sql = text("""
+            SET NOCOUNT ON;
             EXEC [dbo].[SP_Rechaza_Egresados]
                 @PPeriodo = :periodo,
                 @UUnidad_Academica = :ua,
@@ -1518,6 +1519,26 @@ async def rechazar_egresados(request: Request, sess=Depends(get_current_session)
 
         db.commit()
         invalidate_egresados_sp_cache()
+
+        # Notificar por correo (capturista de la misma UA + módulo Egresados + nivel rechazado)
+        try:
+            correos = obtener_correos_involucrados(
+                db=db,
+                id_unidad=None,
+                id_formato=3,
+                id_nivel=nivel_literal,
+                unidad_sigla=unidad_sigla,
+            )
+            print(f"📧 Correos obtenidos para notificación (Egresados): {correos}")
+            notificar_rechazo_global(
+                modulo_rechazado="Egresados",
+                id_rol_que_rechaza=id_rol,
+                correos=correos,
+                unidad_academica=unidad_sigla,
+            )
+        except Exception as e_correo:
+            # El rechazo ya quedó registrado; un fallo de correo no debe revertirlo.
+            print(f"❌ No se pudo notificar el rechazo de Egresados: {e_correo}")
 
         return {"success": True, "message": "Egresados rechazados. Se notificará al capturista."}
         

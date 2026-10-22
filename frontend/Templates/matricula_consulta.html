@@ -532,6 +532,7 @@
     esCapturista: {{ 'true' if es_capturista else 'false' }},
     modoVista: "{{ modo_vista }}",
     idRol: {{ id_rol }},
+    idNivel: {{ (id_nivel or 0) | int }},
     esRolSuperior: {{ 'true' if es_rol_superior else 'false' }},
     turnosDisponibles: {{ turnos | tojson }},
     semaforoEstados: {{ semaforo_estados | tojson }}

@@ -28,6 +28,7 @@ from backend.schemas.Usuario import UsuarioCreate
 from sqlalchemy.orm import Session
 from backend.utils.request import get_request_host
 from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+from backend.api.catalogos.programas_catalogo import puede_gestionar_programas
 
 router = APIRouter()
 
@@ -188,6 +189,7 @@ async def usuarios_view(
             "formatos": formatos,
             "es_super_admin": es_super_admin,
             "tiene_permisos_admin": tiene_permisos_admin,
+            "puede_gestionar_programas": puede_gestionar_programas(sess),
             "rol": Rol,
             "session": sess,
         },

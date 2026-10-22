@@ -174,9 +174,24 @@ def obtener_tipos_aprovechamiento(rows):
         apr = r.get("Aprovechamiento")
         if apr:
             tipos.add(str(apr).strip())
-    orden_base = ['Aprobados', 'Deserción', 'Baja Definitiva', 'Baja Temporal', 'Reincorporados']
-    otros = sorted([t for t in tipos if t not in orden_base])
+    orden_base = ['Aprobados', 'Deserción', 'Baja Definitiva', 'Baja Temporal']
+    otros = sorted([t for t in tipos if t not in orden_base and normalizar_tipo_aprovechamiento(t) != 'R'])
     return orden_base + otros
+
+def es_reincorporado(apr_raw):
+    return normalizar_tipo_aprovechamiento(apr_raw) == 'R'
+
+def sumar_hm(rows, clave_cantidad=None):
+    """Suma alumnos por sexo. Devuelve {'h','m','t'}."""
+    h = m = 0
+    for r in rows:
+        cant = int(r.get("alumnos") or r.get("Alumnos") or r.get("Matricula") or r.get("matricula") or 0)
+        sexo = normalizar_sexo(r.get("Sexo", r.get("sexo", "")))
+        if sexo == 'Hombre':
+            h += cant
+        elif sexo == 'Mujer':
+            m += cant
+    return {"h": h, "m": m, "t": h + m}
 
 # ============================================================================
 # FUNCIONES DE PROCESAMIENTO DE TABLAS (TRANSPUESTAS)
@@ -426,6 +441,8 @@ async def obtener_contexto_aprovechamiento(
     tabla_modalidades = None
     tabla_turnos = None
     error = None
+    resumen_inscritos = {"h": 0, "m": 0, "t": 0}
+    resumen_reincorporados = {"h": 0, "m": 0, "t": 0}
     nombre_ua = unidad or "—"
     periodo_activo = False
     puede_validar = False
@@ -554,10 +571,26 @@ async def obtener_contexto_aprovechamiento(
         if not rows_raw:
             error = "No se encontraron datos para los filtros seleccionados."
         else:
-            tabla_programas  = procesar_tabla_programa(rows_raw)
-            tabla_semestres  = procesar_tabla_semestre(rows_raw)
-            tabla_modalidades = procesar_tabla_modalidad(rows_raw)
-            tabla_turnos     = procesar_tabla_turno(rows_raw)
+            # Los Reincorporados ya no van en las tablas: se muestran en recuadros al inicio del acuse.
+            rows_tablas = [r for r in rows_raw if not es_reincorporado(r.get("Aprovechamiento"))]
+            resumen_reincorporados = sumar_hm([r for r in rows_raw if es_reincorporado(r.get("Aprovechamiento"))])
+            try:
+                res_insc = db.execute(text("""
+                    SET NOCOUNT ON;
+                    EXEC dbo.SP_Consulta_Inscritos_Aprovechamiento
+                        @PPeriodo = :PPeriodo,
+                        @SSigla_Unidad_Academica = :UUnidad_Academica,
+                        @NNivel = :NNivel;
+                """), {"PPeriodo": periodo, "UUnidad_Academica": unidad, "NNivel": nivel})
+                rows_insc = [dict(r) for r in res_insc.mappings().all()] if res_insc.returns_rows else []
+                resumen_inscritos = sumar_hm(rows_insc)
+            except Exception as e_insc:
+                print(f"⚠️ No se pudo obtener Inscritos para el acuse: {e_insc}")
+                resumen_inscritos = {"h": 0, "m": 0, "t": 0}
+            tabla_programas  = procesar_tabla_programa(rows_tablas)
+            tabla_semestres  = procesar_tabla_semestre(rows_tablas)
+            tabla_modalidades = procesar_tabla_modalidad(rows_tablas)
+            tabla_turnos     = procesar_tabla_turno(rows_tablas)
 
     except Exception as e:
         import traceback
@@ -579,6 +612,8 @@ async def obtener_contexto_aprovechamiento(
         "tabla_semestre": tabla_semestres,
         "tabla_modalidad": tabla_modalidades,
         "tabla_turno": tabla_turnos,
+        "resumen_inscritos": resumen_inscritos,
+        "resumen_reincorporados": resumen_reincorporados,
         "periodo_activo": periodo_activo,
         "puede_validar": puede_validar,
         "usuario_ya_valido": usuario_ya_valido,
@@ -1460,6 +1495,9 @@ async def validar_aprovechamiento(request: Request, sess=Depends(get_current_ses
     try:
         body = await request.json()
         _, periodo = get_periodo_activo(db) 
+        # Panel de validación central (roles 6-9): permite elegir el periodo
+        if body.get("periodo_vc"):
+            periodo = str(body.get("periodo_vc")).strip()
         unidad = body.get("unidad_academica", "")
         nivel = body.get("nivel", "")
         nombre_usuario = getattr(sess, 'usuario', '') or ''
@@ -1471,6 +1509,8 @@ async def validar_aprovechamiento(request: Request, sess=Depends(get_current_ses
         print("Periodo Enviado al SP: " + periodo)
         if not semaforo_siguiente:
             return {"success": False, "error": "Rol no autorizado para validar."}
+
+        # Ejecución estándar igual que roles 4 y 5
         result = db.execute(
             text("""
                 SET NOCOUNT ON;
@@ -1484,7 +1524,6 @@ async def validar_aprovechamiento(request: Request, sess=Depends(get_current_ses
             """),
             {"periodo": periodo, "unidad": unidad, "nivel": nivel, "usuario": nombre_usuario, "host": host, "nota": nota}
         )
-
         try:
             sp_rows = [dict(r) for r in result.mappings().all()]
         except Exception:
@@ -1548,17 +1587,20 @@ async def validar_aprovechamiento(request: Request, sess=Depends(get_current_ses
             "correo_acuse_error": correo_acuse_error,
         }
     except Exception as e:
-        import traceback
         db.rollback()
-        return {"success": False, "error": f"Error al validar: {e}\n{traceback.format_exc()}"}
+        print(f"❌ Error al validar aprovechamiento: {e}")
+        return {"success": False, "error": f"Error al validar aprovechamiento: {str(e)}"}
 
 
 @router.post("/rechazar")
 async def rechazar_aprovechamiento(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
     try:
         body = await request.json()
-        print("Body :",body)
+        print("Body rechazo aprovechamiento:", body)
         _, periodo = get_periodo_activo(db) 
+        # Panel de validación central (roles 6-9): permite elegir el periodo
+        if body.get("periodo_vc"):
+            periodo = str(body.get("periodo_vc")).strip()
         nivel = body.get("nivel", "")
         unidad = body.get("unidad_academica", "")
         motivo = body.get("motivo", "")
@@ -1571,6 +1613,8 @@ async def rechazar_aprovechamiento(request: Request, sess=Depends(get_current_se
         semaforo_rechazo = SEMAFORO_RECHAZO.get(id_rol)
         if not semaforo_rechazo:
             return {"success": False, "error": "Rol no autorizado para rechazar."}
+
+        # Ejecución estándar igual que roles 4 y 5
         db.execute(
             text("""
                 SET NOCOUNT ON;
@@ -1589,7 +1633,9 @@ async def rechazar_aprovechamiento(request: Request, sess=Depends(get_current_se
         diccionario_correos = obtener_correos_involucrados(
             db=db, 
             id_unidad=id_unidad_objetivo, 
-            id_formato = 2
+            id_formato = 2,
+            id_nivel=body.get("id_nivel") or nivel,
+            unidad_sigla=unidad,
         )
         
         print(f"📧 Correos obtenidos para notificación: {diccionario_correos}")
@@ -1601,12 +1647,11 @@ async def rechazar_aprovechamiento(request: Request, sess=Depends(get_current_se
             unidad_academica=unidad,
         )
 
-
         return {"success": True, "mensaje": f"Aprovechamiento rechazado correctamente para {unidad} - {periodo}."}
     except Exception as e:
-        import traceback
         db.rollback()
-        return {"success": False, "error": f"Error al rechazar: {e}\n{traceback.format_exc()}"}
+        print(f"❌ Error al rechazar aprovechamiento: {e}")
+        return {"success": False, "error": f"Error al rechazar aprovechamiento: {str(e)}"}
 
 
 @router.post("/validar_unidad_completa")

@@ -1,5 +1,5 @@
 from backend.utils.email import EmailSendError, send_email
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 from datetime import datetime
 from sqlalchemy.orm import Session
 from backend.database.models.Usuario import Usuario
@@ -20,72 +20,136 @@ def id_rol_a_nombre(id_rol: int) -> str:
     }
     return rol_map.get(id_rol, f"Rol desconocido (ID: {id_rol})")
 
+def resolver_id_nivel(db: Session, nivel: Union[int, str, None]) -> Optional[int]:
+    """
+    Convierte un nivel (Id numérico, texto numérico o nombre literal como 'Superior')
+    a su Id_Nivel. Devuelve None si no se puede resolver.
+    """
+    from backend.database.models.CatNivel import CatNivel
+
+    if nivel is None:
+        return None
+    texto = str(nivel).strip()
+    if not texto:
+        return None
+    if texto.isdigit():
+        valor = int(texto)
+        return valor if valor > 0 else None
+    fila = db.query(CatNivel.Id_Nivel).filter(CatNivel.Nivel == texto).first()
+    return int(fila[0]) if fila else None
+
+
+def resolver_id_unidad(db: Session, id_unidad: Union[int, str, None], sigla: Optional[str] = None) -> Optional[int]:
+    """Resuelve el Id de la UA a partir del id recibido o, en su defecto, de su sigla."""
+    from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+
+    texto = str(id_unidad).strip() if id_unidad is not None else ""
+    if texto.isdigit() and int(texto) > 0:
+        return int(texto)
+    sigla = (sigla or "").strip()
+    if sigla:
+        fila = db.query(CatUnidadAcademica.Id_Unidad_Academica).filter(CatUnidadAcademica.Sigla == sigla).first()
+        if fila:
+            return int(fila[0])
+    return None
+
+
 def obtener_correos_involucrados(
-    db: Session, 
-    id_unidad: int, 
-    id_formato: int
-) -> Dict[str, str]:
+    db: Session,
+    id_unidad: Union[int, str, None],
+    id_formato: int,
+    id_nivel: Union[int, str, None] = None,
+    unidad_sigla: Optional[str] = None,
+) -> Dict[str, List[str]]:
     """
-    Busca en la base de datos los correos del Capturista, CEGET y Titular
-    basándose en la Unidad Académica y el Nivel.
+    Busca los correos de quienes deben enterarse de un rechazo:
+
+    - Capturista (rol 3): solo el(los) capturista(s) activo(s) de la UA que tengan asignado
+      el módulo/formato rechazado Y el nivel rechazado. Así, un rechazo de Superior no llega
+      al capturista de Posgrado (ni viceversa).
+    - CEGET (rol 4) y Titular (rol 5): los activos de la UA (no dependen de formato ni nivel).
+
+    Retorna {'capturista': [...], 'ceget': [...], 'titular': [...]}
     """
-    ROLES_NOTIFICACION = {
-        3: 'capturista', # 3 es Capturista
-        4: 'ceget',      # 4 es CEGET
-        5: 'titular'     # 5 es Titular
-    }
-    
-    # Consultamos a los usuarios que pertenezcan a la UA, Nivel y tengan los roles que buscamos
-    usuarios = db.query(Usuario).join(
-        Formato_Usuario, Formato_Usuario.Id_Usuario == Usuario.Id_Usuario
-    ).filter(
-        Usuario.Id_Unidad_Academica == id_unidad,
-        Formato_Usuario.Id_Formato == id_formato,
-        Usuario.Id_Estatus == 1
-    ).all()
+    correos: Dict[str, List[str]] = {'capturista': [], 'ceget': [], 'titular': []}
 
-    # Inicializamos el diccionario vacío
-    correos = {
-        'capturista': "",
-        'ceget': "",
-        'titular': ""
-    }
+    id_ua = resolver_id_unidad(db, id_unidad, unidad_sigla)
+    if not id_ua:
+        print(f"[Correos rechazo] No se pudo resolver la Unidad Académica (id={id_unidad}, sigla={unidad_sigla}).")
+        return correos
 
-    # Poblamos el diccionario con los correos encontrados
-    for u in usuarios:
-        if u.Email: # Verificamos que el usuario realmente tenga un correo registrado
-            rol_clave = ROLES_NOTIFICACION.get(u.Id_Rol)
-            if rol_clave:
-                correos[rol_clave] = u.Email
-                
+    nivel_resuelto = resolver_id_nivel(db, id_nivel)
+    if id_nivel not in (None, "", 0) and nivel_resuelto is None:
+        # Mejor no avisar a nadie que avisar al capturista equivocado.
+        print(f"[Correos rechazo] Nivel '{id_nivel}' no reconocido; no se notificará al capturista.")
+
+    def _agregar(clave: str, email: Optional[str]) -> None:
+        limpio = (email or "").strip()
+        if limpio and limpio.lower() not in {c.lower() for c in correos[clave]}:
+            correos[clave].append(limpio)
+
+    # Capturistas: UA + formato + nivel
+    if id_nivel in (None, "", 0) or nivel_resuelto is not None:
+        q_cap = db.query(Usuario).join(
+            Formato_Usuario, Formato_Usuario.Id_Usuario == Usuario.Id_Usuario
+        ).filter(
+            Usuario.Id_Unidad_Academica == id_ua,
+            Usuario.Id_Rol == 3,
+            Usuario.Id_Estatus == 1,
+            Formato_Usuario.Id_Formato == id_formato,
+            Formato_Usuario.Id_Estatus == 1,
+        )
+        if nivel_resuelto is not None:
+            q_cap = q_cap.filter(Usuario.Id_Nivel == nivel_resuelto)
+        for u in q_cap.all():
+            _agregar('capturista', u.Email)
+
+    # CEGET y Titular: por UA
+    for u in db.query(Usuario).filter(
+        Usuario.Id_Unidad_Academica == id_ua,
+        Usuario.Id_Rol.in_([4, 5]),
+        Usuario.Id_Estatus == 1,
+    ).all():
+        _agregar('ceget' if u.Id_Rol == 4 else 'titular', u.Email)
+
     return correos
+
+
+def _como_lista(valor: Union[str, List[str], None]) -> List[str]:
+    if not valor:
+        return []
+    if isinstance(valor, str):
+        return [valor]
+    return [v for v in valor if v]
+
 
 def notificar_rechazo_global(
     *,
     modulo_rechazado: str,
     id_rol_que_rechaza: int,
-    correos: Dict[str, str],
+    correos: Dict[str, Union[str, List[str]]],
     unidad_academica: str = "",
 ) -> None:
     """
     Evalúa quién rechazó el módulo (por su id_rol) y envía un correo a los involucrados.
-    'correos' debe ser: {'capturista': '...', 'ceget': '...', 'titular': '...'}
+    'correos' debe ser: {'capturista': [...], 'ceget': [...], 'titular': [...]}
+    (cada valor puede ser una lista de correos o un único correo).
     """
     destinatarios = []
 
     # 1. Lógica inteligente de ruteo
     # NOTA: Ajusta el número 4 y 5 según el ID real de CEGET y Titular en tu base de datos
     if id_rol_que_rechaza == 4: # Suponiendo que 4 es CEGET
-        if correos.get('capturista'): destinatarios.append(correos['capturista'])
+        destinatarios += _como_lista(correos.get('capturista'))
         
     elif id_rol_que_rechaza == 5: # Suponiendo que 5 es Titular
-        if correos.get('capturista'): destinatarios.append(correos['capturista'])
-        if correos.get('ceget'): destinatarios.append(correos['ceget'])
+        destinatarios += _como_lista(correos.get('capturista'))
+        destinatarios += _como_lista(correos.get('ceget'))
         
     elif id_rol_que_rechaza in [6, 7, 8, 9]: # Roles superiores
-        if correos.get('capturista'): destinatarios.append(correos['capturista'])
-        if correos.get('ceget'): destinatarios.append(correos['ceget'])
-        if correos.get('titular'): destinatarios.append(correos['titular'])
+        destinatarios += _como_lista(correos.get('capturista'))
+        destinatarios += _como_lista(correos.get('ceget'))
+        destinatarios += _como_lista(correos.get('titular'))
     else:
         print(f"Rol '{id_rol_que_rechaza}' no tiene configurado el envío de correos de rechazo.")
         return

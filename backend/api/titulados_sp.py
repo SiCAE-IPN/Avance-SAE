@@ -1087,6 +1087,9 @@ async def validar_titulados(request: Request, sess=Depends(get_current_session),
         id_rol = int(sess.id_rol)
         usuario_sp = sess.usuario or 'sistema'
         _,periodo_literal = get_periodo_activo(db)
+        # Panel de validación central (roles 6-9): permite elegir el periodo
+        if body.get("periodo_vc"):
+            periodo_literal = str(body.get("periodo_vc")).strip()
         host_sp = get_request_host(request)
 
         # Roles permitidos
@@ -1271,6 +1274,9 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
         periodo_in = data.get('periodo')
         motivo = (data.get('motivo') or '').strip()
         _,periodo_literal = get_periodo_activo(db)
+        # Panel de validación central (roles 6-9): permite elegir el periodo
+        if data.get('periodo_vc'):
+            periodo_literal = str(data.get('periodo_vc')).strip()
 
 
         Id_Unidad_Academica = db.query(Unidad_Academica.Id_Unidad_Academica).filter(
@@ -1334,6 +1340,7 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
         print(f"{'='*60}\n")
 
         sql = text("""
+            SET NOCOUNT ON;
             EXEC [dbo].[SP_Rechaza_Titulados]
                 @PPeriodo = :periodo,
                 @UUnidad_Academica = :ua,
@@ -1355,7 +1362,9 @@ async def rechazar_titulados(request: Request, sess=Depends(get_current_session)
         correos = obtener_correos_involucrados(
             db=db,
             id_unidad= Id_Unidad_Academica,
-            id_formato=4
+            id_formato=4,
+            id_nivel=id_nivel or nivel_in,
+            unidad_sigla=unidad_in,
         )
 
         print("Estos son los correos", correos)

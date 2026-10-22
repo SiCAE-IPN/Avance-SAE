@@ -6,7 +6,7 @@
 {% block title %}Módulo Principal - SiCAE{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="/static/css/mod_principal.css?v=6.0">
+<link rel="stylesheet" href="/static/css/mod_principal.css?v=6.1">
 {% endblock %}
 
 {% block content %}
@@ -30,8 +30,10 @@
         <p class="subtitulo">Módulo Principal • Selecciona una opción para comenzar</p>
     </div>
 
-    {% set total_cards = 6 + (1 if (session.id_rol in [1] or es_super_admin) else 0) %}
-    <div class="grid-modulos {% if total_cards == 3 %}layout-6-cards{% else %}layout-7-cards{% endif %}"
+    {% set es_validador_central = session.id_rol in [6, 7, 8, 9] %}
+
+    {% set total_cards = 3 + (1 if (session.id_rol in [1] or es_super_admin) else 0) %}
+    <div class="grid-modulos {% if es_validador_central %}layout-validacion{% elif total_cards == 3 %}layout-6-cards{% else %}layout-7-cards{% endif %}"
         id="gridModulos">
         <div id="Btn_Catalogos" class="card-modulo {% if not es_admin %}bloqueado{% endif %}" {% if not es_admin %}
             title="No tienes permisos para ver catálogos" {% endif %}>
@@ -40,46 +42,10 @@
             <p class="card-desc">Gestión de usuarios, Programas y Unidades Académicas.</p>
         </div>
 
-        <div id="Btn_Matricula"
-            class="card-modulo {% if not es_admin and 'matricula' not in formatos_permitidos %}bloqueado{% endif %}{# {% if rechazos_por_modulo and rechazos_por_modulo.matricula %} card-con-rechazo{% endif %} #}"
-            {% if not es_admin and 'matricula' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
-            {# --- INDICADOR DE RECHAZO PARA CAPTURISTAS (Descomentar para activar) ---
-            {% if rechazos_por_modulo and rechazos_por_modulo.matricula %}
-            <div class="card-rechazo-top-bar"></div>
-            <div class="badge-rechazo-modulo"
-                title="Rechazado por {{ rechazos_por_modulo.matricula.rechazado_por }}: {{ rechazos_por_modulo.matricula.motivo }}">
-                <span class="badge-rechazo-beacon"></span>
-                <span class="badge-rechazo-text">Rechazo</span>
-            </div>
-            {% endif %}
-            ------------------------------------------------------------------------ #}
-            <div class="card-icon">📚</div>
-            <h3 class="card-title">Matrícula</h3>
-            <p class="card-desc">Consulta y captura de información de la comunidad estudiantil.</p>
-        </div>
-
-        <div id="Btn_Aprovechamiento"
-            class="card-modulo {% if not es_admin and 'aprovechamiento' not in formatos_permitidos %}bloqueado{% endif %}"
-            {% if not es_admin and 'aprovechamiento' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
-            <div class="card-icon">📈</div>
-            <h3 class="card-title">Aprovechamiento Académico</h3>
-            <p class="card-desc">Estadísticas y desempeño de la comunidad estudiantil.</p>
-        </div>
-
-        <div id="Btn_Egresados"
-            class="card-modulo {% if not es_admin and 'egresados' not in formatos_permitidos %}bloqueado{% endif %}"
-            {% if not es_admin and 'egresados' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
-            <div class="card-icon">🎓</div>
-            <h3 class="card-title">Egresados</h3>
-            <p class="card-desc">Seguimiento y control de generaciones salientes.</p>
-        </div>
-
-        <div id="Btn_Titulados"
-            class="card-modulo {% if not es_admin and 'titulados' not in formatos_permitidos %}bloqueado{% endif %}"
-            {% if not es_admin and 'titulados' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
-            <div class="card-icon">📜</div>
-            <h3 class="card-title">Titulados</h3>
-            <p class="card-desc">Registro de alumnos que han obtenido su título.</p>
+        <div id="Btn_Escolar" class="card-modulo">
+            <div class="card-icon">🏫</div>
+            <h3 class="card-title">Escolar</h3>
+            <p class="card-desc">{% if es_validador_central %}Validación de acuses de Matrícula, Aprovechamiento, Egresados y Titulados.{% else %}Matrícula, Aprovechamiento, Egresados y Titulados.{% endif %}</p>
         </div>
 
         <div class="card-modulo dual-card-wrapper">
@@ -126,34 +92,9 @@
         window.location.href = '/usuarios/';
     });
 
-    // Navegar a la página de captura de matrícula
-    document.getElementById('Btn_Matricula').addEventListener('click', function () {
-        if (this.classList.contains('bloqueado')) return;
-        if (window.showLoadingBanner) {
-            window.showLoadingBanner({
-                moduleKey: 'matricula',
-                title: 'Cargando Módulo de Matrícula'
-            });
-        }
-        window.location.href = '/matricula/consulta';
-    });
-
-    // Navegar a la página de aprovechamiento académico
-    document.getElementById('Btn_Aprovechamiento').addEventListener('click', function () {
-        if (this.classList.contains('bloqueado')) return;
-        window.location.href = '/aprovechamiento/consulta';
-    });
-
-    // Navegar a la página de egresados
-    document.getElementById('Btn_Egresados').addEventListener('click', function () {
-        if (this.classList.contains('bloqueado')) return;
-        window.location.href = '/egresados/consulta';
-    });
-
-    // Navegar a la página de titulados
-    document.getElementById('Btn_Titulados').addEventListener('click', function () {
-        if (this.classList.contains('bloqueado')) return;
-        window.location.href = '/titulados/consulta';
+    // Navegar al módulo Escolar
+    document.getElementById('Btn_Escolar')?.addEventListener('click', function () {
+        window.location.href = '/mod_principal/escolar';
     });
 
     // Abrir dashboard de Power BI en una pestaña nueva

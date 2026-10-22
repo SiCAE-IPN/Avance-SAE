@@ -28,8 +28,8 @@ def _es_administrador_autorizado(sess) -> bool:
     return id_rol == 1 or is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
 
 
-@router.get("/", response_class=HTMLResponse)
-def mod_principal_view(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
+def _contexto_modulos(request: Request, sess, db: Session) -> dict:
+    """Calcula permisos/formatos de la sesión (compartido por Mod_Principal y Escolar)."""
     nombre_usuario = sess.nombre_usuario
     apellidoP_usuario = sess.apellidoP_usuario
     apellidoM_usuario = sess.apellidoM_usuario
@@ -98,7 +98,7 @@ def mod_principal_view(request: Request, sess=Depends(get_current_session), db: 
             #     except Exception as e:
             #         print(f"[ModPrincipal] Error al verificar rechazo formato {id_fmt}: {e}")
 
-    return templates.TemplateResponse("Mod_Principal.html", {
+    return {
         "request": request, 
         "nombre_usuario": nombre_completo, 
         "session": sess,
@@ -106,7 +106,18 @@ def mod_principal_view(request: Request, sess=Depends(get_current_session), db: 
         "es_super_admin": es_super,
         "formatos_permitidos": formatos_permitidos,
         "rechazos_por_modulo": rechazos_por_modulo
-    })
+    }
+
+
+@router.get("/", response_class=HTMLResponse)
+def mod_principal_view(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
+    return templates.TemplateResponse("Mod_Principal.html", _contexto_modulos(request, sess, db))
+
+
+@router.get("/escolar", response_class=HTMLResponse)
+def escolar_view(request: Request, sess=Depends(get_current_session), db: Session = Depends(get_db)):
+    """Módulo Escolar: Matrícula/Aprovechamiento/Egresados/Titulados (roles 3-5) o Validación de Acuses (roles 6-9)."""
+    return templates.TemplateResponse("Escolar.html", _contexto_modulos(request, sess, db))
 
 
 @router.get("/dashboard_matricula", response_class=HTMLResponse)

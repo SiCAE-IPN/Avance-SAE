@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% set mostrar_sidebar = false %}
+{% set mostrar_header = false %}
+
+{% block title %}Escolar - SiCAE{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/mod_principal.css?v=6.1">
+{% if session.id_rol in [6, 7, 8, 9] %}
+<link rel="stylesheet" href="/static/css/validacion_central.css?v=2.2">
+{% endif %}
+<style>
+    .btn-volver-principal { background:#fff; color:#750946; border:1.5px solid #750946; border-radius:8px; padding:8px 20px; font-size:.92rem; font-weight:700; cursor:pointer; text-decoration:none; transition:all .25s ease; margin-right:12px; }
+    .btn-volver-principal:hover { background:#750946; color:#fff; transform:translateY(-2px); }
+    .topbar-acciones { display:flex; align-items:center; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set es_validador_central = session.id_rol in [6, 7, 8, 9] %}
+<header class="sicae-topbar">
+    <div class="user-greeting">
+        <div class="greeting-text">
+            <span class="greeting-title">Bienvenido al sistema</span>
+            <span class="greeting-name">{{ nombre_usuario }}</span>
+        </div>
+    </div>
+    <div class="topbar-acciones">
+        <a href="/mod_principal/" class="btn-volver-principal" id="Btn_VolverPrincipal">← Módulo Principal</a>
+        <form action="/login/logout" method="get">
+            <button type="submit" class="btn-cerrar-sesion"><span>Cerrar Sesión</span></button>
+        </form>
+    </div>
+</header>
+
+<main class="dashboard-container">
+    <div class="dashboard-header">
+        <h1 class="titulo-principal">Escolar</h1>
+        <p class="subtitulo">{% if es_validador_central %}Validación de Acuses{% else %}Selecciona un módulo para comenzar{% endif %}</p>
+    </div>
+
+    {% if es_validador_central %}
+    <section id="vc-panel" class="vc-panel" aria-labelledby="vc-titulo">
+        <div class="vc-panel__cabecera">
+            <div>
+                <h2 id="vc-titulo">Validación de Acuses</h2>
+                <p>Seleccione el periodo y el nivel para revisar, validar o rechazar los módulos de cada Unidad Académica.</p>
+            </div>
+        </div>
+
+        <div class="vc-filtros">
+            <div class="vc-campo">
+                <label for="vc-periodo-sel">1. Periodo</label>
+                <select id="vc-periodo-sel"><option value="">Cargando…</option></select>
+            </div>
+            <div class="vc-campo">
+                <label for="vc-nivel">2. Nivel</label>
+                <select id="vc-nivel"><option value="">Cargando…</option></select>
+            </div>
+            <button type="button" id="vc-refrescar" class="vc-refrescar" disabled>↻ Actualizar</button>
+        </div>
+
+        <div class="vc-cuerpo">
+            <div id="vc-vacio" class="vc-vacio">Elija un periodo y un nivel para ver el estado de Matrícula, Aprovechamiento, Egresados y Titulados de cada Unidad Académica.</div>
+            <div id="vc-tabla-contenedor" class="vc-tabla-contenedor" style="display:none">
+                <table class="vc-tabla">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="vc-th-ua">Unidad Académica</th>
+                            <th scope="col">Matrícula</th>
+                            <th scope="col">Aprovechamiento</th>
+                            <th scope="col">Egresados</th>
+                            <th scope="col">Titulados</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vc-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Burbuja emergente: acuse (PDF) -->
+    <div id="vc-modal-acuse" class="vc-modal" role="dialog" aria-modal="true" aria-labelledby="vc-acuse-titulo">
+        <div class="vc-modal__caja vc-modal__caja--acuse">
+            <div class="vc-modal__cabecera">
+                <h3 id="vc-acuse-titulo">Acuse</h3>
+                <button type="button" class="vc-cerrar" data-cerrar aria-label="Cerrar">✕</button>
+            </div>
+            <div id="vc-acuse-cuerpo" class="vc-modal__cuerpo vc-modal__cuerpo--acuse"></div>
+            <div class="vc-modal__pie">
+                <a id="vc-acuse-descargar" class="vc-btn vc-btn--secundario">⬇ Descargar PDF</a>
+                <button type="button" class="vc-btn vc-btn--primario" data-cerrar>Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Burbuja emergente: motivo de rechazo -->
+    <div id="vc-modal-rechazo" class="vc-modal" role="dialog" aria-modal="true" aria-labelledby="vc-rechazo-titulo">
+        <div class="vc-modal__caja">
+            <div class="vc-modal__cabecera vc-modal__cabecera--rojo">
+                <h3 id="vc-rechazo-titulo">Rechazar</h3>
+                <button type="button" class="vc-cerrar" data-cerrar aria-label="Cerrar">✕</button>
+            </div>
+            <div class="vc-modal__cuerpo">
+                <label class="vc-rechazo-etiqueta" for="vc-rechazo-motivo">Descripción del rechazo</label>
+                <textarea id="vc-rechazo-motivo" class="vc-rechazo-motivo" maxlength="250"
+                    placeholder="Describa el motivo del rechazo (mínimo 10 caracteres)…"></textarea>
+                <div class="vc-rechazo-meta">
+                    <span id="vc-rechazo-error" class="vc-rechazo-error"></span>
+                    <span><span id="vc-rechazo-contador">0</span>/250</span>
+                </div>
+            </div>
+            <div class="vc-modal__pie">
+                <button type="button" class="vc-btn vc-btn--secundario" data-cerrar>Cancelar</button>
+                <button type="button" id="vc-rechazo-confirmar" class="vc-btn vc-btn--rechazar">❌ Confirmar rechazo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Burbuja emergente: confirmación -->
+    <div id="vc-modal-confirm" class="vc-modal" role="alertdialog" aria-modal="true" aria-labelledby="vc-confirm-titulo">
+        <div class="vc-modal__caja">
+            <div class="vc-modal__cabecera">
+                <h3 id="vc-confirm-titulo">Confirmar</h3>
+                <button type="button" class="vc-cerrar" data-cerrar aria-label="Cerrar">✕</button>
+            </div>
+            <div id="vc-confirm-texto" class="vc-modal__cuerpo"></div>
+            <div class="vc-modal__pie">
+                <button type="button" class="vc-btn vc-btn--secundario" data-cerrar>Cancelar</button>
+                <button type="button" id="vc-confirm-aceptar" class="vc-btn vc-btn--primario">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="vc-toast" class="vc-toast" role="status" aria-live="polite"></div>
+    {% else %}
+    <div class="grid-modulos layout-7-cards" id="gridModulos">
+        <div id="Btn_Matricula"
+            class="card-modulo {% if not es_admin and 'matricula' not in formatos_permitidos %}bloqueado{% endif %}"
+            {% if not es_admin and 'matricula' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+            <div class="card-icon">📚</div>
+            <h3 class="card-title">Matrícula</h3>
+            <p class="card-desc">Consulta y captura de información de la comunidad estudiantil.</p>
+        </div>
+
+        <div id="Btn_Aprovechamiento"
+            class="card-modulo {% if not es_admin and 'aprovechamiento' not in formatos_permitidos %}bloqueado{% endif %}"
+            {% if not es_admin and 'aprovechamiento' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+            <div class="card-icon">📈</div>
+            <h3 class="card-title">Aprovechamiento Académico</h3>
+            <p class="card-desc">Estadísticas y desempeño de la comunidad estudiantil.</p>
+        </div>
+
+        <div id="Btn_Egresados"
+            class="card-modulo {% if not es_admin and 'egresados' not in formatos_permitidos %}bloqueado{% endif %}"
+            {% if not es_admin and 'egresados' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+            <div class="card-icon">🎓</div>
+            <h3 class="card-title">Egresados</h3>
+            <p class="card-desc">Seguimiento y control de generaciones salientes.</p>
+        </div>
+
+        <div id="Btn_Titulados"
+            class="card-modulo {% if not es_admin and 'titulados' not in formatos_permitidos %}bloqueado{% endif %}"
+            {% if not es_admin and 'titulados' not in formatos_permitidos %} title="Formato no asignado" {% endif %}>
+            <div class="card-icon">📜</div>
+            <h3 class="card-title">Titulados</h3>
+            <p class="card-desc">Registro de alumnos que han obtenido su título.</p>
+        </div>
+    </div>
+    {% endif %}
+</main>
+{% endblock %}
+
+{% block scripts %}
+{% if session.id_rol in [6, 7, 8, 9] %}
+<script src="/static/js/validacion_central.js?v=2.2"></script>
+{% endif %}
+<script>
+    document.getElementById('Btn_Matricula')?.addEventListener('click', function () {
+        if (this.classList.contains('bloqueado')) return;
+        if (window.showLoadingBanner) {
+            window.showLoadingBanner({ moduleKey: 'matricula', title: 'Cargando Módulo de Matrícula' });
+        }
+        window.location.href = '/matricula/consulta';
+    });
+    document.getElementById('Btn_Aprovechamiento')?.addEventListener('click', function () {
+        if (this.classList.contains('bloqueado')) return;
+        window.location.href = '/aprovechamiento/consulta';
+    });
+    document.getElementById('Btn_Egresados')?.addEventListener('click', function () {
+        if (this.classList.contains('bloqueado')) return;
+        window.location.href = '/egresados/consulta';
+    });
+    document.getElementById('Btn_Titulados')?.addEventListener('click', function () {
+        if (this.classList.contains('bloqueado')) return;
+        window.location.href = '/titulados/consulta';
+    });
+</script>
+{% endblock %}

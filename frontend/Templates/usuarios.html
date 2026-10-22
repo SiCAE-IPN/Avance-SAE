@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/static/css/components/filters.css">
     <link rel="stylesheet" href="/static/css/components/tables.css">
     <link rel="stylesheet" href="/static/css/components/modal.css">
+    <link rel="stylesheet" href="/static/css/components/catalogo_tabs.css">
 {% endblock %}
 
 {% block content %}
@@ -30,6 +31,16 @@
         </form>
     </div>
     
+    {% if puede_gestionar_programas %}
+    <!-- Pestañas del catálogo -->
+    <div class="catalogo-tabs" role="tablist" aria-label="Catálogos">
+        <button type="button" class="catalogo-tab active" id="tab-btn-usuarios" role="tab" aria-selected="true" aria-controls="tab-usuarios" data-tab="tab-usuarios">Usuarios</button>
+        <button type="button" class="catalogo-tab" id="tab-btn-programas" role="tab" aria-selected="false" aria-controls="tab-programas" data-tab="tab-programas">Programas</button>
+    </div>
+    {% endif %}
+
+    <!-- Pestaña: Usuarios -->
+    <section id="tab-usuarios" class="catalogo-tab-panel active" role="tabpanel" aria-labelledby="tab-btn-usuarios">
     <h2>Usuarios</h2>
     
     
@@ -48,6 +59,14 @@
 
     <!-- Modal de confirmación -->
     {% include 'components/modal_confirm.html' %}
+    </section>
+
+    {% if puede_gestionar_programas %}
+    <!-- Pestaña: Programas -->
+    <section id="tab-programas" class="catalogo-tab-panel" role="tabpanel" aria-labelledby="tab-btn-programas" hidden>
+        {% include 'components/catalogos/programas_tab.html' %}
+    </section>
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -56,4 +75,7 @@
     <script src="/static/js/filters.js"></script>
     <script src="/static/js/modal.js"></script>
     <script src="/static/js/user_form.js"></script>
+    {% if puede_gestionar_programas %}
+    <script src="/static/js/programas_catalogo.js"></script>
+    {% endif %}
 {% endblock %}

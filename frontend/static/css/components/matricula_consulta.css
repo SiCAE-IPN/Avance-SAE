@@ -144,6 +144,27 @@ h2 {
     transform: translateY(-2px);
 }
 
+/* Pestaña '+' para agregar semestres adicionales (posgrado) */
+.semestre-tab-mas {
+    background: #750946;
+    color: #ffffff;
+    border: 2px dashed #ffffff;
+    outline: 2px solid #750946;
+    width: 44px;
+    min-width: 44px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1;
+    transition: all 0.3s ease;
+}
+
+.semestre-tab-mas:hover {
+    background: #590735;
+    transform: translateY(-2px);
+}
+
 .semestre-tab.active {
     color: #FFFFFF !important;
     font-weight: 700;
@@ -1288,16 +1309,64 @@ td .matricula-pair { flex-wrap:nowrap; }
             box-sizing: border-box;
         }
         
+/* Scroll visible en la tabla de captura (Matrícula y Aprovechamiento).
+   El gutter siempre se reserva para que encabezado y cuerpo permanezcan alineados. */
+.tabla-matricula-completa {
+    --ancho-scroll-tabla: 14px;
+}
+
 .tabla-matricula-completa tbody {
-    -ms-overflow-style: none; /* IE y Edge antiguo */
-    scrollbar-width: none; /* Firefox */
-    scrollbar-gutter: stable; /* Evita saltos/alineacion al aparecer scrollbar */
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.tabla-matricula-completa thead {
+    /* compensa el espacio que ocupa la barra de scroll del tbody */
+    width: calc(100% - var(--ancho-scroll-tabla)) !important;
 }
 
 .tabla-matricula-completa tbody::-webkit-scrollbar {
-    width: 0;
-    height: 0;
+    width: var(--ancho-scroll-tabla);
+    height: var(--ancho-scroll-tabla);
 }
+
+.tabla-matricula-completa tbody::-webkit-scrollbar-track {
+    background: #f1e4ec;
+    border-radius: 8px;
+}
+
+.tabla-matricula-completa tbody::-webkit-scrollbar-thumb {
+    background: #750946;
+    border-radius: 8px;
+    border: 2px solid #f1e4ec;
+}
+
+.tabla-matricula-completa tbody::-webkit-scrollbar-thumb:hover {
+    background: #590735;
+}
+
+/* Firefox: no soporta ::-webkit-scrollbar */
+@supports not selector(::-webkit-scrollbar) {
+    .tabla-matricula-completa {
+        --ancho-scroll-tabla: 17px;
+    }
+    .tabla-matricula-completa tbody {
+        scrollbar-width: auto;
+        scrollbar-color: #750946 #f1e4ec;
+    }
+}
+
+/* Subtotales por columna (capturista): quedan fijas al fondo del área con scroll */
+.tabla-matricula-completa tbody tr.fila-subtotal-col {
+    position: sticky;
+    z-index: 3;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.tabla-matricula-completa tbody tr.fila-subtotal-col td {
+    font-variant-numeric: tabular-nums;
+}
+
 
 #tabla-header th:first-child,
 #tabla-body td:first-child {

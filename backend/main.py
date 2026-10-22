@@ -8,9 +8,10 @@ from backend.api import matricula_sp
 from backend.api import aprovechamiento_sp
 from backend.api import egresados_sp
 from backend.api import titulados_sp
+from backend.api import validacion_central
 from backend.api import recuperacion
 from backend.api import programas
-from backend.api.catalogos import domicilios, periodos, egresados, semaforo
+from backend.api.catalogos import domicilios, periodos, egresados, semaforo, programas_catalogo
 from backend.core.templates import static, templates
 from fastapi.staticfiles import StaticFiles as _StaticFiles
 
@@ -85,11 +86,13 @@ app.include_router(matricula_sp.router , prefix="/matricula")
 app.include_router(aprovechamiento_sp.router , prefix="/aprovechamiento")
 app.include_router(egresados_sp.router , prefix="/egresados")
 app.include_router(titulados_sp.router , prefix="/titulados")
+app.include_router(validacion_central.router , prefix="/validacion")
 app.include_router(domicilios.router)
 app.include_router(periodos.router)
 app.include_router(egresados.router)  # Catálogo egresados
 app.include_router(semaforo.router)
 app.include_router(programas.router, prefix="/programas")
+app.include_router(programas_catalogo.router, prefix="/catalogo_programas")
 app.include_router(recuperacion.router)
 
 

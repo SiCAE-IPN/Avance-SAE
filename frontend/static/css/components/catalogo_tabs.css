@@ -1,0 +1,148 @@
+/* Componente: Pestañas de Catálogos (Usuarios | Programas) */
+
+.catalogo-tabs {
+    display: flex;
+    gap: 6px;
+    margin: 18px 0 8px;
+    border-bottom: 2px solid #750946;
+}
+
+.catalogo-tab {
+    background: #f1e6ee;
+    color: #750946;
+    border: 1px solid #d9c3d1;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    padding: 10px 26px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    top: 2px;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.catalogo-tab:hover {
+    background: #e6d0dd;
+}
+
+.catalogo-tab.active {
+    background: #750946;
+    color: #fff;
+    border-color: #750946;
+}
+
+.catalogo-tab:focus-visible {
+    outline: 2px solid #4a022e;
+    outline-offset: 2px;
+}
+
+.catalogo-tab-panel {
+    display: none;
+}
+
+.catalogo-tab-panel.active {
+    display: block;
+    animation: catalogoTabFade 0.25s ease;
+}
+
+@keyframes catalogoTabFade {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Estados de la tabla de programas */
+#prog-tabla tbody tr.prog-fila-baja td {
+    color: #888;
+    font-style: italic;
+}
+
+#prog-tabla tbody tr.prog-fila-seleccionada {
+    background: #f1e6ee;
+}
+
+#prog-tabla .prog-vacio {
+    text-align: center;
+    padding: 14px;
+    color: #777;
+}
+
+#prog-mensaje p {
+    margin: 10px 0 0;
+    font-weight: bold;
+}
+
+/* ===== Botones de la pestaña Programas (mismo estilo que los de Usuarios) ===== */
+#prog-btn-guardar,
+#prog-btn-limpiar,
+#prog-btn-eliminar,
+#prog-btn-limpiar-filtros {
+    border: none;
+    padding: 10px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #fff;
+    transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+#prog-btn-guardar,
+#prog-btn-limpiar-filtros {
+    background: #750946;
+}
+
+#prog-btn-guardar:hover,
+#prog-btn-limpiar-filtros:hover {
+    background: #4a022e;
+}
+
+#prog-btn-limpiar {
+    background: #aaa;
+    margin-left: 10px;
+}
+
+#prog-btn-limpiar:hover {
+    background: #750946;
+}
+
+#prog-btn-eliminar {
+    background: #750946;
+    margin-left: 10px;
+}
+
+#prog-btn-eliminar:hover {
+    background: #ff0000;
+}
+
+#prog-btn-guardar:active,
+#prog-btn-limpiar:active,
+#prog-btn-eliminar:active,
+#prog-btn-limpiar-filtros:active {
+    transform: translateY(1px);
+}
+
+#prog-btn-guardar:disabled {
+    background: #b58aa2;
+    cursor: not-allowed;
+}
+
+#prog-btn-guardar:focus-visible,
+#prog-btn-limpiar:focus-visible,
+#prog-btn-eliminar:focus-visible,
+#prog-btn-limpiar-filtros:focus-visible {
+    outline: 2px solid #4a022e;
+    outline-offset: 2px;
+}
+
+/* Filtros de la pestaña */
+#prog-filtro-texto {
+    flex: 1;
+    min-width: 240px;
+}
+
+/* Botones del modal de baja (por si modal.css no los cubre fuera de #modal-confirmar) */
+#prog-modal-baja .modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}

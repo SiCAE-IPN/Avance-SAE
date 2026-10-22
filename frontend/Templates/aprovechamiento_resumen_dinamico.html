@@ -31,6 +31,63 @@
         font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
     }
 
+    /* Recuadros resumen (Inscritos / Reincorporados) - maquetados con tablas para compatibilidad con PDF */
+    .resumen-recuadros {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 12px 0;
+        margin: 10px 0 0 0;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .resumen-recuadros > tbody > tr > td {
+        width: 50%;
+        padding: 0;
+        vertical-align: top;
+    }
+
+    .recuadro-resumen {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #e8d0db;
+        background: #fdf6fa;
+    }
+
+    .recuadro-resumen th.recuadro-titulo {
+        background-color: #750946;
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 0.85rem;
+        padding: 5px 10px;
+        text-align: left;
+    }
+
+    .recuadro-resumen td {
+        width: 33.33%;
+        text-align: center;
+        padding: 8px 4px;
+    }
+
+    .recuadro-etiqueta {
+        display: block;
+        font-size: 0.65rem;
+        color: #636569;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .recuadro-valor {
+        display: block;
+        font-size: 1.15rem;
+        font-weight: bold;
+        color: #1e293b;
+    }
+
+    .recuadro-total .recuadro-valor {
+        color: #750946;
+    }
+
     .submenu-categorias-box {
         display: none !important;
     }
@@ -677,6 +734,22 @@
     {% if error %}
     <div class="alerta-error">{{ error }}</div>
     {% else %}
+
+    <!-- RECUADROS RESUMEN: INSCRITOS Y REINCORPORADOS -->
+    <table class="resumen-recuadros"><tbody><tr>
+        {% for titulo, datos in [('Inscritos', resumen_inscritos), ('Reincorporados', resumen_reincorporados)] %}
+        <td>
+            <table class="recuadro-resumen">
+                <thead><tr><th class="recuadro-titulo" colspan="3">{{ titulo }}</th></tr></thead>
+                <tbody><tr>
+                    <td><span class="recuadro-etiqueta">Hombres</span><span class="recuadro-valor">{{ datos.h|miles }}</span></td>
+                    <td><span class="recuadro-etiqueta">Mujeres</span><span class="recuadro-valor">{{ datos.m|miles }}</span></td>
+                    <td class="recuadro-total"><span class="recuadro-etiqueta">Total</span><span class="recuadro-valor">{{ datos.t|miles }}</span></td>
+                </tr></tbody>
+            </table>
+        </td>
+        {% endfor %}
+    </tr></tbody></table>
 
     <!-- TABLA 1: PROGRAMA ACADÉMICO -->
     <div class="tabla-seccion" id="sec-programa">

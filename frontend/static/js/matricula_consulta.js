@@ -626,6 +626,8 @@ function renderizarEncabezadoTabla(semestreNum, turnosList) {
         tiposIngresoVisibles.forEach((tipo, indexTipo) => {
             const thTipo = document.createElement('th');
             thTipo.className = 'col-tipo-ingreso';
+            thTipo.setAttribute('data-turno-id', turno.id);
+            thTipo.setAttribute('data-tipo-ingreso', tipo.id);
             thTipo.style.padding = '12px';
             thTipo.style.textAlign = 'center';
             thTipo.style.fontWeight = '600';
@@ -1371,6 +1373,7 @@ function procesarEstadosSemaforoDelSP(rows) {
     });
 
     // Actualizar variable global con semestres disponibles (ordenados)
+    todosLosSemestresSP = Array.from(semestresUnicos).sort((a, b) => a - b);
     semestresDisponiblesSP = Array.from(semestresUnicos).sort((a, b) => a - b);
 
 }
@@ -1712,6 +1715,29 @@ async function renderMatriculaFromSP(rows, datosMap) {
         // LÓGICA 4: Otros programas (usar semestres del SP)
         else {
             console.log('📚 Otro tipo de programa, usando semestres del SP sin filtrar');
+        }
+
+        // LÓGICA 5: Posgrado (nivel 3) en captura -> semestres visibles según tipo de programa.
+        // Especialidad: 2, Maestría: 4, Doctorado: 8. Si el SP trae más, se muestra la pestaña '+'
+        // para habilitar semestres adicionales hasta el máximo que devuelva el SP.
+        posgradoPestanas = null;
+        if (esCapturista && parseInt(__MAT.idNivel) === 3 && programaTexto) {
+            const baseSemestres = obtenerSemestresBasePosgrado(programaTexto);
+            if (baseSemestres) {
+                const todosSemestres = [...semestresAMostrar].sort((a, b) => a - b);
+                const claveContexto = `${document.getElementById('periodo')?.value || ''}||${document.getElementById('programa')?.value || ''}||${modalidadId}`;
+                let visibles = Math.max(baseSemestres, extraSemestresPosgradoPorContexto[claveContexto] || 0);
+                // Si un semestre adicional ya tiene avance (semáforo > 1), debe mostrarse
+                todosSemestres.forEach((sem, idx) => {
+                    if ((parseInt(estadosSemaforoPorSemestre[sem]) || 1) > 1) {
+                        visibles = Math.max(visibles, idx + 1);
+                    }
+                });
+                visibles = Math.min(visibles, todosSemestres.length);
+                posgradoPestanas = { todos: todosSemestres, visibles: visibles, clave: claveContexto };
+                semestresAMostrar = todosSemestres.slice(0, visibles);
+                console.log(`🎓 POSGRADO (${programaTexto}): base=${baseSemestres}, SP=${todosSemestres.length}, visibles=${visibles}`);
+            }
         }
 
         console.log('🎯 Semestres finales a mostrar:', semestresAMostrar);
@@ -2402,11 +2428,90 @@ function calcularTotales() {
         console.warn('⚠️ Elemento total_general no encontrado');
     }
 
+    // Subtotales de Hombres / Mujeres por columna (solo capturista)
+    actualizarSubtotalesColumnas();
+
     // Actualizar colores del semáforo en las pestañas
     if (typeof actualizarColoresPestanas === 'function') {
         actualizarColoresPestanas();
     }
     actualizarInforme();
+}
+
+// Subtotales por columna (Turno x Tipo de ingreso) separados por sexo.
+// Se agregan como dos filas fijas (sticky) al final del tbody para que siempre estén visibles.
+// Solo aplica al capturista (id_rol = 3).
+function actualizarSubtotalesColumnas() {
+    if (typeof esCapturista === 'undefined' || !esCapturista) return;
+    const tbody = domCache.tbody || document.getElementById('matricula-tbody');
+    const thead = document.getElementById('matricula-thead');
+    if (!tbody || !thead) return;
+
+    const ths = Array.from(thead.querySelectorAll('th.col-tipo-ingreso'));
+    if (ths.length === 0) return;
+
+    // Sumar por columna y sexo
+    const sumas = {};
+    tbody.querySelectorAll('input.input-matricula-nueva').forEach(inp => {
+        const key = `${inp.dataset.turno}_${inp.dataset.tipoIngreso}`;
+        if (!sumas[key]) sumas[key] = { M: 0, F: 0 };
+        sumas[key][inp.dataset.sexo] = (sumas[key][inp.dataset.sexo] || 0) + (parseInt(inp.value) || 0);
+    });
+
+    const definiciones = [
+        { clase: 'fila-subtotal-hombres', etiqueta: 'Subtotal Hombres', sexo: 'M', color: '#1976d2', fondo: '#e3f2fd', borde: '#2196f3' },
+        { clase: 'fila-subtotal-mujeres', etiqueta: 'Subtotal Mujeres', sexo: 'F', color: '#c2185b', fondo: '#fce4ec', borde: '#e91e63' }
+    ];
+
+    definiciones.forEach((def, idxDef) => {
+        let tr = tbody.querySelector(`tr.${def.clase}`);
+        const necesitaReconstruir = !tr || tr.children.length !== ths.length + 1;
+        if (necesitaReconstruir) {
+            if (tr) tr.remove();
+            tr = document.createElement('tr');
+            tr.className = `fila-subtotal-col ${def.clase}`;
+            // Mujeres queda pegada al fondo; Hombres justo encima
+            tr.style.bottom = idxDef === 0 ? '34px' : '0px';
+
+            const tdEtiqueta = document.createElement('td');
+            tdEtiqueta.textContent = def.etiqueta;
+            tdEtiqueta.style.fontWeight = '700';
+            tdEtiqueta.style.fontSize = '11px';
+            tdEtiqueta.style.color = def.color;
+            tdEtiqueta.style.background = def.fondo;
+            tr.appendChild(tdEtiqueta);
+
+            ths.forEach(th => {
+                const td = document.createElement('td');
+                td.className = 'celda-subtotal-col';
+                td.dataset.key = `${th.getAttribute('data-turno-id')}_${th.getAttribute('data-tipo-ingreso')}`;
+                td.style.fontWeight = '700';
+                td.style.fontSize = '13px';
+                td.style.color = def.color;
+                td.style.background = def.fondo;
+                if (th.style.borderRight) td.style.borderRight = '3px solid #b71c1c';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        }
+
+        // Mantener las filas de subtotales siempre al final (Hombres antes que Mujeres)
+        const filaMujeres = tbody.querySelector('tr.fila-subtotal-mujeres');
+        const filaHombres = tbody.querySelector('tr.fila-subtotal-hombres');
+        if (filaHombres) tbody.appendChild(filaHombres);
+        if (filaMujeres) tbody.appendChild(filaMujeres);
+
+        tr.querySelectorAll('td.celda-subtotal-col').forEach(td => {
+            const s = sumas[td.dataset.key];
+            td.textContent = ((s && s[def.sexo]) || 0).toLocaleString('en-US');
+        });
+    });
+
+    const filaH = tbody.querySelector('tr.fila-subtotal-hombres');
+    const filaM = tbody.querySelector('tr.fila-subtotal-mujeres');
+    if (filaH && filaM) {
+        filaH.style.bottom = (filaM.offsetHeight || 34) + 'px';
+    }
 }
 
 // Sincronizar el ancho de la celda "TOTALES" fija
@@ -2666,6 +2771,128 @@ let estadosSemaforoPorSemestre = {};
 
 // Almacén de semestres disponibles extraídos del SP (dinámico por nivel educativo)
 let semestresDisponiblesSP = [];
+let todosLosSemestresSP = [];
+
+// Posgrado (nivel 3): estado de las pestañas de semestres con botón '+'
+// { todos: [semestres que devuelve el SP], visibles: n, clave: contexto } | null si no aplica
+let posgradoPestanas = null;
+// Cuántos semestres ha habilitado el usuario con '+' por contexto (periodo||programa||modalidad)
+const extraSemestresPosgradoPorContexto = {};
+
+// Semestres base a mostrar según el nombre del programa de posgrado
+function obtenerSemestresBasePosgrado(nombrePrograma) {
+    const nombre = normalizeLabel(nombrePrograma);
+    if (nombre.includes('especialidad')) return 2;
+    if (nombre.includes('maestria')) return 4;
+    if (nombre.includes('doctorado')) return 8;
+    return null;
+}
+
+// Agrega la pestaña '+' cuando el SP tiene más semestres que los visibles
+function renderizarPestanaMasPosgrado() {
+    const tabsContainer = document.getElementById('semestres-tabs');
+    if (!tabsContainer) return;
+    const previa = tabsContainer.querySelector('.semestre-tab-mas');
+    if (previa) previa.remove();
+    if (!posgradoPestanas || posgradoPestanas.visibles >= posgradoPestanas.todos.length) return;
+
+    const siguiente = posgradoPestanas.todos[posgradoPestanas.visibles];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'semestre-tab-mas';
+    btn.textContent = '+';
+    btn.title = `Agregar Semestre ${siguiente}`;
+    btn.setAttribute('aria-label', `Agregar Semestre ${siguiente}`);
+    btn.addEventListener('click', agregarSemestrePosgrado);
+    tabsContainer.appendChild(btn);
+}
+
+function agregarSemestrePosgrado() {
+    const st = posgradoPestanas;
+    if (!st || st.visibles >= st.todos.length) return;
+    st.visibles += 1;
+    extraSemestresPosgradoPorContexto[st.clave] = st.visibles;
+
+    const lista = st.todos.slice(0, st.visibles);
+    const nuevo = lista[lista.length - 1];
+    semestresDisponiblesSP = [...lista];
+    generarPestanasSemestres(lista);
+    actualizarColoresPestanas();
+    seleccionarSemestre(nuevo);
+}
+
+// Valida en 0 todos los semestres de posgrado que hayan quedado ocultos (sin captura)
+async function validarSemestresOcultosPosgradoEnCero(periodo, programa, modalidad) {
+    if (!posgradoPestanas || !Array.isArray(posgradoPestanas.todos)) return;
+    const semestresOcultos = posgradoPestanas.todos.slice(posgradoPestanas.visibles);
+    if (semestresOcultos.length === 0) return;
+
+    console.log(`🧹 [Posgrado] Validando semestres ocultos en 0:`, semestresOcultos);
+
+    let turnosIds = (turnosVisibles && turnosVisibles.length > 0)
+        ? turnosVisibles.map(t => parseInt(t.id ?? t.Id_Turno)).filter(n => !isNaN(n))
+        : (turnosDisponibles || []).map(t => parseInt(t.Id_Turno ?? t.id)).filter(n => !isNaN(n));
+    turnosIds = [...new Set(turnosIds)];
+    if (turnosIds.length === 0) {
+        turnosIds = [1];
+    }
+
+    for (const semOculto of semestresOcultos) {
+        const estadoActual = parseInt(estadosSemaforoPorSemestre[semOculto], 10);
+        if (estadoActual === 3) continue; // Ya completado
+
+        try {
+            for (const turnoId of turnosIds) {
+                await fetch('/matricula/guardar_captura_completa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        periodo: periodo,
+                        programa: programa,
+                        semestre: semOculto,
+                        modalidad: modalidad,
+                        turno: turnoId,
+                        total_grupos: 0,
+                        datos_matricula: {}
+                    })
+                });
+
+                await fetch('/matricula/preparar_turno', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        periodo: periodo,
+                        programa: programa,
+                        modalidad: modalidad,
+                        semestre: semOculto,
+                        turno: turnoId,
+                        total_grupos: 0
+                    })
+                });
+
+                marcarTurnoComoValidado(semOculto, turnoId);
+            }
+
+            const resFinal = await fetch('/matricula/validar_captura_semestre', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    periodo: periodo,
+                    programa: programa,
+                    modalidad: modalidad,
+                    semestre: semOculto,
+                    total_grupos: 0
+                })
+            });
+            const dataFinal = await resFinal.json();
+            marcarSemestreComoValidado(semOculto);
+            estadosSemaforoPorSemestre[semOculto] = 3;
+            console.log(`✅ Semestre oculto ${semOculto} validado en 0:`, dataFinal);
+        } catch (e) {
+            console.error(`❌ Error al validar semestre oculto ${semOculto} en 0:`, e);
+        }
+    }
+}
 
 // ✨ BANDERA DE OPTIMIZACIÓN: Indica si los datos completos ya se cargaron del backend
 let datosCompletosYaCargados = false;
@@ -3178,6 +3405,9 @@ function generarPestanasSemestres(semestresParam) {
 
     // Inicializar barra de semestre actual al generar las pestañas
     actualizarBarraSemestreActual(semestreEfectivo);
+
+    // Posgrado: pestaña '+' para habilitar semestres adicionales
+    renderizarPestanaMasPosgrado();
 }
 
 // Función para actualizar el color de una pestaña según su estado
@@ -4626,21 +4856,17 @@ async function ejecutarSPFinalSemestre(semestreActual, periodo, programa, modali
                 console.log(`📍 Todos los semestres finalizados: ${todosLosSemestresFinalizados}`);
                 console.log(`📍 Estados visibles actuales:`, semestresActivos.map(sem => ({ sem, estado: estadosSemaforoPorSemestre[sem] })));
 
-                if (semestreActualIdx !== -1 && semestreActualIdx < semestresActivos.length - 1) {
-                    const siguienteSemestre = semestresActivos[semestreActualIdx + 1];
-                    const siguienteSemestreNombre = semestresMap[siguienteSemestre] || `Semestre ${siguienteSemestre}`;
-                    console.log(`✨ Avanzando al ${siguienteSemestreNombre}...`);
+                // Si todos los semestres visibles ya están completados, validar automáticamente en '0' los semestres ocultos de posgrado
+                if (todosLosSemestresFinalizados) {
+                    console.log('🏁 Cierre alcanzado: todos los semestres visibles del programa/modalidad completados');
 
-                    setTimeout(() => {
-                        seleccionarSemestre(siguienteSemestre);
-                        console.log(`✅ Auto-avance completado al ${siguienteSemestreNombre}`);
-                    }, 1000); // Delay más largo para que el usuario vea el mensaje de éxito del semestre
-                } else if (semestreActualIdx === semestresActivos.length - 1) {
-                    console.log('🏁 Cierre alcanzado en el último semestre visible del programa/modalidad');
-
-                    if (!todosLosSemestresFinalizados) {
-                        console.log('🏁 Aún existen semestres pendientes en el programa/modalidad. No se muestra banner de cierre.');
-                        return;
+                    if (posgradoPestanas && Array.isArray(posgradoPestanas.todos)) {
+                        console.log('🧹 Validando semestres ocultos de posgrado en 0...');
+                        try {
+                            await validarSemestresOcultosPosgradoEnCero(periodo, programa, modalidad);
+                        } catch (e) {
+                            console.warn('⚠️ Error al validar semestres ocultos en posgrado:', e);
+                        }
                     }
 
                     // Obtener información del programa y modalidad actuales
@@ -4648,12 +4874,8 @@ async function ejecutarSPFinalSemestre(semestreActual, periodo, programa, modali
                     const modalidadSelect = document.getElementById('modalidad');
                     const programaNombre = programaSelect?.selectedOptions[0]?.text || 'Programa actual';
                     const modalidadNombre = modalidadSelect?.selectedOptions[0]?.text || 'Modalidad actual';
-                    const tituloBanner = todosLosSemestresFinalizados
-                        ? '¡Has concluido la captura del programa!'
-                        : '¡Has finalizado el último semestre del programa!';
-                    const subtituloBanner = todosLosSemestresFinalizados
-                        ? 'Todos los semestres visibles de esta combinación ya quedaron completados.'
-                        : 'Este programa y modalidad ya no tienen más semestres visibles por validar.';
+                    const tituloBanner = '¡Has concluido la captura del programa!';
+                    const subtituloBanner = 'Todos los semestres de esta combinación ya quedaron completados.';
 
                     setTimeout(() => {
                         Swal.fire({
@@ -4675,6 +4897,18 @@ async function ejecutarSPFinalSemestre(semestreActual, periodo, programa, modali
                             }
                         });
                     }, 2500);
+                } else if (semestreActualIdx !== -1 && semestreActualIdx < semestresActivos.length - 1) {
+                    const siguienteSemestre = semestresActivos[semestreActualIdx + 1];
+                    const siguienteSemestreNombre = semestresMap[siguienteSemestre] || `Semestre ${siguienteSemestre}`;
+                    console.log(`✨ Avanzando al ${siguienteSemestreNombre}...`);
+
+                    setTimeout(() => {
+                        seleccionarSemestre(siguienteSemestre);
+                        console.log(`✅ Auto-avance completado al ${siguienteSemestreNombre}`);
+                    }, 1000); // Delay más largo para que el usuario vea el mensaje de éxito del semestre
+                } else if (semestreActualIdx === semestresActivos.length - 1) {
+                    console.log('🏁 Cierre alcanzado en el último semestre visible del programa/modalidad');
+                    console.log('🏁 Aún existen semestres pendientes en el programa/modalidad. No se muestra banner de cierre.');
                 } else {
                     console.log('⚠️ No se pudo determinar el siguiente semestre');
                 }
@@ -4804,7 +5038,11 @@ async function validarTodosLosSemestres() {
                 semestreInput.value = '1';
                 await cargarDatosExistentes();
 
-                const semestres = Array.isArray(semestresDisponiblesSP) ? [...new Set(semestresDisponiblesSP)] : [];
+                const semestres = (posgradoPestanas && Array.isArray(posgradoPestanas.todos) && posgradoPestanas.todos.length > 0)
+                    ? [...new Set(posgradoPestanas.todos)]
+                    : (Array.isArray(todosLosSemestresSP) && todosLosSemestresSP.length > 0)
+                        ? [...new Set(todosLosSemestresSP)]
+                        : (Array.isArray(semestresDisponiblesSP) ? [...new Set(semestresDisponiblesSP)] : []);
                 const turnos = Array.isArray(turnosDisponibles) ? [...turnosDisponibles] : [];
 
                 // Rastrear turnos en cero para este programa y modalidad
