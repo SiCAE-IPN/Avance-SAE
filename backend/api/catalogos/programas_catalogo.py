@@ -10,7 +10,8 @@ NOTA: aún no existe SP de modificación, por lo que el CRUD no expone edición.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, Depends
+from typing import Optional
+from fastapi import APIRouter, Request, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -22,6 +23,9 @@ from backend.database.models.CatProgramas import CatProgramas
 from backend.database.models.CatNivel import CatNivel
 from backend.database.models.CatRama import CatRama
 from backend.database.models.CatSemestre import CatSemestre
+from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+from backend.database.models.CatModalidad import CatModalidad
+from backend.database.models.CatEstatus import CatEstatus
 from backend.services.periodo_service import get_periodo_activo, get_ultimo_periodo
 from backend.services.usuario_service import is_super_admin
 from backend.utils.request import get_request_host
@@ -30,7 +34,10 @@ router = APIRouter()
 
 # Administrador (1) y Jefaturas / Dirección (7, 8, 9) pueden ver y operar el catálogo.
 ROLES_PERMITIDOS_PROGRAMAS = {1, 7, 8, 9}
-ID_ESTATUS_BAJA = 3
+ID_ESTATUS_ACTIVO = 1
+ID_ESTATUS_INACTIVO = 2
+ID_ESTATUS_ELIMINADO = 3
+ESTATUS_INACTIVOS = {ID_ESTATUS_INACTIVO, ID_ESTATUS_ELIMINADO}
 
 
 def puede_gestionar_programas(sess) -> bool:
@@ -68,87 +75,164 @@ def _usuario_operador(sess) -> str:
 
 @router.get("/opciones", response_class=JSONResponse)
 def opciones_programas(sess=Depends(get_current_session), db: Session = Depends(get_db)):
-    """Listas para los combos del formulario (Nivel, Rama, Semestre)."""
+    """Listas para los combos del formulario y filtros (Nivel, Rama, Semestre, UA, Modalidad)."""
     if not puede_gestionar_programas(sess):
         return _sin_permiso()
 
     niveles = db.query(CatNivel).order_by(CatNivel.Id_Nivel).all()
     ramas = db.query(CatRama).order_by(CatRama.Nombre_Rama).all()
     semestres = db.query(CatSemestre).order_by(CatSemestre.Id_Semestre).all()
+    unidades = db.query(CatUnidadAcademica).order_by(CatUnidadAcademica.Sigla).all()
+    modalidades = db.query(CatModalidad).order_by(CatModalidad.Modalidad).all()
+
+    ua_usuario = getattr(sess, "sigla_unidad_academica", "") or ""
+    nivel_usuario = getattr(sess, "nombre_nivel", "") or ""
 
     return {
         "niveles": [{"valor": n.Nivel, "etiqueta": n.Nivel} for n in niveles],
         "ramas": [{"valor": r.Nombre_Rama, "etiqueta": r.Nombre_Rama} for r in ramas],
-        # El SP de alta recibe el Id_Semestre (int) y lo inserta tal cual.
         "semestres": [{"valor": s.Id_Semestre, "etiqueta": s.Semestre} for s in semestres],
+        "unidades": [{"valor": u.Sigla, "etiqueta": u.Sigla, "nombre": u.Nombre} for u in unidades],
+        "modalidades": [{"valor": m.Modalidad, "etiqueta": m.Modalidad} for m in modalidades],
+        "usuario_ua": ua_usuario,
+        "usuario_nivel": nivel_usuario,
     }
 
 
 @router.get("/datos", response_class=JSONResponse)
 def listar_programas(
     request: Request,
+    unidad: Optional[str] = Query(None),
+    nivel: Optional[str] = Query(None),
     sess=Depends(get_current_session),
     db: Session = Depends(get_db),
 ):
-    """Consulta todos los programas mediante SP_Consulta_Catalogo_Programas (UA = NULL → todos)."""
+    """
+    Consulta de programas:
+    - Si se especifica Unidad Académica (y opcionalmente Nivel), usa SP_Consulta_Programa_Modalidad.
+    - Si no se especifica Unidad, consulta el catálogo general mediante SP_Consulta_Catalogo_Programas.
+    """
     if not puede_gestionar_programas(sess):
         return _sin_permiso()
 
+    filas = []
+    unidad_limpia = (unidad or "").strip()
+    nivel_limpio = (nivel or "").strip()
+
+    # Preparamos un diccionario con rama y estatus de CatProgramas para complementar columnas
     try:
-        resultado = db.execute(
-            text(
-                """
-                SET NOCOUNT ON;
-                EXEC dbo.SP_Consulta_Catalogo_Programas
-                    @UUnidad_Academica = NULL,
-                    @UUsuario = :UUsuario,
-                    @HHost = :HHost,
-                    @PPeriodo = :PPeriodo
-                """
-            ),
-            {
-                "UUsuario": _usuario_operador(sess),
-                "HHost": get_request_host(request),
-                "PPeriodo": _periodo_literal(db),
-            },
-        )
-        # El SP imprime mensajes y puede emitir varios result sets: tomar el primero con filas.
-        filas = []
-        if not resultado.returns_rows:
-            # El SP atrapa sus errores (TRY/CATCH) y termina sin result set.
-            raise RuntimeError(
-                "SP_Consulta_Catalogo_Programas no devolvió datos: falló internamente "
-                "(revisa Bitacora: 'Error en la consulta de Programas' y que Mod_Catalogo_Programas exista en Cat_Modulo)."
-            )
-        cursor = resultado.cursor
-        while True:
-            if cursor.description:
-                columnas = [c[0] for c in cursor.description]
-                filas = [dict(zip(columnas, r)) for r in cursor.fetchall()]
-                break
-            if not cursor.nextset():
-                break
-        # El SP registra bitácora (INSERT) → confirmar para no dejar la transacción abierta.
-        db.commit()
+        ramas_dict = {r.Id_Rama: r.Nombre_Rama for r in db.query(CatRama).all()}
+        estatus_dict = {e.Id_Estatus: e.Descripcion for e in db.query(CatEstatus).all()}
+        progs_catalogo = db.query(CatProgramas).all()
+        prog_meta = {
+            p.Nombre_Programa.strip().lower(): {
+                "rama": ramas_dict.get(p.Id_Rama_Programa, ""),
+                "estatus": estatus_dict.get(p.Id_Estatus, "Activo"),
+            }
+            for p in progs_catalogo if p.Nombre_Programa
+        }
+    except Exception:
+        prog_meta = {}
+
+    try:
+        if unidad_limpia:
+            # Si se indicó nivel específico, consultamos ese nivel; si no, consultamos los niveles disponibles
+            niveles_a_consultar = [nivel_limpio] if nivel_limpio else ["Medio Superior", "Superior", "Posgrado"]
+            for niv in niveles_a_consultar:
+                resultado = db.execute(
+                    text(
+                        """
+                        SET NOCOUNT ON;
+                        EXEC dbo.SP_Consulta_Programa_Modalidad
+                            @UUnidad_Academica = :UUnidad_Academica,
+                            @NNivel = :NNivel,
+                            @UUsuario = :UUsuario,
+                            @HHost = :HHost,
+                            @PPeriodo = :PPeriodo
+                        """
+                    ),
+                    {
+                        "UUnidad_Academica": unidad_limpia,
+                        "NNivel": niv,
+                        "UUsuario": _usuario_operador(sess),
+                        "HHost": get_request_host(request),
+                        "PPeriodo": _periodo_literal(db),
+                    },
+                )
+                if resultado.returns_rows and resultado.cursor:
+                    cursor = resultado.cursor
+                    while True:
+                        if cursor.description:
+                            cols = [c[0] for c in cursor.description]
+                            for r in cursor.fetchall():
+                                filas.append(dict(zip(cols, r)))
+                            break
+                        if not cursor.nextset():
+                            break
+            db.commit()
+
+            programas = [
+                {
+                    "unidad": f.get("sigla") or f.get("Sigla") or unidad_limpia,
+                    "nombre": f.get("Nombre_Programa"),
+                    "modalidad": f.get("Modalidad") or "",
+                    "nivel": f.get("Nivel") or "",
+                    "rama": prog_meta.get(str(f.get("Nombre_Programa") or "").strip().lower(), {}).get("rama", ""),
+                    "semestre": f.get("id_semestre") or f.get("Semestre") or "",
+                    "estatus": prog_meta.get(str(f.get("Nombre_Programa") or "").strip().lower(), {}).get("estatus", "Activo"),
+                }
+                for f in filas
+            ]
+        else:
+            # Consulta general completa: relaciona todos los programas con su Unidad Académica y Modalidad
+            sql_general = """
+                SELECT 
+                    ISNULL(ua.Sigla, '') AS unidad,
+                    pro.Nombre_Programa AS nombre,
+                    ISNULL(md.Modalidad, '') AS modalidad,
+                    ISNULL(niv.Nivel, '') AS nivel,
+                    ISNULL(ram.Nombre_Rama, '') AS rama,
+                    ISNULL(sem.Semestre, '') AS semestre,
+                    ISNULL(est.Descripcion, 'Activo') AS estatus
+                FROM [dbo].[Cat_programas] pro WITH (NOLOCK)
+                LEFT JOIN [dbo].[Programa_Modalidad] pm WITH (NOLOCK) ON pm.Id_Programa = pro.Id_Programa
+                LEFT JOIN [dbo].[Cat_Modalidad] md WITH (NOLOCK) ON md.Id_Modalidad = pm.Id_Modalidad
+                LEFT JOIN [dbo].[Unidad_Programa_Modalidad] upm WITH (NOLOCK) ON upm.Id_Modalidad_Programa = pm.Id_Modalidad_Programa
+                LEFT JOIN [dbo].[Cat_Unidad_Academica] ua WITH (NOLOCK) ON ua.Id_Unidad_Academica = upm.Id_Unidad_Academica
+                LEFT JOIN [dbo].[Cat_Nivel] niv WITH (NOLOCK) ON pro.Id_Nivel = niv.Id_Nivel
+                LEFT JOIN [dbo].[Cat_Rama] ram WITH (NOLOCK) ON pro.Id_Rama_Programa = ram.Id_Rama
+                LEFT JOIN [dbo].[Cat_Semestre] sem WITH (NOLOCK) ON pro.Id_Semestre = sem.Id_Semestre
+                LEFT JOIN [dbo].[Cat_Estatus] est WITH (NOLOCK) ON pro.Id_Estatus = est.Id_Estatus
+                WHERE (:NNivel IS NULL OR :NNivel = '' OR niv.Nivel = :NNivel)
+                ORDER BY 
+                    CASE WHEN ua.Sigla IS NULL OR ua.Sigla = '' THEN 1 ELSE 0 END,
+                    ua.Sigla, 
+                    pro.Nombre_Programa, 
+                    md.Modalidad
+            """
+            rows = db.execute(text(sql_general), {"NNivel": nivel_limpio or None}).fetchall()
+            programas = [
+                {
+                    "unidad": r[0] or "",
+                    "nombre": r[1] or "",
+                    "modalidad": r[2] or "",
+                    "nivel": r[3] or "",
+                    "rama": r[4] or "",
+                    "semestre": r[5] or "",
+                    "estatus": r[6] or "Activo",
+                }
+                for r in rows
+            ]
+
     except Exception as e:
         db.rollback()
-        print("Error al ejecutar SP_Consulta_Catalogo_Programas:", e)
+        print("Error al consultar programas:", e)
         return JSONResponse(
             status_code=500,
             content={"status": "error", "mensaje": "No se pudo consultar el catálogo de programas."},
         )
 
-    programas = [
-        {
-            "nombre": f.get("Nombre_Programa"),
-            "nivel": f.get("Nivel"),
-            "rama": f.get("Nombre_Rama"),
-            "semestre": f.get("Semestre"),
-            "estatus": f.get("Descripcion"),
-        }
-        for f in filas
-    ]
-    programas.sort(key=lambda p: (p["nombre"] or "").lower())
+    programas.sort(key=lambda p: (0 if p.get("unidad") else 1, p.get("unidad") or "", (p.get("nombre") or "").lower()))
     return {"programas": programas}
 
 
@@ -159,6 +243,12 @@ async def alta_programa(
     db: Session = Depends(get_db),
     _limit=Depends(limiter_sensible),
 ):
+    """
+    Alta de programa:
+    1. Si no existe en Cat_programas, se registra con SP_Alta_Catalogo_Programa.
+    2. Se vincula con Unidad Académica y Modalidad mediante SP_Alta_Programa_Modalidad.
+    3. Se valida el resultado y se devuelven los mensajes diagnósticos de bitácora.
+    """
     if not puede_gestionar_programas(sess):
         return _sin_permiso()
 
@@ -166,15 +256,17 @@ async def alta_programa(
     nombre = str(data.get("nombre") or "").strip()
     nivel = str(data.get("nivel") or "").strip()
     rama = str(data.get("rama") or "").strip()
+    unidad = str(data.get("unidad") or "").strip()
+    modalidad = str(data.get("modalidad") or "").strip()
     try:
         id_semestre = int(data.get("semestre"))
     except (TypeError, ValueError):
         id_semestre = None
 
-    if not nombre or not nivel or not rama or id_semestre is None:
+    if not nombre or not nivel or not rama or not unidad or not modalidad or id_semestre is None:
         return JSONResponse(
             status_code=400,
-            content={"status": "error", "mensaje": "Nombre, Nivel, Rama y Semestre son obligatorios."},
+            content={"status": "error", "mensaje": "Nombre, Nivel, Rama, Semestre, Unidad Académica y Modalidad son obligatorios."},
         )
     if len(nombre) > 100:
         return JSONResponse(
@@ -182,64 +274,152 @@ async def alta_programa(
             content={"status": "error", "mensaje": "El nombre del programa no puede exceder 100 caracteres."},
         )
 
-    # El SP inserta subconsultas (id_nivel / id_rama) que pueden resultar NULL y fallar en silencio;
-    # por eso se valida cada valor antes de ejecutarlo.
+    # Validaciones contra catálogos
     if not db.query(CatNivel.Id_Nivel).filter(CatNivel.Nivel == nivel).first():
         return JSONResponse(status_code=400, content={"status": "error", "mensaje": "El Nivel seleccionado no existe."})
     if not db.query(CatRama.Id_Rama).filter(CatRama.Nombre_Rama == rama).first():
         return JSONResponse(status_code=400, content={"status": "error", "mensaje": "La Rama seleccionada no existe."})
     if not db.query(CatSemestre.Id_Semestre).filter(CatSemestre.Id_Semestre == id_semestre).first():
         return JSONResponse(status_code=400, content={"status": "error", "mensaje": "El Semestre seleccionado no existe."})
+    if not db.query(CatUnidadAcademica.Id_Unidad_Academica).filter(
+        (CatUnidadAcademica.Sigla == unidad) | (CatUnidadAcademica.Nombre == unidad)
+    ).first():
+        return JSONResponse(status_code=400, content={"status": "error", "mensaje": "La Unidad Académica seleccionada no existe."})
+    if not db.query(CatModalidad.Id_Modalidad).filter(CatModalidad.Modalidad == modalidad).first():
+        return JSONResponse(status_code=400, content={"status": "error", "mensaje": "La Modalidad seleccionada no existe."})
 
-    # El SP no avisa al aplicativo cuando el programa ya existe (solo hace rollback y bitácora).
-    if db.query(CatProgramas.Id_Programa).filter(CatProgramas.Nombre_Programa == nombre).first():
-        return JSONResponse(
-            status_code=409,
-            content={"status": "error", "mensaje": f"El programa '{nombre}' ya existe."},
-        )
+    # Paso 1: Registrar en Cat_programas si aún no existe
+    existe_en_catalogo = db.query(CatProgramas.Id_Programa).filter(CatProgramas.Nombre_Programa == nombre).first()
+    if not existe_en_catalogo:
+        try:
+            db.execute(
+                text(
+                    """
+                    EXEC [dbo].[SP_Alta_Catalogo_Programa]
+                        @PPrograma = :PPrograma,
+                        @RRama = :RRama,
+                        @NNivel = :NNivel,
+                        @SSemestre = :SSemestre,
+                        @UUsuario = :UUsuario,
+                        @HHost = :HHost,
+                        @PPeriodo = :PPeriodo
+                    """
+                ),
+                {
+                    "PPrograma": nombre,
+                    "RRama": rama,
+                    "NNivel": nivel,
+                    "SSemestre": id_semestre,
+                    "UUsuario": _usuario_operador(sess),
+                    "HHost": get_request_host(request),
+                    "PPeriodo": _periodo_literal(db),
+                },
+            )
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print("Error al registrar en Cat_programas:", e)
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "mensaje": f"Error al registrar el programa en el catálogo general: {e}"},
+            )
 
+        db.expire_all()
+        if not db.query(CatProgramas.Id_Programa).filter(CatProgramas.Nombre_Programa == nombre).first():
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "mensaje": "No se pudo registrar el programa en Cat_programas. Revisa la bitácora."},
+            )
+
+    # Paso 2: Ejecutar SP_Alta_Programa_Modalidad para ligarlo con la UA y la Modalidad
     try:
-        db.execute(
+        resultado_sp = db.execute(
             text(
                 """
-                EXEC [dbo].[SP_Alta_Catalogo_Programa]
-                    @PPrograma = :PPrograma,
-                    @RRama = :RRama,
+                SET NOCOUNT ON;
+                EXEC [dbo].[SP_Alta_Programa_Modalidad]
+                    @UUnidad_Academica = :UUnidad_Academica,
+                    @PPeriodo = :PPeriodo,
                     @NNivel = :NNivel,
-                    @SSemestre = :SSemestre,
+                    @PPrograma = :PPrograma,
+                    @MModalidad = :MModalidad,
                     @UUsuario = :UUsuario,
-                    @HHost = :HHost,
-                    @PPeriodo = :PPeriodo
+                    @HHost = :HHost
                 """
             ),
             {
-                "PPrograma": nombre,
-                "RRama": rama,
+                "UUnidad_Academica": unidad,
+                "PPeriodo": _periodo_literal(db),
                 "NNivel": nivel,
-                "SSemestre": id_semestre,
+                "PPrograma": nombre,
+                "MModalidad": modalidad,
                 "UUsuario": _usuario_operador(sess),
                 "HHost": get_request_host(request),
-                "PPeriodo": _periodo_literal(db),
             },
         )
+        if resultado_sp.returns_rows and resultado_sp.cursor:
+            try:
+                while True:
+                    resultado_sp.cursor.fetchall()
+                    if not resultado_sp.cursor.nextset():
+                        break
+            except Exception:
+                pass
         db.commit()
     except Exception as e:
         db.rollback()
-        print("Error al registrar programa:", e)
+        print("Error al ejecutar SP_Alta_Programa_Modalidad:", e)
         return JSONResponse(
             status_code=500,
-            content={"status": "error", "mensaje": "Error al registrar el programa."},
+            content={"status": "error", "mensaje": f"Error al ejecutar SP_Alta_Programa_Modalidad: {e}"},
         )
 
-    # El SP captura sus propios errores: confirmar que realmente se insertó.
+    # Paso 3: Verificar si el SP insertó la relación en Unidad_Programa_Modalidad
     db.expire_all()
-    if not db.query(CatProgramas.Id_Programa).filter(CatProgramas.Nombre_Programa == nombre).first():
-        return JSONResponse(
-            status_code=500,
-            content={"status": "error", "mensaje": "No se pudo registrar el programa. Revisa la bitácora."},
-        )
+    rel_existe = db.execute(
+        text(
+            """
+            SELECT COUNT(*)
+            FROM [dbo].[Cat_Unidad_Academica] ua
+            INNER JOIN [dbo].[Unidad_Programa_Modalidad] upm ON upm.Id_Unidad_Academica = ua.Id_Unidad_Academica
+            INNER JOIN [dbo].[Programa_Modalidad] pm ON pm.Id_Modalidad_Programa = upm.Id_Modalidad_Programa
+            INNER JOIN [dbo].[Cat_Modalidad] md ON md.Id_Modalidad = pm.Id_Modalidad
+            INNER JOIN [dbo].[Cat_programas] pro ON pro.Id_Programa = pm.Id_Programa
+            WHERE (ua.Sigla = :ua OR ua.Nombre = :ua)
+              AND md.Modalidad = :mod
+              AND pro.Nombre_Programa = :prog
+            """
+        ),
+        {"ua": unidad, "mod": modalidad, "prog": nombre},
+    ).scalar()
 
-    return {"status": "ok", "mensaje": f"Programa '{nombre}' registrado correctamente."}
+    # Consultar mensaje en Bitacora
+    bit_row = db.execute(
+        text(
+            """
+            SELECT TOP 1 Acciones
+            FROM [dbo].[Bitacora]
+            WHERE Host = :h
+            ORDER BY Id_Bitacora DESC
+            """
+        ),
+        {"h": get_request_host(request)},
+    ).scalar()
+
+    if rel_existe and rel_existe > 0:
+        return {"status": "ok", "mensaje": f"Programa '{nombre}' registrado y vinculado a {unidad} ({modalidad}) correctamente."}
+    else:
+        # Si no se insertó la relación, informamos detalladamente al frontend
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "warning",
+                "mensaje": (
+                    f"El programa '{nombre}' se guardó en el catálogo general, pero SP_Alta_Programa_Modalidad "
+                    f"no insertó la relación en la base de datos. Detalle de Bitácora del SP: '{bit_row or 'Sin registro'}'."
+                ),
+            },
+        )
 
 
 @router.post("/modificar", response_class=JSONResponse)
@@ -287,10 +467,10 @@ async def modificar_programa(
             status_code=404,
             content={"status": "error", "mensaje": f"El programa '{nombre}' no existe."},
         )
-    if programa.Id_Estatus == ID_ESTATUS_BAJA:
+    if programa.Id_Estatus in ESTATUS_INACTIVOS:
         return JSONResponse(
             status_code=409,
-            content={"status": "error", "mensaje": f"El programa '{nombre}' está dado de baja y no puede modificarse."},
+            content={"status": "error", "mensaje": f"El programa '{nombre}' está inactivo y no puede modificarse."},
         )
 
     id_nivel, id_rama = int(nivel_row[0]), int(rama_row[0])
@@ -369,10 +549,10 @@ async def baja_programa(
             status_code=404,
             content={"status": "error", "mensaje": f"El programa '{nombre}' no existe."},
         )
-    if programa.Id_Estatus == ID_ESTATUS_BAJA:
+    if programa.Id_Estatus in ESTATUS_INACTIVOS:
         return JSONResponse(
             status_code=409,
-            content={"status": "error", "mensaje": f"El programa '{nombre}' ya está dado de baja."},
+            content={"status": "error", "mensaje": f"El programa '{nombre}' ya está inactivo."},
         )
 
     try:
@@ -402,7 +582,7 @@ async def baja_programa(
 
     db.expire_all()
     actualizado = db.query(CatProgramas).filter(CatProgramas.Nombre_Programa == nombre).first()
-    if not actualizado or actualizado.Id_Estatus != ID_ESTATUS_BAJA:
+    if not actualizado or actualizado.Id_Estatus not in ESTATUS_INACTIVOS:
         return JSONResponse(
             status_code=500,
             content={"status": "error", "mensaje": "No se pudo dar de baja el programa. Revisa la bitácora."},

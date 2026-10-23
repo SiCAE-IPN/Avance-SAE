@@ -1,6 +1,9 @@
 import os
 import base64
-import msal
+try:
+    import msal
+except ImportError:
+    msal = None
 import requests
 from typing import Optional, TypedDict, Union, List
 from backend.core.config import settings

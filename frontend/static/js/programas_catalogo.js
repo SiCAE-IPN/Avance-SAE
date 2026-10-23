@@ -45,6 +45,8 @@ function initProgramasCatalogo() {
     const selNivel = document.getElementById('prog-nivel');
     const selRama = document.getElementById('prog-rama');
     const selSemestre = document.getElementById('prog-semestre');
+    const selUnidad = document.getElementById('prog-unidad');
+    const selModalidad = document.getElementById('prog-modalidad');
     const btnGuardar = document.getElementById('prog-btn-guardar');
     const btnLimpiar = document.getElementById('prog-btn-limpiar');
     const btnEliminar = document.getElementById('prog-btn-eliminar');
@@ -52,6 +54,9 @@ function initProgramasCatalogo() {
     const mensaje = document.getElementById('prog-mensaje');
     const tbody = document.getElementById('prog-tbody');
     const filtroTexto = document.getElementById('prog-filtro-texto');
+    const filtroUnidad = document.getElementById('prog-filtro-unidad');
+    const filtroNivel = document.getElementById('prog-filtro-nivel');
+    const filtroModalidad = document.getElementById('prog-filtro-modalidad');
     const filtroEstatus = document.getElementById('prog-filtro-estatus');
     const btnLimpiarFiltros = document.getElementById('prog-btn-limpiar-filtros');
     const modal = document.getElementById('prog-modal-baja');
@@ -71,15 +76,17 @@ function initProgramasCatalogo() {
     function mostrarMensaje(texto, tipo) {
         const color = tipo === 'ok' ? '#28a745' : tipo === 'info' ? '#007bff' : '#dc3545';
         const icono = tipo === 'ok' ? '✅' : tipo === 'info' ? '⏳' : '❌';
-        mensaje.innerHTML = `<p style="color:${color};">${icono} ${esc(texto)}</p>`;
+        mensaje.innerHTML = `<p style="color:${color}; word-break:break-word;">${icono} ${esc(texto)}</p>`;
     }
 
     function esBaja(p) {
-        return String(p.estatus || '').toLowerCase().includes('baja');
+        const est = String(p.estatus || '').toLowerCase().trim();
+        return est === 'inactivo' || est === 'eliminado' || est.includes('baja') || est.includes('inactiv');
     }
 
     // ---------- Carga de datos ----------
     function llenarSelect(select, opciones, vacio) {
+        if (!select) return;
         select.innerHTML = `<option value="">${esc(vacio)}</option>` +
             opciones.map(o => `<option value="${esc(o.valor)}">${esc(o.etiqueta)}</option>`).join('');
     }
@@ -96,9 +103,28 @@ function initProgramasCatalogo() {
             }
             if (!resp.ok) throw new Error();
             const data = await resp.json();
+
             llenarSelect(selNivel, data.niveles || [], '-- Seleccione un Nivel --');
             llenarSelect(selRama, data.ramas || [], '-- Seleccione una Rama --');
             llenarSelect(selSemestre, data.semestres || [], '-- Seleccione un Semestre --');
+            llenarSelect(selUnidad, data.unidades || [], '-- Seleccione una Unidad Académica --');
+            llenarSelect(selModalidad, data.modalidades || [], '-- Seleccione una Modalidad --');
+
+            // Filtros de la tabla
+            llenarSelect(filtroUnidad, data.unidades || [], 'Todas las Unidades');
+            llenarSelect(filtroNivel, data.niveles || [], 'Todos los niveles');
+            llenarSelect(filtroModalidad, data.modalidades || [], 'Todas las modalidades');
+
+            // Dejar el formulario vacío y los filtros en "Todas"
+            if (selUnidad) selUnidad.value = '';
+            if (selNivel) selNivel.value = '';
+            if (selRama) selRama.value = '';
+            if (selSemestre) selSemestre.value = '';
+            if (selModalidad) selModalidad.value = '';
+            if (filtroUnidad) filtroUnidad.value = '';
+            if (filtroNivel) filtroNivel.value = '';
+            if (filtroModalidad) filtroModalidad.value = '';
+
             return true;
         } catch (e) {
             mostrarMensaje('No se pudieron cargar las opciones del formulario.', 'error');
@@ -107,9 +133,16 @@ function initProgramasCatalogo() {
     }
 
     async function cargarProgramas(reintentos = 2) {
-        tbody.innerHTML = '<tr><td colspan="5" class="prog-vacio">Cargando programas…</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="prog-vacio">Cargando programas…</td></tr>';
         try {
-            const resp = await fetch('/catalogo_programas/datos', {
+            const params = new URLSearchParams();
+            const u = filtroUnidad ? filtroUnidad.value.trim() : '';
+            const n = filtroNivel ? filtroNivel.value.trim() : '';
+            if (u) params.set('unidad', u);
+            if (n) params.set('nivel', n);
+
+            const url = '/catalogo_programas/datos' + (params.toString() ? '?' + params.toString() : '');
+            const resp = await fetch(url, {
                 credentials: 'same-origin',
                 cache: 'no-store'
             });
@@ -120,7 +153,7 @@ function initProgramasCatalogo() {
                     return await cargarProgramas(reintentos - 1);
                 }
                 programasCargados = false;
-                tbody.innerHTML = '<tr><td colspan="5" class="prog-vacio" style="color:#dc3545;">Sesión no válida o expirada. <a href="/login" style="color:#750946; font-weight:bold; text-decoration:underline;">Iniciar sesión</a></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="prog-vacio" style="color:#dc3545;">Sesión no válida o expirada. <a href="/login" style="color:#750946; font-weight:bold; text-decoration:underline;">Iniciar sesión</a></td></tr>';
                 return;
             }
 
@@ -128,8 +161,12 @@ function initProgramasCatalogo() {
             if (!resp.ok) throw new Error(data.mensaje || data.detail || 'Error al consultar programas');
             programas = data.programas || [];
             const estatus = [...new Set(programas.map(p => p.estatus).filter(Boolean))].sort();
+            const estatusPrevio = filtroEstatus ? filtroEstatus.value : '';
             filtroEstatus.innerHTML = '<option value="">Todos los estatus</option>' +
                 estatus.map(e => `<option value="${esc(e)}">${esc(e)}</option>`).join('');
+            if (filtroEstatus && estatusPrevio && estatus.includes(estatusPrevio)) {
+                filtroEstatus.value = estatusPrevio;
+            }
             pintarTabla();
         } catch (e) {
             if (reintentos > 0) {
@@ -137,7 +174,7 @@ function initProgramasCatalogo() {
                 return await cargarProgramas(reintentos - 1);
             }
             programasCargados = false;
-            tbody.innerHTML = `<tr><td colspan="5" class="prog-vacio" style="color:#dc3545;">
+            tbody.innerHTML = `<tr><td colspan="7" class="prog-vacio" style="color:#dc3545;">
                 ${esc(e.message || 'Error al consultar programas')}
                 <br><button type="button" id="btn-reint-prog" class="btn-filtros" style="margin-top:8px; padding:4px 12px; cursor:pointer;">Reintentar</button>
             </td></tr>`;
@@ -155,47 +192,68 @@ function initProgramasCatalogo() {
     function pintarTabla() {
         const texto = filtroTexto.value.trim().toLowerCase();
         const est = filtroEstatus.value;
+        const mod = filtroModalidad ? filtroModalidad.value : '';
+
         const filtrados = programas.filter(p => {
-            const coincideTexto = !texto || [p.nombre, p.nivel, p.rama, p.semestre]
+            const coincideTexto = !texto || [p.unidad, p.nombre, p.nivel, p.rama, p.semestre, p.modalidad]
                 .some(v => String(v ?? '').toLowerCase().includes(texto));
-            return coincideTexto && (!est || p.estatus === est);
+            const coincideModalidad = !mod || p.modalidad === mod;
+            const coincideEstatus = !est || p.estatus === est;
+            return coincideTexto && coincideModalidad && coincideEstatus;
         });
 
         if (!filtrados.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="prog-vacio">Sin programas para mostrar.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="prog-vacio">Sin programas para mostrar.</td></tr>';
             return;
         }
 
         tbody.innerHTML = filtrados.map(p => `
-            <tr class="fila-edit ${esBaja(p) ? 'prog-fila-baja' : ''} ${seleccionado && seleccionado.nombre === p.nombre ? 'prog-fila-seleccionada' : ''}"
-                data-nombre="${esc(p.nombre)}">
+            <tr class="fila-edit ${esBaja(p) ? 'prog-fila-baja' : ''} ${seleccionado && seleccionado.nombre === p.nombre && (seleccionado.unidad || '') === (p.unidad || '') ? 'prog-fila-seleccionada' : ''}"
+                data-nombre="${esc(p.nombre)}"
+                data-unidad="${esc(p.unidad || '')}"
+                data-modalidad="${esc(p.modalidad || '')}">
+                <td>${esc(p.unidad || '-')}</td>
                 <td>${esc(p.nombre)}</td>
-                <td>${esc(p.nivel)}</td>
-                <td>${esc(p.rama)}</td>
-                <td>${esc(p.semestre)}</td>
-                <td>${esc(p.estatus)}</td>
+                <td>${esc(p.modalidad || '-')}</td>
+                <td>${esc(p.nivel || '-')}</td>
+                <td>${esc(p.rama || '-')}</td>
+                <td>${esc(p.semestre || '-')}</td>
+                <td>${esc(p.estatus || '-')}</td>
             </tr>`).join('');
     }
 
     tbody.addEventListener('click', function (e) {
         const fila = e.target.closest('tr[data-nombre]');
         if (!fila) return;
-        const p = programas.find(x => x.nombre === fila.dataset.nombre);
+        const nombre = fila.dataset.nombre;
+        const unidad = fila.dataset.unidad || '';
+        const modalidad = fila.dataset.modalidad || '';
+        const p = programas.find(x => x.nombre === nombre && (x.unidad || '') === unidad && (x.modalidad || '') === modalidad)
+            || programas.find(x => x.nombre === nombre);
         if (p) seleccionarPrograma(p);
     });
 
     // ---------- Modo formulario ----------
-    function bloquearCampos(bloquear, soloNombre = false) {
-        inNombre.disabled = bloquear || soloNombre;
-        [selNivel, selRama, selSemestre].forEach(c => { c.disabled = bloquear; });
+    function bloquearCampos(bloquear, soloCamposModificables = false) {
+        inNombre.disabled = bloquear || soloCamposModificables;
+        if (selUnidad) selUnidad.disabled = bloquear || soloCamposModificables;
+        if (selModalidad) selModalidad.disabled = bloquear || soloCamposModificables;
+        [selNivel, selRama, selSemestre].forEach(c => { if (c) c.disabled = bloquear; });
     }
 
     function modoRegistro() {
         seleccionado = null;
         form.reset();
         bloquearCampos(false);
+        if (selUnidad) selUnidad.value = '';
+        if (selNivel) selNivel.value = '';
+        if (selRama) selRama.value = '';
+        if (selSemestre) selSemestre.value = '';
+        if (selModalidad) selModalidad.value = '';
+        btnGuardar.disabled = false;
         btnGuardar.style.display = '';
         btnGuardar.textContent = 'Registrar';
+        btnEliminar.disabled = true;
         btnEliminar.style.display = 'none';
         titulo.textContent = 'Registro Programa';
         pintarTabla();
@@ -205,22 +263,29 @@ function initProgramasCatalogo() {
         seleccionado = p;
         mensaje.innerHTML = '';
         inNombre.value = p.nombre || '';
-        // Los combos usan valor = texto (nivel/rama) o Id (semestre): se selecciona por etiqueta.
-        [[selNivel, p.nivel], [selRama, p.rama], [selSemestre, p.semestre]].forEach(([sel, etiqueta]) => {
-            const opt = Array.from(sel.options).find(o => o.textContent.trim() === String(etiqueta ?? '').trim());
+        // Combos con opciones
+        [[selNivel, p.nivel], [selRama, p.rama], [selSemestre, p.semestre], [selUnidad, p.unidad], [selModalidad, p.modalidad]].forEach(([sel, etiqueta]) => {
+            if (!sel) return;
+            const opt = Array.from(sel.options).find(o => o.value === String(etiqueta ?? '').trim() || o.textContent.trim() === String(etiqueta ?? '').trim());
             sel.value = opt ? opt.value : '';
         });
+
         if (esBaja(p)) {
-            // Programa dado de baja: solo consulta
+            // Programa inactivo / dado de baja: solo consulta, sin opciones de modificar ni dar de baja
             bloquearCampos(true);
+            btnGuardar.disabled = true;
             btnGuardar.style.display = 'none';
+            btnEliminar.disabled = true;
             btnEliminar.style.display = 'none';
-            titulo.textContent = 'Programa dado de baja';
+            titulo.textContent = 'Programa inactivo';
+            mostrarMensaje(`El programa '${p.nombre}' se encuentra inactivo y no puede ser modificado ni dado de baja.`, 'info');
         } else {
-            // Edición: todo editable excepto el nombre (identificador del programa)
+            // Edición: Nivel, Rama y Semestre editables. Nombre, UA y Modalidad fijos.
             bloquearCampos(false, true);
+            btnGuardar.disabled = false;
             btnGuardar.style.display = '';
             btnGuardar.textContent = 'Actualizar';
+            btnEliminar.disabled = false;
             btnEliminar.style.display = 'inline-block';
             titulo.textContent = 'Editar Programa';
         }
@@ -238,16 +303,31 @@ function initProgramasCatalogo() {
         const editando = !!seleccionado;
         if (editando && esBaja(seleccionado)) return;
 
-        const payload = {
-            // En edición el nombre está deshabilitado: se toma del programa seleccionado.
-            nombre: editando ? seleccionado.nombre : inNombre.value.trim(),
-            nivel: selNivel.value,
-            rama: selRama.value,
-            semestre: selSemestre.value,
-        };
-        if (!payload.nombre || !payload.nivel || !payload.rama || !payload.semestre) {
-            mostrarMensaje('Completa Nombre, Nivel, Rama y Semestre.', 'error');
-            return;
+        let payload;
+        if (editando) {
+            payload = {
+                nombre: seleccionado.nombre,
+                nivel: selNivel.value,
+                rama: selRama.value,
+                semestre: selSemestre.value,
+            };
+            if (!payload.nombre || !payload.nivel || !payload.rama || !payload.semestre) {
+                mostrarMensaje('Completa Nombre, Nivel, Rama y Semestre.', 'error');
+                return;
+            }
+        } else {
+            payload = {
+                nombre: inNombre.value.trim(),
+                nivel: selNivel.value,
+                rama: selRama.value,
+                semestre: selSemestre.value,
+                unidad: selUnidad ? selUnidad.value : '',
+                modalidad: selModalidad ? selModalidad.value : '',
+            };
+            if (!payload.nombre || !payload.nivel || !payload.rama || !payload.semestre || !payload.unidad || !payload.modalidad) {
+                mostrarMensaje('Completa Nombre, Nivel, Rama, Semestre, Unidad Académica y Modalidad.', 'error');
+                return;
+            }
         }
 
         btnGuardar.disabled = true;
@@ -261,8 +341,18 @@ function initProgramasCatalogo() {
             });
             const data = await resp.json().catch(() => ({}));
             if (resp.ok && data.status === 'ok') {
-                if (editando) modoRegistro(); else form.reset();
+                if (!editando) {
+                    if (filtroTexto) filtroTexto.value = '';
+                    if (filtroEstatus) filtroEstatus.value = '';
+                }
+                modoRegistro();
                 mostrarMensaje(data.mensaje || (editando ? 'Programa modificado correctamente.' : 'Programa registrado correctamente.'), 'ok');
+                await cargarProgramas();
+            } else if (!editando && data.status === 'warning') {
+                if (filtroTexto) filtroTexto.value = '';
+                if (filtroEstatus) filtroEstatus.value = '';
+                modoRegistro();
+                mostrarMensaje(data.mensaje, 'error');
                 await cargarProgramas();
             } else {
                 mostrarMensaje(data.mensaje || data.detail || (editando ? 'No se pudo modificar el programa.' : 'No se pudo registrar el programa.'), 'error');
@@ -279,7 +369,7 @@ function initProgramasCatalogo() {
 
     // ---------- Baja ----------
     btnEliminar.addEventListener('click', function () {
-        if (!seleccionado) return;
+        if (!seleccionado || esBaja(seleccionado)) return;
         modalNombre.textContent = seleccionado.nombre;
         modal.classList.add('show');
     });
@@ -289,7 +379,7 @@ function initProgramasCatalogo() {
 
     modalConfirmar.addEventListener('click', async function () {
         modal.classList.remove('show');
-        if (!seleccionado) return;
+        if (!seleccionado || esBaja(seleccionado)) return;
         const nombre = seleccionado.nombre;
         mostrarMensaje('Dando de baja el programa...', 'info');
         try {
@@ -303,12 +393,13 @@ function initProgramasCatalogo() {
             if (resp.ok && data.status === 'ok') {
                 modoRegistro();
                 mostrarMensaje(data.mensaje || 'Programa dado de baja correctamente.', 'ok');
-                await cargarProgramas();
             } else {
                 mostrarMensaje(data.mensaje || data.detail || 'No se pudo dar de baja el programa.', 'error');
             }
+            await cargarProgramas();
         } catch (err) {
             mostrarMensaje('Error de conexión: ' + err.message, 'error');
+            await cargarProgramas();
         } finally {
             if (typeof window.forceHideLoadingBanner === 'function') {
                 window.forceHideLoadingBanner();
@@ -319,10 +410,17 @@ function initProgramasCatalogo() {
     // ---------- Filtros ----------
     filtroTexto.addEventListener('input', pintarTabla);
     filtroEstatus.addEventListener('change', pintarTabla);
+    if (filtroModalidad) filtroModalidad.addEventListener('change', pintarTabla);
+    if (filtroUnidad) filtroUnidad.addEventListener('change', () => cargarProgramas());
+    if (filtroNivel) filtroNivel.addEventListener('change', () => cargarProgramas());
+
     btnLimpiarFiltros.addEventListener('click', function () {
         filtroTexto.value = '';
         filtroEstatus.value = '';
-        pintarTabla();
+        if (filtroModalidad) filtroModalidad.value = '';
+        if (filtroUnidad) filtroUnidad.value = '';
+        if (filtroNivel) filtroNivel.value = '';
+        cargarProgramas();
     });
 }
 

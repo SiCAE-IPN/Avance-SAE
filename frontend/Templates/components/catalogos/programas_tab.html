@@ -30,6 +30,20 @@
                 </select>
             </div>
         </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="prog-unidad">Unidad Académica</label>
+                <select id="prog-unidad" name="unidad" required class="input-form">
+                    <option value="">-- Seleccione una Unidad Académica --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="prog-modalidad">Modalidad</label>
+                <select id="prog-modalidad" name="modalidad" required class="input-form">
+                    <option value="">-- Seleccione una Modalidad --</option>
+                </select>
+            </div>
+        </div>
         <div class="form-row form-row-actions">
             <button type="submit" id="prog-btn-guardar">Registrar</button>
             <button type="button" id="prog-btn-limpiar">Limpiar</button>
@@ -41,8 +55,17 @@
 
 <!-- Filtros -->
 <div class="filtro-usuarios-box" style="display: flex; gap: 0.5em; align-items: center; flex-wrap: wrap;">
-    <input type="text" id="prog-filtro-texto" class="input-form" placeholder="Filtrar por programa, nivel o rama..." aria-label="Filtrar programas">
-    <select id="prog-filtro-estatus" class="input-form" aria-label="Filtrar por estatus" style="max-width: 220px;">
+    <input type="text" id="prog-filtro-texto" class="input-form" placeholder="Filtrar por programa, nivel o rama..." aria-label="Filtrar programas" style="min-width: 200px;">
+    <select id="prog-filtro-unidad" class="input-form" aria-label="Filtrar por Unidad Académica" style="max-width: 240px;">
+        <option value="">Todas las Unidades</option>
+    </select>
+    <select id="prog-filtro-nivel" class="input-form" aria-label="Filtrar por Nivel" style="max-width: 170px;">
+        <option value="">Todos los niveles</option>
+    </select>
+    <select id="prog-filtro-modalidad" class="input-form" aria-label="Filtrar por Modalidad" style="max-width: 170px;">
+        <option value="">Todas las modalidades</option>
+    </select>
+    <select id="prog-filtro-estatus" class="input-form" aria-label="Filtrar por estatus" style="max-width: 160px;">
         <option value="">Todos los estatus</option>
     </select>
     <button type="button" id="prog-btn-limpiar-filtros" class="btn-filtros" title="Limpiar filtros" style="padding: 0.3em 0.8em;">Borrar Filtros</button>
@@ -53,7 +76,9 @@
     <table id="prog-tabla">
         <thead>
             <tr>
+                <th>Unidad Académica</th>
                 <th>Nombre Programa</th>
+                <th>Modalidad</th>
                 <th>Nivel</th>
                 <th>Rama</th>
                 <th>Semestre</th>
@@ -61,7 +86,7 @@
             </tr>
         </thead>
         <tbody id="prog-tbody">
-            <tr><td colspan="5" class="prog-vacio">Cargando programas…</td></tr>
+            <tr><td colspan="7" class="prog-vacio">Cargando programas…</td></tr>
         </tbody>
     </table>
 </div>
