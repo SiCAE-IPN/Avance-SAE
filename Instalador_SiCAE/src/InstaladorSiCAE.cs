@@ -1569,56 +1569,37 @@ namespace InstaladorSiCAE
 
         private void ConfigureDotEnvFile(string targetDir)
         {
-            string installerDir = AppDomain.CurrentDomain.BaseDirectory;
-            string parentDir = Path.GetFullPath(Path.Combine(installerDir, ".."));
-
             string destEnv = Path.Combine(targetDir, ".env");
             string destEnvExample = Path.Combine(targetDir, ".env.example");
 
             string envTemplate =
-                "# Configuración de Base de Datos SQL Server\r\n" +
-                "DB_USER=sa\r\n" +
+                "# =====================================================================\r\n" +
+                "# CONFIGURACIÓN DE VARIABLES DE ENTORNO - PROYECTO SiCAE (IPN)\r\n" +
+                "# =====================================================================\r\n\r\n" +
+                "# --- 1. CONFIGURACIÓN DE BASE DE DATOS (SQL SERVER) ---\r\n" +
+                "DB_USER=tu_usuario_sql\r\n" +
                 "DB_PASSWORD=tu_contraseña_sql\r\n" +
-                "DB_HOST=148.204.107.22\r\n" +
+                "DB_HOST=tu_servidor_o_ip_sql\r\n" +
                 "DB_PORT=1433\r\n" +
-                "DB_NAME=Base_pruebas\r\n" +
+                "DB_NAME=nombre_de_tu_base_de_datos\r\n" +
                 "DB_DRIVER=ODBC Driver 17 for SQL Server\r\n\r\n" +
-                "# Configuración de Correo Institucional Microsoft Graph (Exchange Online)\r\n" +
-                "MICROSOFT_CLIENT_ID=\r\n" +
-                "MICROSOFT_TENANT_ID=\r\n" +
-                "MICROSOFT_CLIENT_SECRET=\r\n" +
+                "# --- 2. CONFIGURACIÓN DE CORREO INSTITUCIONAL (MICROSOFT GRAPH / EXCHANGE) ---\r\n" +
+                "MICROSOFT_CLIENT_ID=tu_client_id_de_entra_id\r\n" +
+                "MICROSOFT_TENANT_ID=tu_tenant_id_de_entra_id\r\n" +
+                "MICROSOFT_CLIENT_SECRET=tu_client_secret_de_entra_id\r\n" +
                 "SMTP_FROM=sicae@ipn.mx\r\n" +
                 "SMTP_SUBJECT_PREFIX=SiCAE\r\n";
 
-            if (!File.Exists(destEnvExample))
-            {
-                File.WriteAllText(destEnvExample, envTemplate, new UTF8Encoding(false));
-            }
+            File.WriteAllText(destEnvExample, envTemplate, new UTF8Encoding(false));
 
-            if (File.Exists(destEnv))
+            if (!File.Exists(destEnv))
             {
-                AppendLog("✔ El archivo .env ya existe en la carpeta destino (se conservó intacto).\r\n");
-                return;
-            }
-
-            // Buscar .env junto al instalador o en la carpeta raíz del proyecto
-            string instEnv = Path.Combine(installerDir, ".env");
-            string parentEnv = Path.Combine(parentDir, ".env");
-
-            if (File.Exists(instEnv))
-            {
-                File.Copy(instEnv, destEnv, true);
-                AppendLog("✔ Se copió automáticamente el archivo .env incluido con el instalador.\r\n");
-            }
-            else if (File.Exists(parentEnv))
-            {
-                File.Copy(parentEnv, destEnv, true);
-                AppendLog("✔ Se copió automáticamente el archivo .env desde la carpeta raíz.\r\n");
+                File.WriteAllText(destEnv, envTemplate, new UTF8Encoding(false));
+                AppendLog("✔ Se generó la plantilla .env y .env.example sin credenciales (lista para que el usuario coloque sus datos).\r\n");
             }
             else
             {
-                File.WriteAllText(destEnv, envTemplate, new UTF8Encoding(false));
-                AppendLog("✔ Se creó el archivo .env base a partir de la plantilla .env.example.\r\n");
+                AppendLog("✔ El archivo .env ya existe en la carpeta destino (se conservó intacto).\r\n");
             }
         }
 
