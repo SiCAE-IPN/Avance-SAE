@@ -134,6 +134,20 @@ ROLES_SICAE = {
 ID_ROL_ADMINISTRADOR = 1
 
 
+def _es_admin_camaleon(sess: SessionData) -> bool:
+    """Verifica si la sesión tiene rol Administrador (1) o es SuperAdmin (incluso si está simulando)."""
+    if not sess:
+        return False
+    rol_real = sess.original_id_rol if sess.is_impersonating else sess.id_rol
+    if rol_real == ID_ROL_ADMINISTRADOR:
+        return True
+    from backend.services.usuario_service import is_super_admin
+    nom = sess.original_nombre_usuario if sess.is_impersonating else sess.nombre_usuario
+    apP = sess.original_apellidoP_usuario if sess.is_impersonating else sess.apellidoP_usuario
+    apM = sess.original_apellidoM_usuario if sess.is_impersonating else sess.apellidoM_usuario
+    return is_super_admin(nom or "", apP or "", apM or "")
+
+
 def _buscar_candidatos(db: Session, id_rol: int, id_nivel: int, id_unidad: int):
     """
     Busca usuarios activos que coincidan con rol+nivel+UA.
@@ -234,6 +248,51 @@ def _construir_sesion_suplantada(
     )
 
 
+# ── GET /login/camaleon/opciones ─────────────────────────────────────────────
+@router.get("/camaleon/opciones")
+async def opciones_camaleon(
+    current_session: SessionData = Depends(get_current_session),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna los roles, niveles y unidades académicas activas
+    para el menú del modo Camaleón.
+    Solo accesible para Administrador / SuperAdmin.
+    """
+    from fastapi.responses import JSONResponse as _JSONResponse
+    if not _es_admin_camaleon(current_session):
+        return _JSONResponse(status_code=403, content={"detail": "No autorizado"})
+
+    from backend.database.models.CatRoles import CatRoles
+    from backend.database.models.CatNivel import CatNivel
+    from backend.database.models.CatUnidadAcademica import CatUnidadAcademica
+
+    roles = db.query(CatRoles).filter(CatRoles.Id_Estatus == 1).order_by(CatRoles.Id_Rol).all()
+    niveles = db.query(CatNivel).filter(CatNivel.Id_Estatus == 1).order_by(CatNivel.Id_Nivel).all()
+    unidades = db.query(CatUnidadAcademica).filter(CatUnidadAcademica.Id_Estatus == 1).order_by(CatUnidadAcademica.Sigla).all()
+
+    return _JSONResponse(content={
+        "ok": True,
+        "roles": [
+            {"id": int(r.Id_Rol), "nombre": r.Rol or f"Rol {r.Id_Rol}"}
+            for r in roles
+        ],
+        "niveles": [
+            {"id": int(n.Id_Nivel), "nombre": n.Nivel or f"Nivel {n.Id_Nivel}"}
+            for n in niveles
+        ],
+        "unidades": [
+            {
+                "id": int(u.Id_Unidad_Academica),
+                "sigla": u.Sigla or "",
+                "nombre": u.Nombre or u.Sigla or f"UA {u.Id_Unidad_Academica}",
+                "etiqueta": f"{u.Sigla} - {u.Nombre}" if (u.Sigla and u.Nombre and u.Sigla != u.Nombre) else (u.Nombre or u.Sigla)
+            }
+            for u in unidades
+        ]
+    })
+
+
 # ── GET /login/candidatos-simulacion ─────────────────────────────────────────
 @router.get("/candidatos-simulacion")
 async def candidatos_simulacion(
@@ -248,8 +307,7 @@ async def candidatos_simulacion(
     Solo accesible para el Administrador.
     """
     from fastapi.responses import JSONResponse as _JSONResponse
-    rol_real = current_session.original_id_rol if current_session.is_impersonating else current_session.id_rol
-    if rol_real != ID_ROL_ADMINISTRADOR:
+    if not _es_admin_camaleon(current_session):
         return _JSONResponse(status_code=403, content={"detail": "No autorizado"})
 
     from backend.database.models.CatRoles import CatRoles
@@ -299,8 +357,7 @@ async def simular_identidad(
     from backend.core.security_logger import registrar_bloqueo_seguridad
 
     session_id = request.cookies.get("session_id")
-    rol_real_id = current_session.original_id_rol if current_session.is_impersonating else current_session.id_rol
-    if rol_real_id != ID_ROL_ADMINISTRADOR:
+    if not _es_admin_camaleon(current_session):
         return RedirectResponse(url="/mod_principal", status_code=303)
 
     from backend.database.models.CatRoles import CatRoles
@@ -384,8 +441,7 @@ async def simular_usuario_especifico(
     from backend.core.security_logger import registrar_bloqueo_seguridad
     from backend.database.models.Usuario import Usuario as UsuarioModel
 
-    rol_real_id = current_session.original_id_rol if current_session.is_impersonating else current_session.id_rol
-    if rol_real_id != ID_ROL_ADMINISTRADOR:
+    if not _es_admin_camaleon(current_session):
         return _JSONResponse(status_code=403, content={"detail": "No autorizado"})
 
     session_id = request.cookies.get("session_id")

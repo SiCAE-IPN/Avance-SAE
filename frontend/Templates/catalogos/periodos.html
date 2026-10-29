@@ -8,7 +8,71 @@
 <link rel="stylesheet" href="/static/css/components/filters.css">
 <link rel="stylesheet" href="/static/css/components/tables.css">
 <link rel="stylesheet" href="/static/css/components/modal.css">
+<style>
+    .cierre-periodo-box {
+        margin-top: 20px;
+        padding-top: 18px;
+        border-top: 1px solid #e5d5de;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
 
+    .cierre-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.95em;
+        color: #333;
+    }
+
+    .cierre-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 700;
+    }
+
+    .cierre-badge--listo {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .cierre-badge--pendiente {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .cierre-badge--cerrado {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+
+    #btn-cerrar-periodo {
+        background: #a71d2a;
+        color: #fff;
+        border: none;
+        padding: 10px 22px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 600;
+        transition: background 0.2s ease;
+    }
+
+    #btn-cerrar-periodo:hover:not(:disabled) {
+        background: #7a131d;
+    }
+
+    #btn-cerrar-periodo:disabled {
+        background: #cccccc;
+        color: #666666;
+        cursor: not-allowed;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -16,13 +80,14 @@
     <div class="header-usuarios">
         <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario or session.nombre_completo }}</strong>
             {% if periodo_literal %}
-                &nbsp;|&nbsp; Periodo: <strong>{{ periodo_literal }}</strong>
+            &nbsp;|&nbsp; Periodo: <strong>{{ periodo_literal }}</strong>
             {% endif %}
             {% if session.sigla_unidad_academica or sigla_unidad_academica %}
-                &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or sigla_unidad_academica }}</strong>
+            &nbsp;|&nbsp; Unidad Académica: <strong>{{ session.sigla_unidad_academica or sigla_unidad_academica
+                }}</strong>
             {% endif %}
             {% if nombre_rol or session.nombre_rol %}
-                &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
+            &nbsp;|&nbsp; Rol: <strong>{{ nombre_rol or session.nombre_rol }}</strong>
             {% endif %}
         </div>
         <form action="/mod_principal" method="get">
@@ -32,18 +97,18 @@
 
     <h2>Catálogo de Periodos</h2>
 
-
-
-    <!-- Formulario de registro/edición de usuarios -->
-    {% if rol == 'Administrador' or rol == 'Jefe/a de Departamento' or rol == 'Jefe/a de División' or rol == 'Director/a
-    de DII' %}
+    <!-- Formulario de registro y cierre de periodos -->
+    {% if (session and session.id_rol in [1, 7, 8, 9]) or rol in ['Administrador', 'Jefe/a de Departamento', 'Jefe/a de
+    División', 'Director/a de DII', 'Director/a de la DII'] %}
     <div class="registro-container">
         <h3 id="titulo-usuario">Registro Periodo</h3>
         <form id="registroP">
             <div class="form-row">
                 <div class="form-group">
                     <label for="periodo">Periodo</label>
-                    <input type="text" id="periodo" name="periodo" placeholder="2026-2027/1" required class="input-form" maxlength="11" pattern="\d{4}-\d{4}/[12]" readonly style="background-color: #f0f0f0; cursor: not-allowed;">
+                    <input type="text" id="periodo" name="periodo" placeholder="2026-2027/1" required class="input-form"
+                        maxlength="11" pattern="\d{4}-\d{4}/[12]" readonly
+                        style="background-color: #f0f0f0; cursor: not-allowed;">
                 </div>
             </div>
 
@@ -52,7 +117,7 @@
                     <label for="fecha-inicial">Fecha Inicial del Periodo</label>
                     <input type="date" id="fecha-inicial" name="fecha-inicial" required class="input-form">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="fecha-final">Fecha Final del Periodo</label>
                     <input type="date" id="fecha-final" name="fecha-final" required class="input-form">
@@ -64,11 +129,50 @@
             </div>
 
         </form>
+
+        <!-- 🔹 Sección para Cerrar Periodo Activo -->
+        <div class="cierre-periodo-box">
+            <div class="cierre-info">
+                {% if periodo_abierto %}
+                <div>
+                    <strong>Periodo Activo Actual:</strong> <span id="span-periodo-abierto">{{ periodo_abierto }}</span>
+                    {% if estado_cierre and estado_cierre.listo_para_cerrar %}
+                    <span class="cierre-badge cierre-badge--listo">Listo para cerrar (Semáforos en 9)</span>
+                    {% elif estado_cierre %}
+                    <span class="cierre-badge cierre-badge--pendiente">
+                        Faltan {{ estado_cierre.unidades_faltantes }} UA(s) por ser validadas.
+                    </span>
+                    {% endif %}
+                </div>
+                {% if estado_cierre %}
+                <small style="color: #555;">
+                    Unidades Académicas validadas por Director(a) de la DII: <strong>{{ estado_cierre.completados_9 }} /
+                        {{ estado_cierre.total_registros }}</strong>.
+                    <em>(El periodo se cierra en automático cuando todas las UA sean validadas por el Director(a) de la
+                        DII, o manualmente con este
+                        botón).</em>
+                </small>
+                {% endif %}
+                {% else %}
+                <div>
+                    <strong>Estado de Periodos:</strong>
+                    <span class="cierre-badge cierre-badge--cerrado">No hay ningún periodo activo abierto
+                        actualmente</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <div>
+                <button type="button" id="btn-cerrar-periodo" data-periodo="{{ periodo_abierto or '' }}" {% if not
+                    periodo_abierto %}disabled title="No hay un periodo activo abierto" {% endif %}>
+                    🔒 Cerrar Periodo Activo{% if periodo_abierto %} ({{ periodo_abierto }}){% endif %}
+                </button>
+            </div>
+        </div>
+
         <div id="mensaje"></div>
     </div>
     {% endif %}
-
-
 
     <!-- 🔹 Filtro por Activos/Inactivos -->
     <div class="filtro-ua-box">
@@ -80,7 +184,6 @@
             {% endfor %}
         </select>
     </div>
-
 
     <!-- 🔹 Tabla de periodos -->
     <div class="table-container">
@@ -109,8 +212,6 @@
 {% endblock %}
 
 {% block scripts %}
-
-
 <!-- Script que sirve para el filtro por periodos -->
 <script>
     document.addEventListener("DOMContentLoaded", () => {
@@ -121,7 +222,7 @@
             const valor = filtro.value.toLowerCase().trim();
 
             filas.forEach(fila => {
-                // Cambiado: ahora filtra por la columna 1 (Descripción)
+                // Filtra por la columna 1 (Descripción)
                 const estado = fila.cells[1].textContent.toLowerCase().trim();
 
                 // Mostrar todas si no hay filtro o si coincide exactamente
@@ -146,6 +247,7 @@
         {% endif %}
 
         const inputPeriodo = document.getElementById("periodo");
+        if (!inputPeriodo) return;
 
         if (ultimoPeriodo) {
             const siguiente = calcularSiguientePeriodo(ultimoPeriodo);
@@ -186,12 +288,12 @@
             e.preventDefault();
             const pastedText = (e.clipboardData || window.clipboardData).getData("text");
             const numeros = pastedText.replace(/[^\d]/g, "");
-            
+
             if (numeros.length >= 9) {
                 const year1 = numeros.substring(0, 4);
                 const year2 = numeros.substring(4, 8);
                 const num = numeros.charAt(8);
-                
+
                 if (num === "1" || num === "2") {
                     inputPeriodo.value = `${year1}-${year2}/${num}`;
                 }
@@ -200,7 +302,6 @@
 
         // 🔹 Función para calcular el periodo siguiente
         function calcularSiguientePeriodo(periodoActual) {
-            // periodoActual ejemplo: "2022-2023/2"
             const [anos, numero] = periodoActual.split("/");
             const [a1, a2] = anos.split("-").map(n => parseInt(n.trim()));
             const n = parseInt(numero.trim());
@@ -258,7 +359,7 @@
                 const respuesta = await fetch("/nuevo_periodo", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         periodo,
                         fecha_inicial: fechaInicial,
                         fecha_final: fechaFinal
@@ -271,22 +372,19 @@
                     window.forceHideLoadingBanner();
                 }
 
-                //Si el periodo ya está registrado, no mostrar mensaje de creado exitosamente  
-                    if (data.status === "success") {
-                        divMensaje.innerHTML = `
-                            <p style="color: #28a745; font-weight: bold; margin-top: 10px;">
-                                ✅ ${data.message || 'Periodo creado exitosamente'}
-                            </p>
-                        `;
-                        
-                        // Recargar página después de 2 segundos para mostrar el nuevo periodo
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2000);
+                if (data.status === "success") {
+                    divMensaje.innerHTML = `
+                        <p style="color: #28a745; font-weight: bold; margin-top: 10px;">
+                            ✅ ${data.message || 'Periodo creado exitosamente'}
+                        </p>
+                    `;
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
                 } else {
                     divMensaje.innerHTML = `
                         <p style="color: #dc3545; font-weight: bold; margin-top: 10px;">
-                            ❌ ${data.error || 'Error al crear el periodo'}
+                            ❌ ${data.message || data.error || 'Error al crear el periodo'}
                         </p>
                     `;
                     btnGuardar.disabled = false;
@@ -306,9 +404,71 @@
             }
         });
 
+        // 🔹 Al cerrar el periodo activo → llamada a POST /cerrar_periodo
+        const btnCerrar = document.getElementById("btn-cerrar-periodo");
+        if (btnCerrar) {
+            btnCerrar.addEventListener("click", async () => {
+                const periodoActivo = (btnCerrar.dataset.periodo || "").trim();
+                const divMensaje = document.getElementById("mensaje");
+                if (!periodoActivo) return;
+
+                const confirmar = window.confirm(
+                    `¿Está seguro que desea cerrar el periodo activo ${periodoActivo}?\n\n` +
+                    `Recuerde que todos los semáforos de las Unidades Académicas (todos los niveles y módulos) deben estar en '9'.`
+                );
+                if (!confirmar) return;
+
+                const textoOriginal = btnCerrar.textContent;
+                btnCerrar.disabled = true;
+                btnCerrar.textContent = "Verificando y cerrando...";
+                divMensaje.innerHTML = `<p style="color: #007bff; margin-top: 10px;">⏳ Validando semáforos y ejecutando cierre del periodo ${periodoActivo}...</p>`;
+
+                try {
+                    const respuesta = await fetch("/cerrar_periodo", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ periodo: periodoActivo })
+                    });
+
+                    const data = await respuesta.json();
+
+                    if (typeof window.forceHideLoadingBanner === 'function') {
+                        window.forceHideLoadingBanner();
+                    }
+
+                    if (data.status === "success") {
+                        divMensaje.innerHTML = `
+                            <p style="color: #28a745; font-weight: bold; margin-top: 10px;">
+                                ✅ ${data.message || 'Periodo cerrado exitosamente.'}
+                            </p>
+                        `;
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1800);
+                    } else {
+                        divMensaje.innerHTML = `
+                            <p style="color: #dc3545; font-weight: bold; margin-top: 10px;">
+                                ❌ ${data.message || 'No se pudo cerrar el periodo.'}
+                            </p>
+                        `;
+                        btnCerrar.disabled = false;
+                        btnCerrar.textContent = textoOriginal;
+                    }
+                } catch (error) {
+                    if (typeof window.forceHideLoadingBanner === 'function') {
+                        window.forceHideLoadingBanner();
+                    }
+                    divMensaje.innerHTML = `
+                        <p style="color: #dc3545; font-weight: bold; margin-top: 10px;">
+                            ❌ Error de conexión: ${error.message}
+                        </p>
+                    `;
+                    btnCerrar.disabled = false;
+                    btnCerrar.textContent = textoOriginal;
+                }
+            });
+        }
+
     });
 </script>
-
-
-
 {% endblock %}

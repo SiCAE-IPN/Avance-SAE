@@ -17,11 +17,26 @@
             <span class="greeting-name">{{ nombre_usuario }}</span>
         </div>
     </div>
-    <form action="/login/logout" method="get">
-        <button type="submit" class="btn-cerrar-sesion">
-            <span>Cerrar Sesión</span>
-        </button>
-    </form>
+    <div style="display: flex; align-items: center; gap: 12px;">
+        {% if es_admin_camaleon or session.is_impersonating %}
+            {% if session.is_impersonating %}
+            <a href="/login/restaurar-rol" class="btn-camaleon-activo" title="Regresar a mi cuenta Administrador">
+                <span class="camaleon-icon">🦎</span>
+                <span>Restaurar Admin</span>
+            </a>
+            {% else %}
+            <button type="button" id="btn-abrir-camaleon" class="btn-camaleon" title="Simular o suplantar la identidad de otro rol/UA">
+                <span class="camaleon-icon">🦎</span>
+                <span>Modo Camaleón</span>
+            </button>
+            {% endif %}
+        {% endif %}
+        <form action="/login/logout" method="get">
+            <button type="submit" class="btn-cerrar-sesion">
+                <span>Cerrar Sesión</span>
+            </button>
+        </form>
+    </div>
 </header>
 
 <main class="dashboard-container">
@@ -75,6 +90,372 @@
         </div>
         {% endif %}
     </div>
+
+{% if es_admin_camaleon and not session.is_impersonating %}
+<!-- ================= MODAL MODO CAMALEÓN ================= -->
+<div id="modal-camaleon" class="camaleon-modal-overlay" style="display:none;" aria-hidden="true">
+    <div class="camaleon-modal-card" role="dialog" aria-modal="true" aria-labelledby="camaleon-titulo">
+        <div class="camaleon-modal-header">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div class="camaleon-modal-badge">🦎</div>
+                <div>
+                    <h3 id="camaleon-titulo" class="camaleon-modal-title">Modo Camaleón</h3>
+                    <p class="camaleon-modal-subtitle">Simular contexto o suplantar a un usuario por Rol, Nivel y UA</p>
+                </div>
+            </div>
+            <button type="button" id="btn-cerrar-camaleon" class="camaleon-modal-close" aria-label="Cerrar modal">&times;</button>
+        </div>
+
+        <div class="camaleon-modal-body">
+            <!-- PASO 1: Formulario con Selects -->
+            <div id="cam-paso-1">
+                <div class="cam-field-group">
+                    <label for="cam_id_rol" class="cam-label">
+                        <span class="cam-icon-label">🎭</span> Rol activo:
+                    </label>
+                    <select id="cam_id_rol" class="cam-select">
+                        <option value="">-- Cargando roles... --</option>
+                    </select>
+                </div>
+
+                <div class="cam-field-group">
+                    <label for="cam_id_nivel" class="cam-label">
+                        <span class="cam-icon-label">🎓</span> Nivel académico:
+                    </label>
+                    <select id="cam_id_nivel" class="cam-select">
+                        <option value="">-- Cargando niveles... --</option>
+                    </select>
+                </div>
+
+                <div class="cam-field-group">
+                    <label for="cam_id_unidad" class="cam-label">
+                        <span class="cam-icon-label">🏫</span> Unidad Académica (UA):
+                    </label>
+                    <input type="text" id="cam_ua_filtro" class="cam-input-buscar" placeholder="🔍 Filtrar UA por sigla o nombre...">
+                    <select id="cam_id_unidad" class="cam-select" style="margin-top:6px;">
+                        <option value="">-- Cargando unidades... --</option>
+                    </select>
+                </div>
+
+                <div id="cam-alerta-info" class="cam-info-box">
+                    💡 Si existe un usuario real con esta combinación exacta, se suplantará su identidad completa. Si no existe, ingresarás en <strong>modo simulación de contexto</strong> con permisos del rol seleccionado.
+                </div>
+
+                <div id="cam-error" class="cam-error-box" style="display:none;"></div>
+
+                <div class="cam-modal-actions">
+                    <button type="button" id="btn-cancelar-camaleon" class="cam-btn-secondary">Cancelar</button>
+                    <button type="button" id="btn-ejecutar-camaleon" class="cam-btn-primary">
+                        <span>Buscar y Entrar</span> ➔
+                    </button>
+                </div>
+            </div>
+
+            <!-- PASO 2: Selección entre múltiples candidatos -->
+            <div id="cam-paso-2" style="display:none;">
+                <div class="cam-info-box" style="background:#fff3e0; border-color:#ffe0b2; color:#b76e00;">
+                    👥 Se encontraron múltiples usuarios con este perfil. Haz clic en el usuario que deseas suplantar:
+                </div>
+                <div id="cam-lista-candidatos" class="cam-candidatos-container"></div>
+                <div class="cam-modal-actions" style="margin-top:14px;">
+                    <button type="button" id="btn-volver-camaleon" class="cam-btn-secondary">← Volver al formulario</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Estilos del Botón Camaleón en Topbar */
+.btn-camaleon {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+.btn-camaleon:hover {
+    background: linear-gradient(135deg, #047857 0%, #059669 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+}
+.btn-camaleon-activo {
+    background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    transition: all 0.25s ease;
+}
+.btn-camaleon-activo:hover {
+    background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+    transform: translateY(-2px);
+    color: #fff;
+}
+.camaleon-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+/* Modal Overlay */
+.camaleon-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+    animation: camFadeIn 0.2s ease-out;
+}
+@keyframes camFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Modal Card */
+.camaleon-modal-card {
+    background: #ffffff;
+    width: 100%;
+    max-width: 580px;
+    border-radius: 18px;
+    box-shadow: 0 24px 50px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    animation: camSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes camSlideUp {
+    from { transform: translateY(20px) scale(0.97); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Modal Header */
+.camaleon-modal-header {
+    background: linear-gradient(135deg, #750946 0%, #991d53 100%);
+    color: #ffffff;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.camaleon-modal-badge {
+    width: 42px;
+    height: 42px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.3);
+}
+.camaleon-modal-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+}
+.camaleon-modal-subtitle {
+    margin: 2px 0 0 0;
+    font-size: 0.8rem;
+    opacity: 0.88;
+    font-weight: 400;
+}
+.camaleon-modal-close {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.8rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 6px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+.camaleon-modal-close:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Modal Body */
+.camaleon-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+}
+.cam-field-group {
+    margin-bottom: 16px;
+}
+.cam-label {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 6px;
+}
+.cam-icon-label {
+    display: inline-block;
+    margin-right: 4px;
+}
+.cam-select, .cam-input-buscar {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 0.92rem;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    background-color: #f8fafc;
+    color: #1e293b;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+.cam-select:focus, .cam-input-buscar:focus {
+    outline: none;
+    border-color: #750946;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(117, 9, 70, 0.12);
+}
+.cam-input-buscar {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    background-color: #ffffff;
+}
+
+/* Info & Error Boxes */
+.cam-info-box {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: #475569;
+    line-height: 1.45;
+    margin-top: 14px;
+}
+.cam-error-box {
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #991b1b;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    margin-top: 14px;
+}
+
+/* Modal Actions */
+.cam-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 22px;
+}
+.cam-btn-secondary {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.cam-btn-secondary:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+.cam-btn-primary {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: #ffffff;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+.cam-btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #047857 0%, #059669 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+.cam-btn-primary:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+/* Candidatos */
+.cam-candidatos-container {
+    margin-top: 12px;
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.cam-candidato-card {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.cam-candidato-card:hover {
+    background: #f0fdf4;
+    border-color: #10b981;
+    transform: translateX(3px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+.cam-candidato-nombre {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+.cam-candidato-user {
+    font-size: 0.82rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+.cam-candidato-arrow {
+    color: #10b981;
+    font-weight: 800;
+    font-size: 1.2rem;
+}
+</style>
+{% endif %}
 </main>
 {% endblock %}
 
@@ -129,5 +510,234 @@
             window.location.href = '/mod_principal/seguridad';
         });
     }
+
+    // =========================================================================
+    // LÓGICA DE MODO CAMALEÓN PARA ADMINISTRADOR
+    // =========================================================================
+    (function () {
+        const btnAbrir   = document.getElementById('btn-abrir-camaleon');
+        const modal      = document.getElementById('modal-camaleon');
+        const btnCerrar  = document.getElementById('btn-cerrar-camaleon');
+        const btnCanc    = document.getElementById('btn-cancelar-camaleon');
+        const btnVolver  = document.getElementById('btn-volver-camaleon');
+        const btnBuscar  = document.getElementById('btn-ejecutar-camaleon');
+
+        const selRol     = document.getElementById('cam_id_rol');
+        const selNivel   = document.getElementById('cam_id_nivel');
+        const selUnidad  = document.getElementById('cam_id_unidad');
+        const txtFiltroUA= document.getElementById('cam_ua_filtro');
+
+        const paso1      = document.getElementById('cam-paso-1');
+        const paso2      = document.getElementById('cam-paso-2');
+        const listaCand  = document.getElementById('cam-lista-candidatos');
+        const errorBox   = document.getElementById('cam-error');
+
+        if (!btnAbrir || !modal) return;
+
+        let opcionesCargadas = false;
+        let listaUnidadesGlobal = [];
+
+        function mostrarError(msg) {
+            if (!errorBox) return;
+            errorBox.textContent = msg;
+            errorBox.style.display = 'block';
+        }
+        function limpiarError() {
+            if (errorBox) {
+                errorBox.textContent = '';
+                errorBox.style.display = 'none';
+            }
+        }
+
+        // Cargar Catálogos (Roles, Niveles, UAs)
+        async function cargarOpcionesCamaleon() {
+            if (opcionesCargadas) return;
+            try {
+                const resp = await fetch('/login/camaleon/opciones');
+                if (!resp.ok) throw new Error('No se pudieron obtener las opciones del servidor.');
+                const data = await resp.json();
+
+                // 1. Llenar Roles
+                selRol.innerHTML = '<option value="">-- Selecciona un Rol --</option>' +
+                    data.roles.map(r => `<option value="${r.id}">${r.nombre} (ID: ${r.id})</option>`).join('');
+
+                // 2. Llenar Niveles
+                selNivel.innerHTML = '<option value="">-- Selecciona un Nivel --</option>' +
+                    data.niveles.map(n => `<option value="${n.id}">${n.nombre}</option>`).join('');
+
+                // 3. Guardar y Llenar UAs
+                listaUnidadesGlobal = data.unidades || [];
+                renderizarUnidades(listaUnidadesGlobal);
+
+                opcionesCargadas = true;
+            } catch (err) {
+                mostrarError('Error al cargar catálogos: ' + err.message);
+            }
+        }
+
+        function renderizarUnidades(lista) {
+            const valPrevio = selUnidad.value;
+            selUnidad.innerHTML = '<option value="">-- Selecciona una Unidad Académica --</option>' +
+                lista.map(u => `<option value="${u.id}">${u.etiqueta}</option>`).join('');
+            if (valPrevio && lista.some(u => String(u.id) === String(valPrevio))) {
+                selUnidad.value = valPrevio;
+            }
+        }
+
+        // Filtro rápido de UA por texto
+        txtFiltroUA?.addEventListener('input', function () {
+            const query = this.value.trim().toLowerCase();
+            if (!query) {
+                renderizarUnidades(listaUnidadesGlobal);
+                return;
+            }
+            const filtradas = listaUnidadesGlobal.filter(u =>
+                (u.sigla && u.sigla.toLowerCase().includes(query)) ||
+                (u.nombre && u.nombre.toLowerCase().includes(query))
+            );
+            renderizarUnidades(filtradas);
+            if (filtradas.length === 1) {
+                selUnidad.value = filtradas[0].id;
+            }
+        });
+
+        // Abrir y Cerrar Modal
+        btnAbrir.addEventListener('click', function () {
+            modal.style.display = 'flex';
+            modal.setAttribute('aria-hidden', 'false');
+            limpiarError();
+            paso1.style.display = 'block';
+            paso2.style.display = 'none';
+            cargarOpcionesCamaleon();
+        });
+
+        function cerrarModal() {
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+            limpiarError();
+        }
+        btnCerrar?.addEventListener('click', cerrarModal);
+        btnCanc?.addEventListener('click', cerrarModal);
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) cerrarModal();
+        });
+
+        // Volver de paso 2 a paso 1
+        btnVolver?.addEventListener('click', function () {
+            paso2.style.display = 'none';
+            paso1.style.display = 'block';
+            limpiarError();
+        });
+
+        // Suplantar usuario específico
+        async function suplantarCandidato(idUsuario, idRol, idNivel, idUnidad) {
+            limpiarError();
+            if (window.showLoadingBanner) {
+                window.showLoadingBanner({ moduleKey: 'camaleon', title: 'Activando Modo Camaleón' });
+            }
+            try {
+                const resp = await fetch('/login/simular-usuario', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_usuario: idUsuario,
+                        id_rol: idRol,
+                        id_nivel: idNivel,
+                        id_unidad: idUnidad
+                    })
+                });
+                const data = await resp.json();
+                if (resp.ok && data.ok) {
+                    window.location.href = data.redirect || '/mod_principal';
+                } else {
+                    if (window.forceHideLoadingBanner) window.forceHideLoadingBanner();
+                    mostrarError(data.detail || 'Error al suplantar al usuario seleccionado.');
+                }
+            } catch (err) {
+                if (window.forceHideLoadingBanner) window.forceHideLoadingBanner();
+                mostrarError('Error de red: ' + err.message);
+            }
+        }
+
+        // Ejecutar Búsqueda y Simulación
+        btnBuscar?.addEventListener('click', async function () {
+            limpiarError();
+            const idRol    = parseInt(selRol.value || '0');
+            const idNivel  = parseInt(selNivel.value || '0');
+            const idUnidad = parseInt(selUnidad.value || '0');
+
+            if (!idRol) {
+                mostrarError('Por favor selecciona un Rol.');
+                selRol.focus();
+                return;
+            }
+            if (!idNivel) {
+                mostrarError('Por favor selecciona un Nivel.');
+                selNivel.focus();
+                return;
+            }
+            if (!idUnidad) {
+                mostrarError('Por favor selecciona una Unidad Académica.');
+                selUnidad.focus();
+                return;
+            }
+
+            btnBuscar.disabled = true;
+            btnBuscar.textContent = 'Procesando...';
+
+            try {
+                const fd = new FormData();
+                fd.append('target_id_rol', idRol);
+                fd.append('target_id_nivel', idNivel);
+                fd.append('target_id_unidad', idUnidad);
+
+                const resp = await fetch('/login/simular', {
+                    method: 'POST',
+                    body: fd,
+                    redirect: 'manual'
+                });
+
+                if (resp.status === 0 || resp.type === 'opaqueredirect') {
+                    // Redirigido automáticamente
+                    window.location.href = '/mod_principal';
+                    return;
+                }
+
+                if (resp.status === 207) {
+                    // Múltiples usuarios encontrados
+                    const data = await resp.json();
+                    listaCand.innerHTML = '';
+                    data.candidatos.forEach(c => {
+                        const card = document.createElement('div');
+                        card.className = 'cam-candidato-card';
+                        card.innerHTML = `
+                            <div>
+                                <div class="cam-candidato-nombre">${c.nombre_completo || c.usuario}</div>
+                                <div class="cam-candidato-user">👤 @${c.usuario} (ID: ${c.id_usuario})</div>
+                            </div>
+                            <div class="cam-candidato-arrow">➔</div>
+                        `;
+                        card.addEventListener('click', () => {
+                            suplantarCandidato(c.id_usuario, idRol, idNivel, idUnidad);
+                        });
+                        listaCand.appendChild(card);
+                    });
+
+                    paso1.style.display = 'none';
+                    paso2.style.display = 'block';
+                } else if (resp.status >= 400) {
+                    const data = await resp.json().catch(() => ({}));
+                    mostrarError(data.detail || `Error del servidor (${resp.status})`);
+                } else {
+                    window.location.href = '/mod_principal';
+                }
+            } catch (err) {
+                mostrarError('Error de conexión: ' + err.message);
+            } finally {
+                btnBuscar.disabled = false;
+                btnBuscar.innerHTML = '<span>Buscar y Entrar</span> ➔';
+            }
+        });
+    })();
 </script>
 {% endblock %}

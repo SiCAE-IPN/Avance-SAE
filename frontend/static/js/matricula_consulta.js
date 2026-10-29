@@ -4007,7 +4007,10 @@ async function guardarYActualizarMatricula() {
                     const matchTurno = turnosDisponibles.find(t => parseInt(t.Id_Turno) === turnoId);
                     turnoFaltanteNombre = matchTurno ? matchTurno.Turno : `Turno ${turnoId}`;
                 }
-            } else if (alumnosTurno === 0 && (!input.value || input.value.trim() === '')) {
+            } else if (alumnosTurno === 0) {
+                // Turno sin alumnos (vacío, borrado con "Limpiar Formulario" o en 0):
+                // los grupos se envían en 0 para poder bajar un turno completo a 0
+                // o guardar el semestre en cero sin quedar bloqueado.
                 input.value = '0';
                 const clave = `${parseInt(semestre)}_${turnoId}`;
                 totalGruposPorSemestreYTurno[clave] = 0;
@@ -4026,47 +4029,21 @@ async function guardarYActualizarMatricula() {
         return;
     }
 
-    // 3. REGLA DE COHERENCIA: Si se especifican grupos > 0 en un turno, al menos 1 alumno debe ingresarse en ese turno
-    for (let input of inputsGrupos) {
-        const semId = parseInt(input.getAttribute('data-semestre-id') || semestre);
-        if (semId === parseInt(semestre)) {
-            const turnoId = parseInt(input.getAttribute('data-turno-id'));
-            const valorGrupo = parseInt(input.value) || 0;
-            const alumnosTurno = sumaAlumnosPorTurno[turnoId] || 0;
-
-            if (valorGrupo > 0 && alumnosTurno === 0) {
-                const matchTurno = turnosDisponibles.find(t => parseInt(t.Id_Turno) === turnoId);
-                const nombreTurno = matchTurno ? matchTurno.Turno : `Turno ${turnoId}`;
-                await Swal.fire({
-                    icon: 'warning',
-                    title: 'Matrícula requerida',
-                    text: `Ha especificado ${valorGrupo} grupo(s) en el turno "${nombreTurno}", por lo que debe ingresar la matrícula de al menos un alumno en dicho turno.`,
-                    confirmButtonText: 'Entendido'
-                });
-                return;
-            }
-        }
-    }
+    // 3. Un turno sin alumnos queda con grupos = 0 (normalizado arriba), por lo que ya no
+    //    se bloquea el guardado al bajar un turno a 0 o al limpiar el formulario.
 
     // Detectar si hay datos cargados del SP (modo edición)
     const hayDatosDelSP = Array.from(inputs).some(inp => inp.hasAttribute('data-auto-filled'));
 
-    if (totalAlumnosSemestre === 0) {
-        if (!hayDatosDelSP) {
-            // No hay datos del SP cargados y el usuario no ha ingresado nada → bloquear
-            await Swal.fire({
-                icon: 'warning',
-                title: 'Sin datos',
-                text: 'Por favor, ingrese datos de matrícula antes de guardar.',
-                confirmButtonText: 'Entendido'
-            });
-            return;
-        }
-        // Hay datos del SP cargados y el usuario los está poniendo a 0 → confirmar
+    // Si todo el semestre está vacío o en 0 (p. ej. tras "Limpiar Formulario") se permite
+    // guardar: se envían TODOS los campos habilitados con valor 0.
+    const guardarEnCero = totalAlumnosSemestre === 0;
+
+    if (guardarEnCero) {
         const confirmacion = await Swal.fire({
             icon: 'warning',
             title: '¿Guardar con matrícula en cero?',
-            html: 'Ha puesto <strong>todos los valores en 0</strong>. Esto actualizará la matrícula existente a cero en todos los campos.<br><br>¿Desea continuar?',
+            html: 'Todos los valores están <strong>vacíos o en 0</strong>. Se guardará la matrícula de este semestre en <strong>0</strong> en todos los campos (reemplaza los datos existentes).<br><br>¿Desea continuar?',
             showCancelButton: true,
             confirmButtonText: 'Sí, guardar en cero',
             cancelButtonText: 'Cancelar',
@@ -4096,7 +4073,7 @@ async function guardarYActualizarMatricula() {
             if (isNaN(turnoId)) return;
             // Incluir si: el usuario escribió un valor, o fue auto-rellenado por SP,
             // o hay datos del SP cargados (modo edición: enviar también los 0 explícitos)
-            if (hasUserValue || isAutoFilled || hayDatosDelSP) {
+            if (hasUserValue || isAutoFilled || hayDatosDelSP || guardarEnCero) {
                 const valor = parseInt(inputValue) || 0;
                 if (valor >= 0) {
                     const key = `${tipoIngreso}_${grupoEdad}_${sexo}`;
@@ -4146,9 +4123,9 @@ async function guardarYActualizarMatricula() {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const d1 = await r1.json();
+            const d1 = await r1.json().catch(() => ({}));
             console.log(`✅ Respuesta guardar turno ${turnoId}:`, d1);
-            if (d1.error) throw new Error(d1.error);
+            if (!r1.ok || d1.error) throw new Error(d1.error || d1.detail || `Error HTTP ${r1.status} al guardar el turno ${turnoId}`);
             // d1.mensaje puede ser truthy o falsy según el backend (0 registros es válido);
             // solo se corta si viene error explícito.
         }
@@ -4165,9 +4142,9 @@ async function guardarYActualizarMatricula() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ periodo, total_grupos: totalGruposActual })
         });
-        const d2 = await r2.json();
+        const d2 = await r2.json().catch(() => ({}));
         console.log(`📥 Respuesta del SP:`, d2);
-        if (d2.error) throw new Error(d2.error);
+        if (!r2.ok || d2.error) throw new Error(d2.error || d2.detail || `Error HTTP ${r2.status} al actualizar la matrícula`);
 
         // **NUEVO: Mostrar información de diagnóstico**
         let mensajeResultado = 'Matrícula guardada y actualizada correctamente.';

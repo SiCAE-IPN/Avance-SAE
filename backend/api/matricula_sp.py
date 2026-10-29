@@ -3183,10 +3183,24 @@ async def validar_semestre_rol(request: Request, sess=Depends(get_current_sessio
             print(f"ℹ️ No se pudo leer semáforo posterior: {_e_post}")
 
         print(f"✅ Matrícula validada exitosamente")
+
+        cierre_auto = None
+        mensaje_final = "Matrícula validada exitosamente"
+        if id_rol == 9:
+            from backend.services.periodo_service import verificar_y_cerrar_periodo_automatico
+            cierre_auto = verificar_y_cerrar_periodo_automatico(
+                db=db,
+                usuario=usuario_sp,
+                host=host_sp,
+                periodo_literal=periodo_literal,
+            )
+            if cierre_auto and cierre_auto.get("closed"):
+                mensaje_final += f". ¡Todos los semáforos llegaron a 9! Se cerró automáticamente el periodo {cierre_auto.get('periodo')}."
         
         return {
             "success": True,
-            "mensaje": f"Matrícula validada exitosamente",
+            "mensaje": mensaje_final,
+            "periodo_cerrado_auto": bool(cierre_auto and cierre_auto.get("closed")),
             "data": {
                 "validado_por": nombre_completo,
                 "usuario_login": usuario_sp,

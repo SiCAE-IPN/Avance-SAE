@@ -36,54 +36,20 @@
 
     <div class="sidebar-divider"></div>
 
-    {% if session.id_rol == 1 or session.original_id_rol == 1 %}
+    {% if session.is_impersonating %}
     <div class="sidebar-impersonation">
         <div class="sidebar-impersonation-compact">
             <span class="sidebar-impersonation-badge">SIM</span>
-            <span class="sidebar-impersonation-title">Simular / Suplantar usuario</span>
+            <span class="sidebar-impersonation-title">Modo Camaleón Activo</span>
         </div>
-
         <div class="sidebar-impersonation-body">
-            <span class="sidebar-impersonation-heading">Simular / Suplantar usuario</span>
-            <div class="sidebar-impersonation-description">
-                Ingresa el rol, nivel y UA. Si existe un usuario real con esa combinación, se suplantará su identidad completa.
+            <span class="sidebar-impersonation-heading">Modo Camaleón Activo</span>
+            <div class="sidebar-impersonation-description" style="margin-bottom:8px;">
+                Viendo como: <strong>{{ session.nombre_rol | upper }}</strong> ({{ session.sigla_unidad_academica }})
             </div>
-
-            <!-- PASO 1: Formulario de IDs -->
-            <div id="sim-paso-1">
-                <label for="target_id_rol" class="sidebar-impersonation-label">Rol ID</label>
-                <input id="target_id_rol" type="number" min="1" step="1" inputmode="numeric" placeholder="Ej. 3" class="sidebar-impersonation-select">
-
-                <label for="target_id_nivel" class="sidebar-impersonation-label">Nivel ID</label>
-                <input id="target_id_nivel" type="number" min="1" step="1" inputmode="numeric" placeholder="Ej. 2" class="sidebar-impersonation-select">
-
-                <label for="target_id_unidad" class="sidebar-impersonation-label">Unidad Académica ID</label>
-                <input id="target_id_unidad" type="number" min="1" step="1" inputmode="numeric" placeholder="Ej. 1" class="sidebar-impersonation-select">
-
-                <div id="sim-error" style="display:none; color:#ffd6d6; font-size:0.8rem; margin-top:6px;"></div>
-
-                <button type="button" id="btn-sim-buscar" class="sidebar-impersonation-submit" style="margin-top:8px;">
-                    Buscar y Simular
-                </button>
-            </div>
-
-            <!-- PASO 2: Lista de candidatos (se muestra dinámicamente) -->
-            <div id="sim-paso-2" style="display:none;">
-                <div style="font-size:0.82rem; color:#ffe0b2; margin-bottom:8px;">
-                    Se encontraron varios usuarios. Elige a quién suplantar:
-                </div>
-                <div id="sim-candidatos-lista"></div>
-                <button type="button" id="btn-sim-volver"
-                    style="margin-top:10px; background:transparent; border:1px solid rgba(255,255,255,0.4); color:white; border-radius:8px; padding:5px 12px; cursor:pointer; font-size:0.8rem;">
-                    ← Volver
-                </button>
-            </div>
-
-            {% if session.is_impersonating %}
             <a href="/login/restaurar-rol" class="sidebar-impersonation-stop">
                 Detener suplantación
             </a>
-            {% endif %}
         </div>
     </div>
     <div class="sidebar-divider"></div>
@@ -100,151 +66,3 @@
 </aside>
 
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-<script>
-(function () {
-    // ── Variables de estado para el paso de candidatos ───────────────────────
-    let _pendienteRol    = null;
-    let _pendienteNivel  = null;
-    let _pendienteUnidad = null;
-
-    const paso1     = document.getElementById('sim-paso-1');
-    const paso2     = document.getElementById('sim-paso-2');
-    const listaDiv  = document.getElementById('sim-candidatos-lista');
-    const errorDiv  = document.getElementById('sim-error');
-    const btnBuscar = document.getElementById('btn-sim-buscar');
-    const btnVolver = document.getElementById('btn-sim-volver');
-
-    if (!btnBuscar) return; // No es admin → salir
-
-    // ── Mostrar error en el sidebar ──────────────────────────────────────────
-    function mostrarError(msg) {
-        if (!errorDiv) return;
-        errorDiv.textContent = msg;
-        errorDiv.style.display = 'block';
-    }
-    function limpiarError() {
-        if (errorDiv) errorDiv.style.display = 'none';
-    }
-
-    // ── Construir tarjeta de candidato ───────────────────────────────────────
-    function crearTarjetaCandidato(c, idRol, idNivel, idUnidad) {
-        const div = document.createElement('div');
-        div.style.cssText = `
-            background: rgba(255,255,255,0.12);
-            border: 1px solid rgba(255,255,255,0.22);
-            border-radius: 10px;
-            padding: 8px 10px;
-            margin-bottom: 6px;
-            cursor: pointer;
-            transition: background 0.18s;
-        `;
-        div.innerHTML = `
-            <div style="font-size:0.88rem; font-weight:700;">${c.nombre_completo || c.usuario}</div>
-            <div style="font-size:0.77rem; opacity:0.8;">@${c.usuario}</div>
-        `;
-        div.addEventListener('mouseenter', () => div.style.background = 'rgba(255,255,255,0.22)');
-        div.addEventListener('mouseleave', () => div.style.background = 'rgba(255,255,255,0.12)');
-        div.addEventListener('click', () => suplantar(c.id_usuario, idRol, idNivel, idUnidad));
-        return div;
-    }
-
-    // ── Suplantar usuario específico (POST /login/simular-usuario) ────────────
-    async function suplantar(idUsuario, idRol, idNivel, idUnidad) {
-        btnBuscar && (btnBuscar.disabled = true);
-        limpiarError();
-        try {
-            const resp = await fetch('/login/simular-usuario', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id_usuario: idUsuario,
-                    id_rol: idRol,
-                    id_nivel: idNivel,
-                    id_unidad: idUnidad,
-                }),
-            });
-            const data = await resp.json();
-            if (resp.ok && data.ok) {
-                window.location.href = data.redirect || '/mod_principal';
-            } else {
-                mostrarError(data.detail || 'Error al suplantar usuario.');
-                btnBuscar && (btnBuscar.disabled = false);
-            }
-        } catch (e) {
-            mostrarError('Error de conexión: ' + e.message);
-            btnBuscar && (btnBuscar.disabled = false);
-        }
-    }
-
-    // ── Botón "Buscar y Simular" ─────────────────────────────────────────────
-    btnBuscar.addEventListener('click', async function () {
-        limpiarError();
-        const idRol    = parseInt(document.getElementById('target_id_rol')?.value || '0');
-        const idNivel  = parseInt(document.getElementById('target_id_nivel')?.value || '0');
-        const idUnidad = parseInt(document.getElementById('target_id_unidad')?.value || '0');
-
-        if (!idRol || !idNivel || !idUnidad) {
-            mostrarError('Completa todos los campos.');
-            return;
-        }
-
-        btnBuscar.disabled = true;
-        btnBuscar.textContent = 'Buscando...';
-
-        try {
-            // Usar fetch con FormData para aprovechar el endpoint POST /login/simular
-            const fd = new FormData();
-            fd.append('target_id_rol', idRol);
-            fd.append('target_id_nivel', idNivel);
-            fd.append('target_id_unidad', idUnidad);
-
-            const resp = await fetch('/login/simular', {
-                method: 'POST',
-                body: fd,
-                redirect: 'manual', // No seguir redirects automáticamente
-            });
-
-            if (resp.status === 0 || resp.type === 'opaqueredirect') {
-                // Hubo redirect → suplantación automática (0 o 1 candidato) exitosa
-                window.location.href = '/mod_principal';
-                return;
-            }
-
-            if (resp.status === 207) {
-                // Múltiples candidatos → mostrar paso 2
-                const data = await resp.json();
-                _pendienteRol    = idRol;
-                _pendienteNivel  = idNivel;
-                _pendienteUnidad = idUnidad;
-
-                listaDiv.innerHTML = '';
-                data.candidatos.forEach(c => {
-                    listaDiv.appendChild(crearTarjetaCandidato(c, idRol, idNivel, idUnidad));
-                });
-
-                paso1.style.display = 'none';
-                paso2.style.display = 'block';
-            } else if (resp.status >= 400) {
-                const data = await resp.json().catch(() => ({}));
-                mostrarError(data.detail || `Error ${resp.status}`);
-            } else {
-                // Respuesta 2xx inesperada: intentar redirect
-                window.location.href = '/mod_principal';
-            }
-        } catch (e) {
-            mostrarError('Error de conexión: ' + e.message);
-        } finally {
-            btnBuscar.disabled = false;
-            btnBuscar.textContent = 'Buscar y Simular';
-        }
-    });
-
-    // ── Botón "Volver" al paso 1 ─────────────────────────────────────────────
-    btnVolver && btnVolver.addEventListener('click', function () {
-        paso2.style.display = 'none';
-        paso1.style.display = 'block';
-        _pendienteRol = _pendienteNivel = _pendienteUnidad = null;
-    });
-})();
-</script>

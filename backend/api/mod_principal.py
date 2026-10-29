@@ -19,13 +19,15 @@ router = APIRouter()
 
 
 def _es_administrador_autorizado(sess) -> bool:
-    """Verifica si la sesión corresponde a un Administrador (id_rol == 1) o SuperAdmin."""
-    id_rol = int(getattr(sess, "id_rol", 0) or 0)
-    nombre_usuario = getattr(sess, "nombre_usuario", "") or ""
-    apellidoP_usuario = getattr(sess, "apellidoP_usuario", "") or ""
-    apellidoM_usuario = getattr(sess, "apellidoM_usuario", "") or ""
+    """Verifica si la sesión corresponde a un Administrador (id_rol == 1) o SuperAdmin (incluso si está simulando)."""
+    if not sess:
+        return False
+    rol_real = int(getattr(sess, "original_id_rol", 0) or getattr(sess, "id_rol", 0) or 0)
+    nombre_usuario = getattr(sess, "original_nombre_usuario", "") or getattr(sess, "nombre_usuario", "") or ""
+    apellidoP_usuario = getattr(sess, "original_apellidoP_usuario", "") or getattr(sess, "apellidoP_usuario", "") or ""
+    apellidoM_usuario = getattr(sess, "original_apellidoM_usuario", "") or getattr(sess, "apellidoM_usuario", "") or ""
     
-    return id_rol == 1 or is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
+    return rol_real == 1 or is_super_admin(nombre_usuario, apellidoP_usuario, apellidoM_usuario)
 
 
 def _contexto_modulos(request: Request, sess, db: Session) -> dict:
@@ -42,6 +44,7 @@ def _contexto_modulos(request: Request, sess, db: Session) -> dict:
     # 2. Definir qué roles son administradores (tienen acceso a todo sin revisar formato)
     es_admin = id_rol in [1, 4, 5, 6, 7, 8, 9] 
     es_super = _es_administrador_autorizado(sess)
+    es_admin_camaleon = bool(es_super or (int(getattr(sess, "original_id_rol", 0) or getattr(sess, "id_rol", 0) or 0) == 1))
     
     formatos_permitidos = []
     rechazos_por_modulo = {
@@ -104,6 +107,7 @@ def _contexto_modulos(request: Request, sess, db: Session) -> dict:
         "session": sess,
         "es_admin": es_admin,
         "es_super_admin": es_super,
+        "es_admin_camaleon": es_admin_camaleon,
         "formatos_permitidos": formatos_permitidos,
         "rechazos_por_modulo": rechazos_por_modulo
     }

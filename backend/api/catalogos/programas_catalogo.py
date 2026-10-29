@@ -246,7 +246,7 @@ async def alta_programa(
     """
     Alta de programa:
     1. Si no existe en Cat_programas, se registra con SP_Alta_Catalogo_Programa.
-    2. Se vincula con Unidad Académica y Modalidad mediante SP_Alta_Programa_Modalidad.
+    2. Se vincula con Unidad Académica y Modalidad mediante SP_Alta_Programa_Modalidad_Con_Validacion.
     3. Se valida el resultado y se devuelven los mensajes diagnósticos de bitácora.
     """
     if not puede_gestionar_programas(sess):
@@ -331,13 +331,29 @@ async def alta_programa(
                 content={"status": "error", "mensaje": "No se pudo registrar el programa en Cat_programas. Revisa la bitácora."},
             )
 
-    # Paso 2: Ejecutar SP_Alta_Programa_Modalidad para ligarlo con la UA y la Modalidad
+    # Paso 2: Ejecutar SP_Alta_Programa_Modalidad_Con_Validacion para ligarlo con la UA y la Modalidad
+    params_modalidad = {
+        "UUnidad_Academica": unidad,
+        "PPeriodo": _periodo_literal(db),
+        "NNivel": nivel,
+        "PPrograma": nombre,
+        "MModalidad": modalidad,
+        "UUsuario": _usuario_operador(sess),
+        "HHost": get_request_host(request),
+    }
+
+    print("\n" + "=" * 60)
+    print(">>> Ejecutando SP_Alta_Programa_Modalidad_Con_Validacion con los siguientes valores:")
+    for k, v in params_modalidad.items():
+        print(f"    @{k} = {v!r}")
+    print("=" * 60 + "\n")
+
     try:
         resultado_sp = db.execute(
             text(
                 """
                 SET NOCOUNT ON;
-                EXEC [dbo].[SP_Alta_Programa_Modalidad]
+                EXEC [dbo].[SP_Alta_Programa_Modalidad_Con_Validacion]
                     @UUnidad_Academica = :UUnidad_Academica,
                     @PPeriodo = :PPeriodo,
                     @NNivel = :NNivel,
@@ -347,20 +363,16 @@ async def alta_programa(
                     @HHost = :HHost
                 """
             ),
-            {
-                "UUnidad_Academica": unidad,
-                "PPeriodo": _periodo_literal(db),
-                "NNivel": nivel,
-                "PPrograma": nombre,
-                "MModalidad": modalidad,
-                "UUsuario": _usuario_operador(sess),
-                "HHost": get_request_host(request),
-            },
+            params_modalidad,
         )
+        # El SP devuelve (ERROR_NUMBER, ERROR_MESSAGE, ERROR_LINE) en su CATCH: capturarlo.
+        error_sp = None
         if resultado_sp.returns_rows and resultado_sp.cursor:
             try:
                 while True:
-                    resultado_sp.cursor.fetchall()
+                    filas = resultado_sp.cursor.fetchall()
+                    if filas and len(filas[0]) >= 3 and error_sp is None:
+                        error_sp = f"Error SQL {filas[0][0]} (línea {filas[0][2]}): {filas[0][1]}"
                     if not resultado_sp.cursor.nextset():
                         break
             except Exception:
@@ -368,10 +380,10 @@ async def alta_programa(
         db.commit()
     except Exception as e:
         db.rollback()
-        print("Error al ejecutar SP_Alta_Programa_Modalidad:", e)
+        print("Error al ejecutar SP_Alta_Programa_Modalidad_Con_Validacion:", e)
         return JSONResponse(
             status_code=500,
-            content={"status": "error", "mensaje": f"Error al ejecutar SP_Alta_Programa_Modalidad: {e}"},
+            content={"status": "error", "mensaje": f"Error al ejecutar SP_Alta_Programa_Modalidad_Con_Validacion: {e}"},
         )
 
     # Paso 3: Verificar si el SP insertó la relación en Unidad_Programa_Modalidad
@@ -415,8 +427,9 @@ async def alta_programa(
             content={
                 "status": "warning",
                 "mensaje": (
-                    f"El programa '{nombre}' se guardó en el catálogo general, pero SP_Alta_Programa_Modalidad "
+                    f"El programa '{nombre}' se guardó en el catálogo general, pero SP_Alta_Programa_Modalidad_Con_Validacion "
                     f"no insertó la relación en la base de datos. Detalle de Bitácora del SP: '{bit_row or 'Sin registro'}'."
+                    + (f" {error_sp}" if error_sp else "")
                 ),
             },
         )

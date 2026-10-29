@@ -1619,9 +1619,23 @@ async def validar_aprovechamiento(request: Request, sess=Depends(get_current_ses
             else:
                 print(f"ℹ️ Aprovechamiento validado por Titular. Aún no se genera acuse porque faltan módulos por validar en la UA ({unidad}).")
 
+        cierre_auto = None
+        mensaje_final = f"Aprovechamiento validado correctamente para {unidad} - {periodo}."
+        if id_rol == 9:
+            from backend.services.periodo_service import verificar_y_cerrar_periodo_automatico
+            cierre_auto = verificar_y_cerrar_periodo_automatico(
+                db=db,
+                usuario=nombre_usuario,
+                host=host,
+                periodo_literal=periodo,
+            )
+            if cierre_auto and cierre_auto.get("closed"):
+                mensaje_final += f" ¡Todos los semáforos llegaron a 9! Se cerró automáticamente el periodo {cierre_auto.get('periodo')}."
+
         return {
             "success": True,
-            "mensaje": f"Aprovechamiento validado correctamente para {unidad} - {periodo}.",
+            "mensaje": mensaje_final,
+            "periodo_cerrado_auto": bool(cierre_auto and cierre_auto.get("closed")),
             "correo_acuse_enviado": correo_acuse_enviado,
             "acuse": acuse_info,
             "acuse_error": acuse_error,
