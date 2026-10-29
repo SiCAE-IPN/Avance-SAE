@@ -385,24 +385,32 @@ table tfoot td:last-child {
     page-break-inside: avoid;
 }
 
-/* Ajuste específico para que WeasyPrint exporte el PDF sin romper las columnas */
+/* Ajuste específico para que WeasyPrint exporte el PDF en 2 columnas de izquierda a derecha por página */
 @media print {
     .contenedor-columnas {
-        display: flex;
-        page-break-inside: avoid;
+        display: block !important;
+        column-count: 2 !important;
+        column-gap: 20px !important;
+        column-fill: auto !important;
+        width: 100% !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        margin-bottom: 0 !important;
     }
     .columna-izq, .columna-der {
-        width: 48%;
-        float: left; /* Fallback seguro en caso de que flex falle en PDF */
+        display: block !important;
+        float: none !important;
+        width: 100% !important;
+        padding: 0 !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
     }
     .columna-der {
-        float: right;
+        break-before: column !important;
     }
-    /* Limpia los flotados después de las columnas para no dañar el footer */
     .contenedor-columnas::after {
-        content: "";
-        display: table;
-        clear: both;
+        display: none !important;
+        content: none !important;
     }
 }
 
@@ -535,38 +543,57 @@ table tfoot td:last-child {
     .contenedor-acuse {
         max-width: 100%;
         margin: 0;
-        padding: 0.1in 0.25in 0.25in 0.25in !important;
+        padding: 0 !important;
         box-shadow: none;
-        page-break-after: avoid;
+        overflow: visible !important;
+        page-break-after: auto !important;
     }
 
-    /* Forzamos el comportamiento estable en PDF */
+    /* Forzamos el comportamiento estable en PDF con 2 columnas (izq -> der en cada hoja) */
     .contenedor-columnas {
         display: block !important;
+        column-count: 2 !important;
+        column-gap: 20px !important;
+        column-fill: auto !important;
         width: 100% !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        margin-bottom: 0 !important;
+    }
+
+    .contenedor-columnas::after {
+        display: none !important;
+        content: none !important;
     }
 
     .columna-izq {
         display: block !important;
-        float: left !important;
-        width: 48% !important;
+        float: none !important;
+        width: 100% !important;
         padding: 0 !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
     }
 
     .columna-der {
         display: block !important;
-        float: right !important;
-        width: 48% !important;
+        float: none !important;
+        width: 100% !important;
         padding: 0 !important;
+        break-before: column !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
     }
 
     .tabla-seccion {
-        margin-bottom: 15px !important;
-        page-break-inside: avoid;
+        margin-bottom: 10px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
     }
 
     .acuse-header {
         page-break-inside: avoid;
+        page-break-after: avoid;
     }
 
     .acuse-footer {
@@ -585,11 +612,24 @@ table tfoot td:last-child {
     }
 
     table {
-        page-break-inside: avoid;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        margin-bottom: 4px !important;
     }
 
     table thead {
-        display: table-header-group;
+        display: table-header-group !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+    }
+
+    table tfoot {
+        display: table-row-group !important;
+    }
+
+    table tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
     }
 
     /* Compactar celdas en el PDF para ahorrar espacio vertical */
@@ -598,7 +638,8 @@ table tfoot td:last-child {
     }
 
     .tabla-titulo {
-        page-break-after: avoid;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
     }
 
     .total-resumen {
